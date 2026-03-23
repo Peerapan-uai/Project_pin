@@ -1,7 +1,24 @@
-# งานของเพื่อน — Database + Admin/Tech API (15 endpoints)
+# lalla_scope — งานของ lalla (14 endpoints + Database)
+
+## สถานะปัจจุบัน
+- Database schema — **ยังไม่ได้เขียน ❌** (มี draft อยู่ที่ `backend/schema.sql` แต่ต้องตัดสินใจใช้หรือเขียนใหม่)
+- Backend routes admin/tech — **ยังไม่ได้เขียน ❌** (มี skeleton อยู่แต่มี bug ต้องเขียนใหม่ทีละ endpoint)
+- Frontend admin/tech — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว แต่ยังใช้ mock data)
+
+> ⚠️ งานด่วนที่สุดคือ **Database schema** เพราะ nem รอ tables อยู่ก่อนจะเริ่มเทส API ได้
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
+
+| กลุ่ม | จำนวน |
+|-------|-------|
+| Users admin (GET all, ban, สร้างช่าง) | 3 |
+| Stations admin (POST/PUT/DELETE) | 3 |
+| Chargers admin+tech (POST/PUT/PATCH status) | 3 |
+| Tickets admin+tech (GET all, assign, status, image) | 4 |
+| Bookings admin (GET all) | 1 |
+| **รวม** | **14** |
+| Dashboard Stats (ต้องสร้าง route ใหม่) | +1 |
 
 ---
 
@@ -29,46 +46,45 @@ Tables ที่ต้องมี:
 
 ---
 
-## API ที่เพื่อนทำ (13 endpoints)
+## API ที่ lalla ต้องเขียน (14 endpoints)
 
 ### Users — Admin only (3)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| GET | `/api/users` | ดู user ทั้งหมดในระบบ |
-| PATCH | `/api/users/:id/ban` | ban/unban user |
-| POST | `/api/users/technician` | สร้าง account ช่าง |
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 1 | GET | `/api/users` | ดู user ทั้งหมดในระบบ | ❌ |
+| 2 | PATCH | `/api/users/:id/ban` | ban/unban user | ❌ |
+| 3 | POST | `/api/users/technician` | สร้าง account ช่าง | ❌ |
 
 ### Stations — Admin only (3)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| POST | `/api/stations` | เพิ่มสถานีใหม่ |
-| PUT | `/api/stations/:id` | แก้ข้อมูลสถานี |
-| DELETE | `/api/stations/:id` | ลบสถานี |
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 4 | POST | `/api/stations` | เพิ่มสถานีใหม่ | ❌ |
+| 5 | PUT | `/api/stations/:id` | แก้ข้อมูลสถานี | ❌ |
+| 6 | DELETE | `/api/stations/:id` | ลบสถานี | ❌ |
 
 ### Chargers — Admin/Tech (3)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| POST | `/api/chargers` | เพิ่มตู้ชาร์จ |
-| PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ |
-| PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/in_use/maintenance) |
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 7 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ❌ |
+| 8 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ❌ |
+| 9 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/in_use/maintenance) | ❌ |
 
 ### Tickets — Admin/Tech (4)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) |
-| PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง |
-| PATCH | `/api/tickets/:id/status` | update สถานะ ticket |
-| POST | `/api/tickets/:id/image` | อัพโหลดรูปประกอบ |
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 10 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ❌ |
+| 11 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ❌ |
+| 12 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket | ❌ |
+| 13 | POST | `/api/tickets/:id/image` | อัพโหลดรูปประกอบ | ❌ |
 
 ### Bookings — Admin only (1)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) |
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 14 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ❌ |
 
-### Dashboard Stats — Admin only (1)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| GET | `/api/admin/stats` | ดึงสถิติรวม (จำนวน user, booking วันนี้, รายได้, ตู้มีปัญหา) |
+### Dashboard Stats — Admin only
+> ⚠️ endpoint นี้ยังไม่มีใน code — lalla ต้องสร้าง route ใหม่เองใน server.js
+> เพิ่ม `GET /api/admin/stats` สำหรับดึงสถิติหน้า dashboard (จำนวน user, booking วันนี้, รายได้, ตู้มีปัญหา)
 
 ---
 
