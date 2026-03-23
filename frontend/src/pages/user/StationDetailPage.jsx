@@ -1,0 +1,96 @@
+import { useState, useEffect } from 'react'
+import { useParams, useNavigate } from 'react-router-dom'
+import { FaMapMarkerAlt, FaStar, FaClock, FaBolt, FaArrowLeft } from 'react-icons/fa'
+import Navbar from '../../components/Navbar'
+import BottomNav from '../../components/BottomNav'
+import StatusBadge from '../../components/StatusBadge'
+import api from '../../utils/api'
+
+export default function StationDetailPage() {
+  const { id } = useParams()
+  const navigate = useNavigate()
+  const [station, setStation] = useState(null)
+  const [chargers, setChargers] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
+
+  useEffect(() => {
+    Promise.all([
+      api.get(`/api/stations/${id}`),
+      api.get(`/api/chargers/station/${id}`)
+    ])
+      .then(([stationRes, chargersRes]) => {
+        setStation(stationRes.data.station || stationRes.data)
+        setChargers(Array.isArray(chargersRes.data) ? chargersRes.data : chargersRes.data.chargers || [])
+      })
+      .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
+      .finally(() => setLoading(false))
+  }, [id])
+
+  if (loading) return <div className="flex justify-center p-10"><div className="text-gray-500">กำลังโหลด...</div></div>
+
+  if (error || !station) return (
+    <div className="flex flex-col min-h-screen pb-16">
+      <Navbar title="รายละเอียดสถานี" showBack onBack={() => navigate(-1)} />
+      <div className="flex-1 flex items-center justify-center text-gray-400">{error || 'ไม่พบสถานี'}</div>
+      <BottomNav />
+    </div>
+  )
+
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-16">
+      <Navbar title={station.name} showBack onBack={() => navigate(-1)} />
+
+      <div className="px-4 pt-4 space-y-4">
+        {/* Station info card */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <h2 className="font-bold text-gray-900 text-base">{station.name}</h2>
+          <div className="flex items-center gap-1 mt-1.5">
+            <FaMapMarkerAlt size={12} className="text-gray-400" />
+            <p className="text-sm text-gray-500">{station.address}</p>
+          </div>
+          <p className="text-xs text-gray-500 mt-0.5 ml-4">{station.floor}</p>
+          <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
+            <span className="flex items-center gap-1 text-sm text-amber-500 font-medium">
+              <FaStar size={13} /> {station.rating} <span className="text-gray-400 font-normal text-xs">({station.review_count} รีวิว)</span>
+            </span>
+            <span className="flex items-center gap-1 text-sm text-gray-500">
+              <FaClock size={13} className="text-gray-400" />
+              {station.open_time}–{station.close_time}
+            </span>
+          </div>
+        </div>
+
+        {/* Chargers */}
+        <div>
+          <h3 className="font-semibold text-gray-800 mb-2">ตู้ชาร์จ ({chargers.length})</h3>
+          <div className="space-y-2">
+            {chargers.map((c) => (
+              <button
+                key={c.charger_id}
+                onClick={() => c.status === 'available' && navigate(`/booking/${c.charger_id}`)}
+                disabled={c.status !== 'available'}
+                className="w-full bg-white rounded-xl p-3.5 shadow-sm border border-gray-100 text-left flex items-center justify-between hover:shadow-md transition-all disabled:opacity-70"
+              >
+                <div>
+                  <p className="font-semibold text-sm text-gray-900">{c.charger_name}</p>
+                  <p className="text-xs text-gray-500 mt-0.5">{c.connector_type} · {c.power_kw} kW · {c.price_per_kwh} ฿/kWh</p>
+                </div>
+                <div className="flex flex-col items-end gap-1.5">
+                  <StatusBadge status={c.status} />
+                  {c.status === 'available' && (
+                    <span className="text-xs text-primary font-medium flex items-center gap-1">
+                      <FaBolt size={10} /> จองเลย
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <BottomNav />
+    </div>
+  )
+}
