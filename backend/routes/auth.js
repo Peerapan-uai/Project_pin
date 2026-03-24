@@ -151,6 +151,7 @@ router.post('/login', async (req, res) => {
     return res.status(200).json({
       message: 'Login successful.',
       token,
+      // src/context/AuthContext.jsx login > create > localStorage 28-33
       user: {
         user_id: user.user_id,
         name: `${user.first_name} ${user.last_name}`,
@@ -174,9 +175,10 @@ router.post('/login', async (req, res) => {
  *       200:
  *         description: Logged out successfully
  */
-router.post('/logout', (req, res) => {
-  // JWT is stateless; the client is responsible for discarding the token.
+router.post(' the /logout', (req, res) => {
+  // JWT is stateless;client is responsible for discarding the token.
   return res.status(200).json({ message: 'Logged out successfully.' });
 });
+// src/context/AuthContext.jsx logout > delete localStorage 35-41
 
 module.exports = router;

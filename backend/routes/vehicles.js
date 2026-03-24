@@ -27,6 +27,9 @@ const auth = require('../middleware/auth');
 router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
+      //ถ้าไม่ย่อจะใช้
+      // const result = await pool.query(...)
+      // const rows = result[0]
       'SELECT * FROM vehicles WHERE user_id = ? ORDER BY created_at DESC',
       [req.user.user_id]
     );

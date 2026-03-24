@@ -28,10 +28,11 @@ const roleCheck = require('../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/profile', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, name, email, phone, role, created_at FROM users WHERE user_id = ?',
+      'SELECT user_id, first_name, last_name ,email, phone, role, created_at FROM users WHERE user_id = ?',
       [req.user.user_id]
     );
 
@@ -73,17 +74,18 @@ router.get('/profile', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.put('/profile', auth, async (req, res) => {
-  const { name, phone, password } = req.body;
+  const { first_name, last_name,phone, password } = req.body;
 
   try {
-    let query = 'UPDATE users SET name = ?, phone = ? WHERE user_id = ?';
-    let params = [name, phone, req.user.user_id];
+    let query = 'UPDATE users SET first_name = ?, last_name =? ,phone = ? WHERE user_id = ?';
+    let params = [first_name, last_name,phone,req.user.user_id];
 
     if (password) {
       const password_hash = await bcrypt.hash(password, 10);
-      query = 'UPDATE users SET name = ?, phone = ?, password_hash = ? WHERE user_id = ?';
-      params = [name, phone, password_hash, req.user.user_id];
+      query = 'UPDATE users SET first_name = ?, last_name =? ,phone = ?, password_hash = ? WHERE user_id = ?';
+      params = [first_name, last_name ,phone, password_hash ,req.user.user_id];
     }
 
     await pool.query(query, params);
@@ -110,6 +112,7 @@ router.put('/profile', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// Lalla
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
