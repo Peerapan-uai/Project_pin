@@ -2,7 +2,7 @@
 
 ## สถานะปัจจุบัน
 - Frontend (UI) — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว)
-- Backend routes — **ยังไม่ได้เขียน ❌** (มี skeleton อยู่แต่มี bug เยอะ ต้องเขียนใหม่ทีละ endpoint)
+- Backend routes — **กำลังทำ 🔄** (auth ✅, users ✅, vehicles ✅ — รอเทสเมื่อ DB พร้อม)
 - เชื่อม Frontend ↔ Backend — **ยังไม่ได้ทำ ❌**
 
 > ⚠️ ไฟล์ใน `backend/routes/` มีอยู่แล้วแต่เป็น draft ที่ยังมี bug
@@ -35,24 +35,24 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 ### Auth (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 1 | POST | `/api/auth/register` | สมัครสมาชิก | ❌ |
-| 2 | POST | `/api/auth/login` | เข้าสู่ระบบ → return JWT | ❌ |
-| 3 | POST | `/api/auth/logout` | ออกจากระบบ | ❌ |
+| 1 | POST | `/api/auth/register` | สมัครสมาชิก | ✅ |
+| 2 | POST | `/api/auth/login` | เข้าสู่ระบบ → return JWT | ✅ |
+| 3 | POST | `/api/auth/logout` | ออกจากระบบ | ✅ |
 
 ### Profile (2)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 4 | GET | `/api/users/profile` | ดูโปรไฟล์ตัวเอง | ❌ |
-| 5 | PUT | `/api/users/profile` | แก้ชื่อ/เบอร์/รหัสผ่าน | ❌ |
+| 4 | GET | `/api/users/profile` | ดูโปรไฟล์ตัวเอง | ✅ |
+| 5 | PUT | `/api/users/profile` | แก้ชื่อ/เบอร์/รหัสผ่าน | ✅ |
 
 ### Vehicles (5)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 6 | GET | `/api/vehicles` | ดูรถของตัวเอง | ❌ |
-| 7 | GET | `/api/vehicles/:id` | ดูรถคันเดียว | ❌ |
-| 8 | POST | `/api/vehicles` | เพิ่มรถ | ❌ |
-| 9 | PUT | `/api/vehicles/:id` | แก้ข้อมูลรถ | ❌ |
-| 10 | DELETE | `/api/vehicles/:id` | ลบรถ | ❌ |
+| 6 | GET | `/api/vehicles` | ดูรถของตัวเอง | ✅ |
+| 7 | GET | `/api/vehicles/:id` | ดูรถคันเดียว | ✅ |
+| 8 | POST | `/api/vehicles` | เพิ่มรถ | ✅ |
+| 9 | PUT | `/api/vehicles/:id` | แก้ข้อมูลรถ | ✅ |
+| 10 | DELETE | `/api/vehicles/:id` | ลบรถ | ✅ |
 
 ### Stations & Chargers — อ่านอย่างเดียว (4)
 | # | Method | Path | หน้าที่ | สถานะ |

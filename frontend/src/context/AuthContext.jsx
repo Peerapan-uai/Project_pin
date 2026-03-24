@@ -31,6 +31,7 @@ export function AuthProvider({ children }) {
     localStorage.setItem('ev_user', JSON.stringify(userData))
     localStorage.setItem('ev_token', jwtToken)
   }
+  
 
   const logout = () => {
     setUser(null)
@@ -39,6 +40,7 @@ export function AuthProvider({ children }) {
     localStorage.removeItem('ev_token')
     navigate('/login')
   }
+  
 
   const isAuthenticated = !!user && !!token
 
