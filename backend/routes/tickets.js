@@ -81,7 +81,7 @@ const upload = multer({
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { subject, description, charger_id, station_id, priority } = req.body;
+  const { subject, description, charger_id, priority } = req.body;
 
   if (!subject || !description) {
     return res.status(400).json({ message: 'Subject and description are required.' });
@@ -89,14 +89,13 @@ router.post('/', auth, async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO tickets (user_id, subject, description, charger_id, station_id, priority, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'open')`,
+      `INSERT INTO maintenance_tickets (reported_by, title, description, charger_id, priority, status)
+       VALUES (?, ?, ?, ?, ?, 'reported')`,
       [
         req.user.user_id,
         subject,
         description,
         charger_id || null,
-        station_id || null,
         priority || 'medium',
       ]
     );

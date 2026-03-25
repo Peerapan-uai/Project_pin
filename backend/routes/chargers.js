@@ -30,6 +30,7 @@ const roleCheck = require('../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/station/:stationId', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -64,6 +65,7 @@ router.get('/station/:stationId', async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(

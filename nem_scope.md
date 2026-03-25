@@ -2,7 +2,7 @@
 
 ## สถานะปัจจุบัน
 - Frontend (UI) — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว)
-- Backend routes — **กำลังทำ 🔄** (auth ✅, users ✅, vehicles ✅ — รอเทสเมื่อ DB พร้อม)
+- Backend routes — **กำลังทำ 🔄** (auth ✅, users ✅, vehicles ✅, stations ✅, chargers ✅, bookings 🔄 — รอเทสเมื่อ DB พร้อม)
 - เชื่อม Frontend ↔ Backend — **ยังไม่ได้ทำ ❌**
 
 > ⚠️ ไฟล์ใน `backend/routes/` มีอยู่แล้วแต่เป็น draft ที่ยังมี bug
@@ -57,17 +57,17 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 ### Stations & Chargers — อ่านอย่างเดียว (4)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 11 | GET | `/api/stations` | ดูสถานีทั้งหมด | ❌ |
-| 12 | GET | `/api/stations/:id` | ดูสถานีเดียว + ตู้ชาร์จ | ❌ |
-| 13 | GET | `/api/chargers/station/:id` | ดูตู้ชาร์จในสถานี | ❌ |
-| 14 | GET | `/api/chargers/:id` | ดูตู้ชาร์จตัวเดียว | ❌ |
+| 11 | GET | `/api/stations` | ดูสถานีทั้งหมด | ✅ |
+| 12 | GET | `/api/stations/:id` | ดูสถานีเดียว + ตู้ชาร์จ | ✅ |
+| 13 | GET | `/api/chargers/station/:id` | ดูตู้ชาร์จในสถานี | ✅ |
+| 14 | GET | `/api/chargers/:id` | ดูตู้ชาร์จตัวเดียว | ✅ |
 
 ### Bookings (5)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 15 | POST | `/api/bookings` | จองตู้ชาร์จ | ❌ |
-| 16 | GET | `/api/bookings` | ดูประวัติการจองของตัวเอง | ❌ |
-| 17 | GET | `/api/bookings/queue/:chargerId` | ดู queue | ❌ |
+| 15 | POST | `/api/bookings` | จองตู้ชาร์จ | ✅ |
+| 16 | GET | `/api/bookings` | ดูประวัติการจองของตัวเอง | ✅ |
+| 17 | GET | `/api/bookings/queue/:chargerId` | ดู queue | ✅ |
 | 18 | GET | `/api/bookings/:id` | ดูการจองเดียว | ❌ |
 | 19 | PATCH | `/api/bookings/:id/cancel` | ยกเลิกการจอง | ❌ |
 
@@ -111,9 +111,9 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 
 | ไฟล์ | บรรทัด | ปัญหา | วิธีแก้ |
 |------|--------|-------|---------|
-| `routes/users.js` | ~34 | `SELECT name` → ไม่มี column นี้ | เปลี่ยนเป็น `first_name, last_name` |
-| `routes/users.js` | ~81 | `UPDATE SET name = ?` → error | เปลี่ยนเป็น `first_name = ?, last_name = ?` |
-| `routes/bookings.js` | ~145 | `u.name AS user_name` → ไม่มี column | เปลี่ยนเป็น `CONCAT(u.first_name, ' ', u.last_name)` |
+| `routes/users.js` | ~34 | `SELECT name` → ไม่มี column นี้ | ✅ แก้แล้ว |
+| `routes/users.js` | ~81 | `UPDATE SET name = ?` → error | ✅ แก้แล้ว |
+| `routes/bookings.js` | ~145 | `u.name AS user_name` → ไม่มี column | ✅ แก้แล้ว |
 | `routes/reviews.js` | ~117 | `u.name AS reviewer_name` → ไม่มี column | เปลี่ยนเป็น `CONCAT(u.first_name, ' ', u.last_name)` |
 | `pages/user/VehicleManagePage.jsx` | ~29 | ส่ง `brand` แต่ backend ต้องการ `make` | เปลี่ยน field ให้ตรงกับ DB |
 
@@ -151,6 +151,14 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 - `routes/bookings.js` — nem ทำ user bookings lalla ทำ admin GET all อย่าแก้ทับ
 - `middleware/auth.js` — ใช้ร่วมกัน ถ้าจะแก้ต้องบอกกันก่อน
 - `server.js` — ใช้ร่วมกัน ถ้าจะเพิ่ม route ใหม่ต้องบอกกันก่อน
+
+---
+
+## ฟีเจอร์ที่ต้องทำในอนาคต
+
+| ฟีเจอร์ | ไฟล์ | รายละเอียด |
+|---------|------|------------|
+| ดูรีวิวโดยไม่ต้อง login | `routes/reviews.js` | `GET /station/:stationId` ไม่มี auth แต่ตอนนี้ระบบบังคับ login ก่อนใช้งาน ต้องทำ public access ให้ได้ |
 
 ---
 

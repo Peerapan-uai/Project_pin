@@ -45,14 +45,13 @@ const auth = require('../middleware/auth');
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { charger_id, vehicle_id, start_time, end_time } = req.body;
+  const { charger_id, start_time, end_time } = req.body;
 
-  if (!charger_id || !vehicle_id || !start_time || !end_time) {
-    return res.status(400).json({ message: 'charger_id, vehicle_id, start_time, and end_time are required.' });
+  if (!charger_id || !start_time || !end_time) {
+    return res.status(400).json({ message: 'charger_id, start_time, and end_time are required.' });
   }
 
   try {
-    // Check for conflicting bookings on the same charger
     const [conflicts] = await pool.query(
       `SELECT booking_id FROM bookings
        WHERE charger_id = ? AND status NOT IN ('cancelled')
@@ -65,9 +64,9 @@ router.post('/', auth, async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `INSERT INTO bookings (user_id, charger_id, vehicle_id, start_time, end_time, status)
-       VALUES (?, ?, ?, ?, ?, 'confirmed')`,
-      [req.user.user_id, charger_id, vehicle_id, start_time, end_time]
+      `INSERT INTO bookings (user_id, charger_id, start_time, end_time, status)
+       VALUES (?, ?, ?, ?, 'confirmed')`,
+      [req.user.user_id, charger_id, start_time, end_time]
     );
 
     return res.status(201).json({
@@ -94,15 +93,14 @@ router.post('/', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name,
-              v.make, v.model, v.license_plate
+      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id
-       JOIN vehicles v ON b.vehicle_id = v.vehicle_id
        WHERE b.user_id = ?
        ORDER BY b.start_time DESC`,
       [req.user.user_id]
@@ -139,10 +137,9 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT b.booking_id, b.start_time, b.end_time, b.status,
-              u.name AS user_name, v.make, v.model, v.license_plate
+              CONCAT(u.first_name, ' ', u.last_name) AS user_name
        FROM bookings b
        JOIN users u ON b.user_id = u.user_id
-       JOIN vehicles v ON b.vehicle_id = v.vehicle_id
        WHERE b.charger_id = ? AND b.status = 'confirmed' AND b.start_time >= NOW()
        ORDER BY b.start_time ASC`,
       [req.params.chargerId]
@@ -177,15 +174,14 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/:id', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name, s.address,
-              v.make, v.model, v.license_plate
+      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name, s.address
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id
-       JOIN vehicles v ON b.vehicle_id = v.vehicle_id
        WHERE b.booking_id = ? AND b.user_id = ?`,
       [req.params.id, req.user.user_id]
     );
@@ -223,6 +219,7 @@ router.get('/:id', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.patch('/:id/cancel', auth, async (req, res) => {
   try {
     const [result] = await pool.query(

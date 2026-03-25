@@ -30,6 +30,7 @@ const roleCheck = require('../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/', async (req, res) => {
   const { connector_type } = req.query;
 
@@ -38,7 +39,6 @@ router.get('/', async (req, res) => {
     let params = [];
 
     if (connector_type) {
-      // Filter stations that have at least one charger with the given connector type
       query = `
         SELECT DISTINCT s.* FROM stations s
         INNER JOIN chargers c ON s.station_id = c.station_id
@@ -78,6 +78,8 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
+
+/// nem
 router.get('/:id', async (req, res) => {
   try {
     const [stationRows] = await pool.query(

@@ -38,6 +38,7 @@ const auth = require('../middleware/auth');
  *       500:
  *         description: Server error
  */
+/// nem
 router.post('/start', auth, async (req, res) => {
   const { booking_id, charger_id } = req.body;
 
@@ -46,7 +47,6 @@ router.post('/start', auth, async (req, res) => {
   }
 
   try {
-    // Verify the booking belongs to this user and is confirmed
     const [bookingRows] = await pool.query(
       `SELECT * FROM bookings WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
       [booking_id, req.user.user_id]
@@ -56,30 +56,28 @@ router.post('/start', auth, async (req, res) => {
       return res.status(400).json({ message: 'No valid confirmed booking found.' });
     }
 
-    // Check charger is available
+    // เช็คว่าตู้ชาทว่างอยู่จริงไหม
     const [chargerRows] = await pool.query(
       `SELECT * FROM chargers WHERE charger_id = ? AND status = 'available'`,
       [charger_id]
     );
-
+    // ถ้ามีคนใช้อยู่ส่ง 400 
     if (chargerRows.length === 0) {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
 
-    // Create session
+    // บรรทึกว่าเริ่มชาร์จแล้ว NOW()=เวลาปัจจุบัน
     const [result] = await pool.query(
-      `INSERT INTO sessions (booking_id, user_id, charger_id, start_time, status)
-       VALUES (?, ?, ?, NOW(), 'active')`,
+      `INSERT INTO charging_sessions (booking_id, user_id, charger_id, start_time, status)
+       VALUES (?, ?, ?, NOW(), 'charging')`,
       [booking_id, req.user.user_id, charger_id]
     );
 
-    // Mark charger as in_use
     await pool.query(
-      `UPDATE chargers SET status = 'in_use' WHERE charger_id = ?`,
+      `UPDATE chargers SET status = 'charging' WHERE charger_id = ?`,
       [charger_id]
     );
 
-    // Mark booking as active
     await pool.query(
       `UPDATE bookings SET status = 'active' WHERE booking_id = ?`,
       [booking_id]
@@ -127,30 +125,37 @@ router.post('/start', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.patch('/:id/stop', auth, async (req, res) => {
   const { energy_kwh } = req.body;
 
+  if (!energy_kwh) {
+    return res.status(400).json({ message: 'energy_kwh is required.' });
+  }
+
   try {
     const [sessionRows] = await pool.query(
-      `SELECT s.*, c.price_per_kwh FROM sessions s
+      `SELECT s.*, c.price_per_kwh FROM charging_sessions s
        JOIN chargers c ON s.charger_id = c.charger_id
-       WHERE s.session_id = ? AND s.user_id = ? AND s.status = 'active'`,
+       WHERE s.session_id = ? AND s.user_id = ? AND s.status = 'charging'`,
       [req.params.id, req.user.user_id]
     );
 
     if (sessionRows.length === 0) {
       return res.status(404).json({ message: 'Active session not found.' });
     }
-
+    // ข้อมูล session + ราคาต่อ kWh
     const session = sessionRows[0];
+    //คำนวนค่าไฟ
     const totalCost = energy_kwh && session.price_per_kwh
-      ? parseFloat((energy_kwh * session.price_per_kwh).toFixed(2))
+        //parseFloat = แปลง string เป็น number
+      ? parseFloat((energy_kwh * session.price_per_kwh).toFixed(2)) //ปัทศนิยม 2 ตำแหน่ง
       : null;
 
     await pool.query(
-      `UPDATE sessions SET end_time = NOW(), status = 'completed',
-       energy_kwh = ?, total_cost = ? WHERE session_id = ?`,
-      [energy_kwh || null, totalCost, req.params.id]
+      `UPDATE charging_sessions SET end_time = NOW(), status = 'completed',
+       energy_kwh = ? WHERE session_id = ?`,
+      [energy_kwh, req.params.id]
     );
 
     // Set charger back to available
@@ -167,7 +172,7 @@ router.patch('/:id/stop', auth, async (req, res) => {
 
     return res.status(200).json({
       message: 'Charging session stopped.',
-      energy_kwh: energy_kwh || null,
+      energy_kwh: energy_kwh,
       total_cost: totalCost,
     });
   } catch (error) {
@@ -213,11 +218,12 @@ router.patch('/:id/stop', auth, async (req, res) => {
  *         description: Server error
  */
 // NOTE: /history must be declared BEFORE /:id/status to prevent Express matching "history" as an id param
+/// nem
 router.get('/history', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT s.*, c.connector_type, c.power_kw, st.name AS station_name, st.address
-       FROM sessions s
+       FROM charging_sessions s
        JOIN chargers c ON s.charger_id = c.charger_id
        JOIN stations st ON c.station_id = st.station_id
        WHERE s.user_id = ?
@@ -231,15 +237,15 @@ router.get('/history', auth, async (req, res) => {
     return res.status(500).json({ message: 'Server error fetching session history.' });
   }
 });
-
+/// nem
 router.get('/:id/status', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT s.session_id, s.status, s.start_time, s.end_time,
-              s.energy_kwh, s.total_cost,
+              s.energy_kwh,
               c.charger_id, c.connector_type, c.power_kw,
               st.name AS station_name
-       FROM sessions s
+       FROM charging_sessions s
        JOIN chargers c ON s.charger_id = c.charger_id
        JOIN stations st ON c.station_id = st.station_id
        WHERE s.session_id = ? AND s.user_id = ?`,
