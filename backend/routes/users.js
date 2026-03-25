@@ -116,7 +116,7 @@ router.put('/profile', auth, async (req, res) => {
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, name, email, phone, role, is_banned, created_at FROM users ORDER BY created_at DESC'
+      'SELECT user_id, first_name, last_name, email, phone, role, is_banned, created_at FROM users ORDER BY created_at DESC'
     );
     return res.status(200).json({ users: rows });
   } catch (error) {
@@ -213,10 +213,10 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  *         description: Server error
  */
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
-  const { name, email, password, phone } = req.body;
+  const { first_name, last_name, email, password, phone } = req.body;
 
-  if (!name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password are required.' });
+  if (!first_name || !last_name || !email || !password) {
+    return res.status(400).json({ message: 'first_name, last_name, email, and password are required.' });
   }
 
   try {
@@ -228,8 +228,8 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      'INSERT INTO users (name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)',
-      [name, email, password_hash, phone || null, 'technician']
+      'INSERT INTO users (first_name, last_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [first_name, last_name, email, password_hash, phone || null, 'technician']
     );
 
     return res.status(201).json({

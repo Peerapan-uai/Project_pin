@@ -79,7 +79,7 @@ router.post('/start', auth, async (req, res) => {
     );
 
     await pool.query(
-      `UPDATE bookings SET status = 'active' WHERE booking_id = ?`,
+      `UPDATE bookings SET status = 'confirmed' WHERE booking_id = ?`,
       [booking_id]
     );
 

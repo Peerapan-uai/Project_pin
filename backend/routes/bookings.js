@@ -24,11 +24,9 @@ const auth = require('../middleware/auth');
  *         application/json:
  *           schema:
  *             type: object
- *             required: [charger_id, vehicle_id, start_time, end_time]
+ *             required: [charger_id, start_time, end_time]
  *             properties:
  *               charger_id:
- *                 type: integer
- *               vehicle_id:
  *                 type: integer
  *               start_time:
  *                 type: string

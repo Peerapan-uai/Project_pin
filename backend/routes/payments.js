@@ -24,15 +24,15 @@ const auth = require('../middleware/auth');
  *         application/json:
  *           schema:
  *             type: object
- *             required: [session_id, amount, payment_method]
+ *             required: [session_id, amount, method]
  *             properties:
  *               session_id:
  *                 type: integer
  *               amount:
  *                 type: number
- *               payment_method:
+ *               method:
  *                 type: string
- *                 enum: [credit_card, debit_card, wallet, bank_transfer]
+ *                 enum: [credit_card, promptpay, wallet]
  *     responses:
  *       201:
  *         description: Payment recorded
@@ -43,10 +43,10 @@ const auth = require('../middleware/auth');
  */
 /// nem
 router.post('/', auth, async (req, res) => {
-  const { session_id, amount, payment_method } = req.body;
+  const { session_id, amount, method } = req.body;
 
-  if (!session_id || !amount || !payment_method) {
-    return res.status(400).json({ message: 'session_id, amount, and payment_method are required.' });
+  if (!session_id || !amount || !method) {
+    return res.status(400).json({ message: 'session_id, amount, and method are required.' });
   }
 
   try {
@@ -71,7 +71,7 @@ router.post('/', auth, async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO payments (user_id, session_id, amount, method, status, paid_at)
        VALUES (?, ?, ?, ?, 'completed', NOW())`,
-      [req.user.user_id, session_id, amount, payment_method]
+      [req.user.user_id, session_id, amount, method]
     );
 
     return res.status(201).json({
@@ -105,7 +105,7 @@ router.get('/history', auth, async (req, res) => {
       `SELECT p.*, s.start_time AS session_start, s.end_time AS session_end,
               s.energy_kwh, st.name AS station_name
        FROM payments p
-       JOIN sessions s ON p.session_id = s.session_id
+       JOIN charging_sessions s ON p.session_id = s.session_id
        JOIN chargers c ON s.charger_id = c.charger_id
        JOIN stations st ON c.station_id = st.station_id
        WHERE p.user_id = ?
@@ -149,7 +149,7 @@ router.get('/:id', auth, async (req, res) => {
       `SELECT p.*, s.start_time AS session_start, s.end_time AS session_end,
               s.energy_kwh, c.connector_type, c.power_kw, st.name AS station_name
        FROM payments p
-       JOIN sessions s ON p.session_id = s.session_id
+       JOIN charging_sessions s ON p.session_id = s.session_id
        JOIN chargers c ON s.charger_id = c.charger_id
        JOIN stations st ON c.station_id = st.station_id
        WHERE p.payment_id = ? AND p.user_id = ?`,

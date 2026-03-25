@@ -130,9 +130,17 @@ router.get('/:id', async (req, res) => {
  *                 type: number
  *               longitude:
  *                 type: number
- *               description:
+ *               floor:
  *                 type: string
- *               amenities:
+ *               open_time:
+ *                 type: string
+ *                 description: Opening time (e.g. 08:00:00)
+ *               close_time:
+ *                 type: string
+ *                 description: Closing time (e.g. 22:00:00)
+ *               image:
+ *                 type: string
+ *               status:
  *                 type: string
  *     responses:
  *       201:
@@ -143,7 +151,7 @@ router.get('/:id', async (req, res) => {
  *         description: Server error
  */
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, description, amenities } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 
   if (!name || !address || latitude == null || longitude == null) {
     return res.status(400).json({ message: 'Name, address, latitude, and longitude are required.' });
@@ -151,9 +159,9 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO stations (name, address, latitude, longitude, description, amenities)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, address, latitude, longitude, description || null, amenities || null]
+      `INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, image, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null]
     );
 
     return res.status(201).json({
@@ -195,9 +203,17 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *                 type: number
  *               longitude:
  *                 type: number
- *               description:
+ *               floor:
  *                 type: string
- *               amenities:
+ *               open_time:
+ *                 type: string
+ *                 description: Opening time (e.g. 08:00:00)
+ *               close_time:
+ *                 type: string
+ *                 description: Closing time (e.g. 22:00:00)
+ *               image:
+ *                 type: string
+ *               status:
  *                 type: string
  *     responses:
  *       200:
@@ -208,13 +224,13 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *         description: Server error
  */
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, description, amenities } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 
   try {
     const [result] = await pool.query(
       `UPDATE stations SET name = ?, address = ?, latitude = ?, longitude = ?,
-       description = ?, amenities = ? WHERE station_id = ?`,
-      [name, address, latitude, longitude, description || null, amenities || null, req.params.id]
+       floor = ?, open_time = ?, close_time = ?, image = ?, status = ? WHERE station_id = ?`,
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {

@@ -94,19 +94,17 @@ router.get('/:id', auth, async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [make, model, year, license_plate, connector_type]
+ *             required: [brand, model, license_plate, connector_type]
  *             properties:
- *               make:
+ *               brand:
  *                 type: string
  *               model:
  *                 type: string
- *               year:
- *                 type: integer
  *               license_plate:
  *                 type: string
  *               connector_type:
  *                 type: string
- *                 enum: [CCS, CHAdeMO, Type2, Tesla]
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               battery_capacity_kwh:
  *                 type: number
  *     responses:
@@ -162,16 +160,15 @@ router.post('/', auth, async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               make:
+ *               brand:
  *                 type: string
  *               model:
  *                 type: string
- *               year:
- *                 type: integer
  *               license_plate:
  *                 type: string
  *               connector_type:
  *                 type: string
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               battery_capacity_kwh:
  *                 type: number
  *     responses:

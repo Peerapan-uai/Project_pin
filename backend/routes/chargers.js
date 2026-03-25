@@ -102,9 +102,11 @@ router.get('/:id', async (req, res) => {
  *             properties:
  *               station_id:
  *                 type: integer
+ *               charger_name:
+ *                 type: string
  *               connector_type:
  *                 type: string
- *                 enum: [CCS, CHAdeMO, Type2, Tesla]
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               power_kw:
  *                 type: number
  *               price_per_kwh:
@@ -118,7 +120,7 @@ router.get('/:id', async (req, res) => {
  *         description: Server error
  */
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
-  const { station_id, connector_type, power_kw, price_per_kwh } = req.body;
+  const { station_id, charger_name, connector_type, power_kw, price_per_kwh } = req.body;
 
   if (!station_id || !connector_type || !power_kw) {
     return res.status(400).json({ message: 'station_id, connector_type, and power_kw are required.' });
@@ -126,9 +128,9 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO chargers (station_id, connector_type, power_kw, price_per_kwh, status)
-       VALUES (?, ?, ?, ?, 'available')`,
-      [station_id, connector_type, power_kw, price_per_kwh || null]
+      `INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status)
+       VALUES (?, ?, ?, ?, ?, 'available')`,
+      [station_id, charger_name || null, connector_type, power_kw, price_per_kwh || null]
     );
 
     return res.status(201).json({
@@ -162,6 +164,8 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
+ *               charger_name:
+ *                 type: string
  *               connector_type:
  *                 type: string
  *               power_kw:
@@ -177,13 +181,13 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *         description: Server error
  */
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
-  const { connector_type, power_kw, price_per_kwh } = req.body;
+  const { charger_name, connector_type, power_kw, price_per_kwh } = req.body;
 
   try {
     const [result] = await pool.query(
-      `UPDATE chargers SET connector_type = ?, power_kw = ?, price_per_kwh = ?
+      `UPDATE chargers SET charger_name = ?, connector_type = ?, power_kw = ?, price_per_kwh = ?
        WHERE charger_id = ?`,
-      [connector_type, power_kw, price_per_kwh || null, req.params.id]
+      [charger_name || null, connector_type, power_kw, price_per_kwh || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {
@@ -221,7 +225,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [available, in_use, out_of_service, maintenance]
+ *                 enum: [available, reserved, charging, out_of_service]
  *     responses:
  *       200:
  *         description: Charger status updated
@@ -234,7 +238,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  */
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const { status } = req.body;
-  const validStatuses = ['available', 'in_use', 'out_of_service', 'maintenance'];
+  const validStatuses = ['available', 'reserved', 'charging', 'out_of_service'];
 
   if (!status || !validStatuses.includes(status)) {
     return res.status(400).json({
