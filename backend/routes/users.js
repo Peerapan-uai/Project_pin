@@ -112,11 +112,11 @@ router.put('/profile', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-/// Lalla
+/// Lalla  "Get all users (Admin only)"
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, frist_name, last_name, email, phone, role, is_banned, created_at FROM users ORDER BY created_at DESC'
+      'SELECT user_id, first_name, last_name, email, phone, role, is_banned, created_at FROM users ORDER BY created_at DESC'
     );
     return res.status(200).json({ users: rows });
   } catch (error) {
@@ -157,6 +157,7 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla  	PATCH ban
 router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
   const { is_banned } = req.body;
@@ -212,6 +213,7 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla  POST technician
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
   const { first_name, last_name, email, password, phone } = req.body;
 

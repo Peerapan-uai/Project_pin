@@ -125,6 +125,7 @@ router.post('/', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.get('/', auth, async (req, res) => {
   try {
     let query;
@@ -191,6 +192,7 @@ router.get('/', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
   const { technician_id } = req.body;
 
@@ -249,8 +251,8 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [open, in_progress, resolved, closed]
- *               resolution_notes:
+ *                 enum: [reported, assigned, in_progress, completed]
+ *               repair_notes:
  *                 type: string
  *     responses:
  *       200:
@@ -262,6 +264,7 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const { status, resolution_notes } = req.body;
   const validStatuses = ['reported','assigned', 'in_progress', 'completed'];
@@ -323,6 +326,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
  *       500:
  *         description: Server error
  */
+///lalla
 router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No image file uploaded.' });

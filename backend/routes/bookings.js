@@ -178,6 +178,7 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.get('/all', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`select c.charger_id, b.user_id, 

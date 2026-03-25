@@ -206,7 +206,7 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla   "Update a station (Admin only)"
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 

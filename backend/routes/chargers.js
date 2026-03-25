@@ -96,17 +96,24 @@ router.get('/:id', async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [station_id, connector_type, power_kw]
+ *             required: [station_id, charger_name, connector_type, power_kw, status, qr_code]
  *             properties:
  *               station_id:
  *                 type: integer
+ *               charger_name:
+ *                 type: string
  *               connector_type:
  *                 type: string
- *                 enum: [CCS, CHAdeMO, Type2, Tesla]
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               power_kw:
  *                 type: number
  *               price_per_kwh:
  *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [available, reserved, charging, out_of_service]
+ *               qr_code:
+ *                 type: string
  *     responses:
  *       201:
  *         description: Charger created
@@ -163,12 +170,20 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
+ *               charger_name:
+ *                 type: string
  *               connector_type:
  *                 type: string
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               power_kw:
  *                 type: number
  *               price_per_kwh:
  *                 type: number
+ *               status:
+ *                 type: string
+ *                 enum: [available, reserved, charging, out_of_service]
+ *               qr_code:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Charger updated
@@ -224,7 +239,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  *             properties:
  *               status:
  *                 type: string
- *                 enum: [available, in_use, out_of_service, maintenance]
+ *                 enum: [available, reserved, charging, out_of_service]
  *     responses:
  *       200:
  *         description: Charger status updated
