@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
+const roleCheck = require('../middleware/roleCheck');
 
 /**
  * @swagger
@@ -177,6 +178,22 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
+router.get('/all', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(`select c.charger_id, b.user_id, 
+    u.first_name, u.last_name
+  from bookings
+  join chargers on  c.charger_id =  b.charger_id
+  join users on u.user_id = b.user_id
+  `);
+  return res.status(200).json({  bookings: rows })
+  } catch (error) {
+    console.error('Get all booking error:', error);
+    return res.status(500).json({ message: 'Server error fetching booking.'});
+  }
+});
+//* lalla
+
 router.get('/:id', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(

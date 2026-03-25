@@ -3,10 +3,11 @@ const express = require('express');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
-
 const pool = require('./config/db');
 const connectMongoDB = require('./config/mongodb');
 const logger = require('./middleware/logger');
+const auth = require('./middleware/auth');
+const roleCheck = require('./middleware/roleCheck');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -73,10 +74,25 @@ app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
 
 // ─── Health Check ─────────────────────────────────────────────────────────────
+// lalla
+app.get('/api/admin/stats', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(`
+      SELECT
+    (SELECT COUNT(*) FROM users WHERE role = 'user') AS total_users,
+    (SELECT COUNT(*) FROM bookings  WHERE DATE( booking_time) = curdate()) AS bookings_today,
+    (SELECT sum(amount) from payments ) as payments_count ,
+    (SELECT COUNT(charger_id) from chargers where status = 'out_of_service' ) as charger_issue
+  `);
+    return res.status(200).json(rows[0]);
+  } catch (error) {
+    console.error('Admin stats error:', error);
+    return res.status(500).json({ message: 'Server error fetching stats.' });
+  }
+});
 app.get('/', (req, res) => {
   res.json({ message: 'EV Charger API is running.' });
 });
-
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

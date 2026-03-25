@@ -115,18 +115,20 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.post('/', auth, roleCheck('admin'), async (req, res) => {
-  const { station_id, connector_type, power_kw, price_per_kwh } = req.body;
 
-  if (!station_id || !connector_type || !power_kw) {
-    return res.status(400).json({ message: 'station_id, connector_type, and power_kw are required.' });
+///lalla
+router.post('/', auth, roleCheck('admin'), async (req, res) => {
+  const { station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code } = req.body;
+
+  if (!station_id || !charger_name || !connector_type || !power_kw || !status || !qr_code) {
+    return res.status(400).json({ message: 'station_id, charger_name, connector_type, and power_kw are required.' });
   }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO chargers (station_id, connector_type, power_kw, price_per_kwh, status)
-       VALUES (?, ?, ?, ?, 'available')`,
-      [station_id, connector_type, power_kw, price_per_kwh || null]
+      `INSERT INTO chargers  ( station_id, charger_name,  connector_type, power_kw, price_per_kwh, status, qr_code)
+       VALUES (?, ?, ?, ?,?, ?, ?)`,
+      [station_id, charger_name, connector_type, power_kw, price_per_kwh , status, qr_code || null]
     );
 
     return res.status(201).json({
@@ -138,6 +140,7 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
     return res.status(500).json({ message: 'Server error creating charger.' });
   }
 });
+
 
 /**
  * @swagger
@@ -174,6 +177,8 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+
+///lalla
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { connector_type, power_kw, price_per_kwh } = req.body;
 
@@ -230,9 +235,10 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const { status } = req.body;
-  const validStatuses = ['available', 'in_use', 'out_of_service', 'maintenance'];
+  const validStatuses = ['available', 'reserved', 'charging', 'out_of_service'];
 
   if (!status || !validStatuses.includes(status)) {
     return res.status(400).json({
@@ -256,5 +262,4 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
     return res.status(500).json({ message: 'Server error updating charger status.' });
   }
 });
-
 module.exports = router;

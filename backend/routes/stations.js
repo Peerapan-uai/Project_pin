@@ -140,8 +140,9 @@ router.get('/:id', async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, description, amenities } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 
   if (!name || !address || latitude == null || longitude == null) {
     return res.status(400).json({ message: 'Name, address, latitude, and longitude are required.' });
@@ -149,9 +150,9 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO stations (name, address, latitude, longitude, description, amenities)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [name, address, latitude, longitude, description || null, amenities || null]
+      `INSERT INTO stations ( name, address, latitude, longitude, floor, open_time, close_time, image, status)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, address, latitude, longitude, floor, open_time, close_time, image, status || null]
     );
 
     return res.status(201).json({
@@ -205,14 +206,15 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+///lalla
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, description, amenities } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 
   try {
     const [result] = await pool.query(
       `UPDATE stations SET name = ?, address = ?, latitude = ?, longitude = ?,
-       description = ?, amenities = ? WHERE station_id = ?`,
-      [name, address, latitude, longitude, description || null, amenities || null, req.params.id]
+       floor = ?, open_time = ?,  close_time = ?, image = ?, status = ? WHERE station_id = ?`,
+      [name, address, latitude, longitude, floor, open_time, close_time, image, status, req.params.id]
     );
 
     if (result.affectedRows === 0) {

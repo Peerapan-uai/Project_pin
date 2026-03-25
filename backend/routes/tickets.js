@@ -132,20 +132,20 @@ router.get('/', auth, async (req, res) => {
 
     if (req.user.role === 'admin' || req.user.role === 'technician') {
       query = `
-        SELECT t.*, u.name AS submitted_by,
-               tech.name AS assigned_to_name
-        FROM tickets t
-        JOIN users u ON t.user_id = u.user_id
+        SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) AS submitted_by,
+               CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name
+        FROM maintenance_tickets t
+        JOIN users u ON t.reported_by = u.user_id
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
         ORDER BY t.created_at DESC
       `;
       params = [];
     } else {
       query = `
-        SELECT t.*, tech.name AS assigned_to_name
-        FROM tickets t
+        SELECT t.*, CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name
+        FROM maintenance_tickets t
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
-        WHERE t.user_id = ?
+        WHERE t.reported_by = ?
         ORDER BY t.created_at DESC
       `;
       params = [req.user.user_id];
@@ -210,7 +210,7 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `UPDATE tickets SET assigned_to = ?, status = 'in_progress' WHERE ticket_id = ?`,
+      `UPDATE maintenance_tickets SET assigned_to = ?, status = 'assigned' WHERE ticket_id = ?`,
       [technician_id, req.params.id]
     );
 
@@ -264,7 +264,7 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
  */
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const { status, resolution_notes } = req.body;
-  const validStatuses = ['open', 'in_progress', 'resolved', 'closed'];
+  const validStatuses = ['reported','assigned', 'in_progress', 'completed'];
 
   if (!status || !validStatuses.includes(status)) {
     return res.status(400).json({
@@ -274,7 +274,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
 
   try {
     const [result] = await pool.query(
-      `UPDATE tickets SET status = ?, resolution_notes = ? WHERE ticket_id = ?`,
+      `UPDATE maintenance_tickets SET status = ?, repair_notes = ? WHERE ticket_id = ?`,
       [status, resolution_notes || null, req.params.id]
     );
 
@@ -330,7 +330,7 @@ router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single(
 
   try {
     const [ticketRows] = await pool.query(
-      'SELECT ticket_id FROM tickets WHERE ticket_id = ?',
+      'SELECT ticket_id FROM maintenance_tickets WHERE ticket_id = ?',
       [req.params.id]
     );
 
@@ -341,7 +341,7 @@ router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single(
     const imageUrl = `/uploads/tickets/${req.file.filename}`;
 
     await pool.query(
-      'UPDATE tickets SET image_url = ? WHERE ticket_id = ?',
+      'UPDATE maintenance_tickets SET repair_image = ? WHERE ticket_id = ?',
       [imageUrl, req.params.id]
     );
 
