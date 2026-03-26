@@ -1,11 +1,11 @@
 # lalla_scope — งานของ lalla (14 endpoints + Database)
 
-## สถานะปัจจุบัน
-- Database schema — **ยังไม่ได้เขียน ❌** (มี draft อยู่ที่ `backend/schema.sql` แต่ต้องตัดสินใจใช้หรือเขียนใหม่)
-- Backend routes admin/tech — **ยังไม่ได้เขียน ❌** (มี skeleton อยู่แต่มี bug ต้องเขียนใหม่ทีละ endpoint)
-- Frontend admin/tech — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว แต่ยังใช้ mock data)
+## สถานะปัจจุบัน (อัพเดท 27 มี.ค. 2026)
+- Database schema — **เสร็จแล้ว ✅** (`backend/schema.sql` ใช้ได้ + import ลง MySQL แล้ว)
+- Backend routes admin/tech — **ยังไม่ได้เขียน ❌** ← งานด่วนที่สุดตอนนี้
+- Frontend admin/tech — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว เชื่อม API จริงแล้ว รอแค่ backend)
 
-> ⚠️ งานด่วนที่สุดคือ **Database schema** เพราะ nem รอ tables อยู่ก่อนจะเริ่มเทส API ได้
+> ⚠️ **DB พร้อมแล้ว nem ทำ backend ฝั่ง user เสร็จแล้ว** ตอนนี้ต้องรีบทำ backend admin/tech เพราะ frontend รออยู่
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
@@ -96,14 +96,25 @@ Tables ที่ต้องมี:
 |---|--------|------|---------|-------|
 | 16 | GET | `/api/sessions/all` | ดู charging session ทุกคนในระบบ (admin view) | ❌ |
 
+### Notifications — Admin only (+1 เพิ่มใหม่) ⚠️ ต้องเช็คก่อน
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 17 | GET | `/api/notifications/all` | ดู notification ของ user ทุกคนในระบบ (admin view) | ❌ |
+
+> **ที่ต้องเพิ่มเพราะ:** `AdminNotificationsPage.jsx` เรียก `GET /api/notifications` อยู่ แต่ endpoint นั้นของ nem return แค่ notification ของตัวเองเท่านั้น (WHERE user_id = req.user.user_id) — ถ้า admin login แล้วเปิดหน้านี้จะเห็นแค่ notification ของ admin ไม่เห็นของ user คนอื่น
+>
+> **วิธีแก้:** สร้าง `GET /api/notifications/all` ใน `routes/notifications.js` ต่อจาก endpoint ของ nem (อย่าแก้ทับ) แล้วแก้ `AdminNotificationsPage.jsx` ให้เรียก `/api/notifications/all` แทน
+>
+> **ตรวจสอบก่อน:** เช็คใน `routes/notifications.js` ว่ามี `/all` อยู่แล้วไหม ถ้ายังไม่มีให้เพิ่ม
+
 ---
 
 ## ⚠️ Dependencies จาก nem ที่ต้องรู้
 
-### Auto-notification เมื่อมี ticket ใหม่
-- **nem จะแก้** `POST /api/tickets` ให้ INSERT ลง `notifications` table ให้ technician ทุกคนอัตโนมัติ
+### Auto-notification เมื่อมี ticket ใหม่ — **เสร็จแล้ว ✅**
+- **nem แก้แล้ว** `POST /api/tickets` INSERT ลง `notifications` table ให้ technician ทุกคนอัตโนมัติ
+- notification message: `"มี ticket ใหม่: {title} — ตู้ {charger_name}"`
 - **lalla ต้องทำ** ให้ tech dashboard อ่าน notification เหล่านี้และแสดงผล (unread badge + list)
-- notification message จะเป็น: `"มี ticket ใหม่: {title} — ตู้ {charger_name}"`
 
 ### ปุ่มแจ้งปัญหาใน BookingPage
 - nem เพิ่มปุ่ม 🔧 ใน BookingPage → นำ user ไปหน้า `/report` พร้อม pre-fill charger_id
@@ -131,6 +142,32 @@ Tables ที่ต้องมี:
 - `pages/shared/` (Login, Register) → ของ nem
 - `context/AuthContext.jsx` → ของ nem
 - `utils/api.js` → ถ้าจะแก้ต้องบอก nem ก่อน
+
+---
+
+## ⚠️ สำคัญมาก — รูปแบบ response ของแต่ละ API (ต้องอ่านก่อนเขียน frontend!)
+
+backend ของโปรเจกต์นี้คืน response ไม่เหมือนกันทุก endpoint บางตัวคืน array ตรงๆ บางตัวห่อใน object ต้องเช็คให้ดีก่อน `.map()` yoking `.filter()` มิฉะนั้น tickets จะไม่แสดงเลย
+
+| Endpoint | รูปแบบที่คืน | วิธี access ใน frontend |
+|----------|-------------|------------------------|
+| `GET /api/tickets` | `{ tickets: [...] }` | `res.data.tickets` |
+| `GET /api/users` | `{ users: [...] }` | `res.data.users` |
+| `GET /api/stations` | `{ stations: [...] }` | `res.data.stations` |
+| `GET /api/chargers/station/:id` | `[...]` หรือ `{ chargers: [...] }` | `res.data.chargers \|\| res.data` |
+| `GET /api/bookings` | `[...]` | `res.data` |
+| `GET /api/vehicles` | `[...]` | `res.data` |
+| `GET /api/notifications` | `{ notifications: [...] }` | `res.data.notifications` |
+
+**Pattern ที่ปลอดภัย** ถ้าไม่แน่ใจให้เขียน:
+```js
+const items = res.data.tickets || res.data  // fallback กัน crash
+```
+
+**bug ที่เจอจริงและแก้แล้ว (27 มี.ค. 2026):**
+- `TicketManagePage`, `TechnicianManagePage`, `TechDashboardPage`, `TechHistoryPage` ล้วนเคย `setTickets(res.data)` แทนที่จะเป็น `res.data.tickets` → tickets ไม่แสดงผลเลย แก้แล้วทั้งหมด
+
+---
 
 ### จุดที่ระวังชนกัน
 - `routes/tickets.js` — nem ทำแค่ POST ส่วนที่เหลือของ lalla อย่า overwrite ทั้งไฟล์

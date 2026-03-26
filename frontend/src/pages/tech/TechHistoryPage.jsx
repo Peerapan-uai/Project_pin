@@ -13,7 +13,7 @@ export default function TechHistoryPage() {
 
   useEffect(() => {
     api.get('/api/tickets')
-      .then((res) => setTickets(res.data))
+      .then((res) => setTickets(res.data.tickets || res.data))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }, [])

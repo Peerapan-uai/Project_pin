@@ -47,7 +47,7 @@ export default function BookingHistoryPage() {
           </div>
         )}
         {bookings.map((b) => (
-          <div key={b.booking_id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <div key={b.booking_id} onClick={() => navigate(`/bookings/${b.booking_id}`)} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 cursor-pointer active:scale-[0.98] transition-transform">
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm">{b.station_name}</p>
@@ -60,7 +60,7 @@ export default function BookingHistoryPage() {
               <StatusBadge status={b.status} />
             </div>
             {b.status === 'confirmed' && (
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex gap-2" onClick={e => e.stopPropagation()}>
                 <button
                   onClick={() => handleStartCharging(b)}
                   disabled={starting === b.booking_id}

@@ -14,8 +14,8 @@ export default function TechnicianManagePage() {
       api.get('/api/tickets'),
     ])
       .then(([usersRes, ticketsRes]) => {
-        setTechnicians(usersRes.data.filter((u) => u.role === 'technician'))
-        setTickets(ticketsRes.data)
+        setTechnicians((usersRes.data.users || usersRes.data).filter((u) => u.role === 'technician'))
+        setTickets(ticketsRes.data.tickets || ticketsRes.data)
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))

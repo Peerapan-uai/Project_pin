@@ -83,6 +83,13 @@ router.post('/start', auth, async (req, res) => {
       [booking_id]
     );
 
+    try {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'charging')`,
+        [req.user.user_id, 'เริ่มชาร์จแล้ว', `เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session`]
+      );
+    } catch (_) {}
+
     return res.status(201).json({
       message: 'Charging session started.',
       session_id: result.insertId,
@@ -195,6 +202,14 @@ router.patch('/:id/stop', auth, async (req, res) => {
     } catch (batteryErr) {
       console.warn('Battery update skipped:', batteryErr.message);
     }
+
+    try {
+      const costText = totalCost != null ? ` คิดเป็นเงิน ${totalCost} บาท` : ''
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'charging')`,
+        [req.user.user_id, 'ชาร์จเสร็จสิ้น', `ชาร์จไป ${energy_kwh} kWh${costText} กรุณาชำระเงินเพื่อสิ้นสุดการใช้งาน`]
+      );
+    } catch (_) {}
 
     return res.status(200).json({
       message: 'Charging session stopped.',

@@ -16,8 +16,8 @@ export default function TicketManagePage() {
       api.get('/api/users'),
     ])
       .then(([ticketsRes, usersRes]) => {
-        setTickets(ticketsRes.data)
-        setTechnicians(usersRes.data.filter((u) => u.role === 'technician'))
+        setTickets(ticketsRes.data.tickets || ticketsRes.data)
+        setTechnicians((usersRes.data.users || usersRes.data).filter((u) => u.role === 'technician'))
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
@@ -26,7 +26,7 @@ export default function TicketManagePage() {
   useEffect(() => { fetchData() }, [])
 
   const assign = (ticketId, techId) => {
-    api.patch(`/api/tickets/${ticketId}/assign`, { assigned_to: Number(techId) })
+    api.patch(`/api/tickets/${ticketId}/assign`, { technician_id: Number(techId) })
       .then(() => fetchData())
       .catch((err) => console.error(err))
   }

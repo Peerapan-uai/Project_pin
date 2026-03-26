@@ -98,9 +98,35 @@ router.post('/', auth, async (req, res) => {
       ]
     );
 
+    const ticketId = result.insertId;
+
+    // Notify all technicians about the new ticket (best-effort)
+    try {
+      const [techRows] = await pool.query(
+        `SELECT user_id FROM users WHERE role = 'technician'`
+      );
+      if (techRows.length > 0) {
+        const chargerInfo = charger_id
+          ? (await pool.query(`SELECT charger_name FROM chargers WHERE charger_id = ?`, [charger_id]))[0][0]
+          : null;
+        const chargerSuffix = chargerInfo ? ` — ตู้ ${chargerInfo.charger_name}` : '';
+        const notifValues = techRows.map((t) => [
+          t.user_id,
+          `มี ticket ใหม่: ${title}${chargerSuffix}`,
+          'ticket',
+        ]);
+        await pool.query(
+          `INSERT INTO notifications (user_id, message, type) VALUES ?`,
+          [notifValues]
+        );
+      }
+    } catch (notifErr) {
+      console.warn('Ticket notification skipped:', notifErr.message);
+    }
+
     return res.status(201).json({
       message: 'Support ticket created successfully.',
-      ticket_id: result.insertId,
+      ticket_id: ticketId,
     });
   } catch (error) {
     console.error('Create ticket error:', error);

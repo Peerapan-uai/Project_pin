@@ -1,13 +1,39 @@
 # nem_scope — งานของ nem (33 endpoints)
 
-## สถานะปัจจุบัน
+## สถานะปัจจุบัน (อัพเดท 27 มี.ค. 2026)
 - Backend routes — **เทสผ่านหมดแล้ว ✅** (ทุก endpoint เทสผ่าน Swagger แล้ว)
-- Frontend (UI) — **เชื่อม Backend แล้วส่วนใหญ่ ✅** (บางหน้ายังปรับอยู่)
-- Frontend ที่ยังค้าง 🔄:
-  - SearchPage: GPS + sort ตามระยะห่าง
-  - ChargingPage: real-time kW/kWh/ค่าไฟ
-  - BookingPage: ปุ่ม 🔧 แจ้งปัญหา
-  - POST /api/tickets: auto-notify technician
+- Frontend (UI) — **เชื่อม Backend เกือบครบ ✅**
+
+### หน้าที่เสร็จแล้ว ✅
+| หน้า | สิ่งที่ทำ |
+|------|-----------|
+| LoginPage / RegisterPage | auth ครบ |
+| ProfilePage | แสดงข้อมูล + แก้ไข (edit modal) + ลบบัญชี (confirm dialog) |
+| VehicleManagePage | CRUD รถ + confirm ก่อนลบ + แสดง battery bar หลังชาร์จ |
+| SearchPage | ค้นหาสถานี + filter connector type + toggle available only |
+| StationDetailPage | ดูสถานี + ตู้ชาร์จ + ปุ่มนำทาง Google Maps |
+| BookingPage | จองตู้ชาร์จ |
+| BookingHistoryPage | ดูประวัติ + เริ่มชาร์จ + ปุ่มนำทางไปสถานี |
+| ChargingPage | real-time timer/kWh/ค่าไฟ (fix timezone bug แล้ว) |
+| PaymentPage | multi-step: เลือกวิธี → QR/Card → processing → success |
+| PaymentHistoryPage | ดูประวัติการชำระเงิน |
+| NotificationsPage | ดู + อ่านแจ้งเตือน |
+
+### Backend เพิ่มเติม (นอกเหนือจาก 33 endpoints)
+| เพิ่ม | รายละเอียด |
+|-------|------------|
+| `DELETE /api/users/profile` | ลบบัญชีตัวเอง |
+| `sessions stop` อัพเดท vehicle battery | หลังชาร์จเสร็จ → `battery_current_kwh` อัพเดทอัตโนมัติ |
+| schema `vehicles.battery_current_kwh` | เพิ่ม column ใหม่ (ALTER TABLE รันแล้ว) |
+| schema `chargers.temperature_celsius` | เพิ่ม column ใหม่ (ALTER TABLE รันแล้ว) — ให้ lalla จัดการ |
+
+### ยังค้างอยู่ 🔄
+| งาน | รายละเอียด |
+|-----|------------|
+| SearchPage GPS | sort สถานีตามระยะห่างจากตำแหน่งผู้ใช้ |
+| BookingPage ปุ่ม 🔧 | แจ้งปัญหาตู้ชาร์จ → สร้าง ticket |
+| POST /api/tickets auto-notify | แจ้งเตือน technician อัตโนมัติเมื่อมี ticket ใหม่ |
+| HomePage | ยังว่างอยู่ ยังไม่ได้ออกแบบ |
 
 ---
 
@@ -122,14 +148,7 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 
 ## สิ่งที่ต้องรอ lalla ก่อน
 
-| รอสิ่งนี้ | เพราะ |
-|-----------|-------|
-| Table `users` | ต้องมีก่อนถึง register/login ได้ |
-| Table `vehicles` | ต้องมีก่อนถึงเพิ่มรถได้ |
-| Table `stations`, `chargers` | ต้องมีก่อนถึง query ได้ |
-| Table `bookings`, `charging_sessions` | ต้องมีก่อนถึงจองได้ |
-| Table `notifications` | ต้องมีก่อนถึงดึง notification ได้ |
-| ชื่อ column ที่ตกลงกัน | เขียน query ผิดจะ error ทุกอัน |
+> DB พร้อมแล้ว ✅ ไม่ต้องรออะไรแล้ว
 
 ---
 

@@ -67,6 +67,13 @@ router.post('/', auth, async (req, res) => {
       [req.user.user_id, charger_id, start_time, end_time]
     );
 
+    try {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'booking')`,
+        [req.user.user_id, 'การจองสำเร็จ', `จองตู้ชาร์จเรียบร้อยแล้ว ตรวจสอบรายละเอียดได้ที่ประวัติการจอง`]
+      );
+    } catch (_) {}
+
     return res.status(201).json({
       message: 'Booking created successfully.',
       booking_id: result.insertId,
@@ -177,10 +184,19 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
 router.get('/:id', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name, s.address
+      `SELECT b.*,
+              c.charger_name, c.connector_type, c.power_kw, c.price_per_kwh,
+              s.name AS station_name, s.address,
+              cs.session_id, cs.start_time AS session_start, cs.end_time AS session_end,
+              cs.energy_kwh, cs.status AS session_status,
+              TIMESTAMPDIFF(MINUTE, cs.start_time, cs.end_time) AS duration_minutes,
+              p.payment_id, p.amount AS paid_amount, p.method AS payment_method,
+              p.transaction_ref, p.paid_at
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id
+       LEFT JOIN charging_sessions cs ON cs.booking_id = b.booking_id
+       LEFT JOIN payments p ON p.session_id = cs.session_id
        WHERE b.booking_id = ? AND b.user_id = ?`,
       [req.params.id, req.user.user_id]
     );
