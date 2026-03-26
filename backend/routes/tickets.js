@@ -15,6 +15,7 @@ const roleCheck = require('../middleware/roleCheck');
  */
 
 // Multer storage configuration for ticket images
+// ตั้งชื่อไฟล์ให้อัตโนมัติ กันซ้ำ
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
     const uploadDir = path.join(__dirname, '..', 'uploads', 'tickets');
@@ -27,6 +28,7 @@ const storage = multer.diskStorage({
     const uniqueSuffix = `${Date.now()}-${Math.round(Math.random() * 1e9)}`;
     const ext = path.extname(file.originalname);
     cb(null, `ticket-${req.params.id}-${uniqueSuffix}${ext}`);
+    ///icket-{id}-{timestamp}-{random}.jpg ตัวอย่างชื่อไฟล์
   },
 });
 
@@ -59,19 +61,17 @@ const upload = multer({
  *         application/json:
  *           schema:
  *             type: object
- *             required: [subject, description]
+ *             required: [title, description]
  *             properties:
- *               subject:
+ *               title:
  *                 type: string
  *               description:
  *                 type: string
  *               charger_id:
  *                 type: integer
- *               station_id:
- *                 type: integer
  *               priority:
  *                 type: string
- *                 enum: [low, medium, high]
+ *                 enum: [low, medium, high, critical]
  *     responses:
  *       201:
  *         description: Ticket created
@@ -81,22 +81,21 @@ const upload = multer({
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { subject, description, charger_id, station_id, priority } = req.body;
+  const { title, description, charger_id, priority } = req.body;
 
-  if (!subject || !description) {
-    return res.status(400).json({ message: 'Subject and description are required.' });
+  if (!title || !description) {
+    return res.status(400).json({ message: 'Title and description are required.' });
   }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO tickets (user_id, subject, description, charger_id, station_id, priority, status)
-       VALUES (?, ?, ?, ?, ?, ?, 'open')`,
+      `INSERT INTO maintenance_tickets (reported_by, title, description, charger_id, priority, status)
+       VALUES (?, ?, ?, ?, ?, 'reported')`,
       [
         req.user.user_id,
-        subject,
+        title,
         description,
         charger_id || null,
-        station_id || null,
         priority || 'medium',
       ]
     );
@@ -125,7 +124,7 @@ router.post('/', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla   GET	/api/tickets	Get all tickets
 router.get('/', auth, async (req, res) => {
   try {
     let query;
@@ -192,7 +191,7 @@ router.get('/', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla   PATCH	/api/tickets/{id}/assign	Assign ticket to technician
 router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
   const { technician_id } = req.body;
 
@@ -264,10 +263,10 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla. PATCH	/api/tickets/{id}/status	Update ticket status
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
-  const { status, resolution_notes } = req.body;
-  const validStatuses = ['reported','assigned', 'in_progress', 'completed'];
+  const { status, repair_notes } = req.body;
+  const validStatuses = ['reported', 'assigned', 'in_progress', 'completed'];
 
   if (!status || !validStatuses.includes(status)) {
     return res.status(400).json({
@@ -278,7 +277,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
   try {
     const [result] = await pool.query(
       `UPDATE maintenance_tickets SET status = ?, repair_notes = ? WHERE ticket_id = ?`,
-      [status, resolution_notes || null, req.params.id]
+      [status, repair_notes || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {
@@ -326,7 +325,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla  POST	/api/tickets/{id}/image	Upload repair image
 router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No image file uploaded.' });
@@ -343,7 +342,7 @@ router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single(
     }
 
     const imageUrl = `/uploads/tickets/${req.file.filename}`;
-
+    // req.file.filename ตั้งชื่อ ไฟล์ให้อัตโนมัติเป็น ticket-{id}-{timestamp}-{random}.jpg ป้องกันชื่อซ้ำ
     await pool.query(
       'UPDATE maintenance_tickets SET repair_image = ? WHERE ticket_id = ?',
       [imageUrl, req.params.id]

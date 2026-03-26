@@ -30,6 +30,23 @@ const roleCheck = require('../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+///lalla  GET /api/chargers — Admin: get all chargers
+router.get('/', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT c.*, s.name AS station_name
+       FROM chargers c
+       JOIN stations s ON c.station_id = s.station_id
+       ORDER BY c.station_id ASC, c.charger_id ASC`
+    );
+    return res.status(200).json(rows);
+  } catch (error) {
+    console.error('Get all chargers error:', error);
+    return res.status(500).json({ message: 'Server error fetching chargers.' });
+  }
+});
+
+/// nem
 router.get('/station/:stationId', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -64,6 +81,7 @@ router.get('/station/:stationId', async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -123,7 +141,7 @@ router.get('/:id', async (req, res) => {
  *         description: Server error
  */
 
-///lalla
+///lalla. POST	/api/chargers	Add a new charger
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
   const { station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code } = req.body;
 
@@ -133,9 +151,9 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO chargers  ( station_id, charger_name,  connector_type, power_kw, price_per_kwh, status, qr_code)
-       VALUES (?, ?, ?, ?,?, ?, ?)`,
-      [station_id, charger_name, connector_type, power_kw, price_per_kwh , status, qr_code || null]
+      `INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code || null]
     );
 
     return res.status(201).json({
@@ -193,15 +211,15 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *         description: Server error
  */
 
-///lalla
+///lalla  PUT	/api/chargers/{id}	Update charger info
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
-  const { connector_type, power_kw, price_per_kwh } = req.body;
+  const { charger_name, connector_type, power_kw, price_per_kwh } = req.body;
 
   try {
     const [result] = await pool.query(
-      `UPDATE chargers SET connector_type = ?, power_kw = ?, price_per_kwh = ?
+      `UPDATE chargers SET charger_name = ?, connector_type = ?, power_kw = ?, price_per_kwh = ?
        WHERE charger_id = ?`,
-      [connector_type, power_kw, price_per_kwh || null, req.params.id]
+      [charger_name || null, connector_type, power_kw, price_per_kwh || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {
@@ -250,7 +268,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla
+///lalla   PATCH	/api/chargers/{id}/status	Update charger status
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const { status } = req.body;
   const validStatuses = ['available', 'reserved', 'charging', 'out_of_service'];
@@ -277,4 +295,23 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
     return res.status(500).json({ message: 'Server error updating charger status.' });
   }
 });
+///lalla  DELETE /api/chargers/:id — Admin: delete charger
+router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'DELETE FROM chargers WHERE charger_id = ?',
+      [req.params.id]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Charger not found.' });
+    }
+
+    return res.status(200).json({ message: 'Charger deleted successfully.' });
+  } catch (error) {
+    console.error('Delete charger error:', error);
+    return res.status(500).json({ message: 'Server error deleting charger.' });
+  }
+});
+
 module.exports = router;

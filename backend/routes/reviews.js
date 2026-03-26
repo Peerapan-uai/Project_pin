@@ -45,17 +45,17 @@ const roleCheck = require('../middleware/roleCheck');
  */
 router.post('/', auth, async (req, res) => {
   const { station_id, rating, comment } = req.body;
-
+  // บังคับให้ส่งมาทั้งคู่ แต่ไม่ต้องคอมเม้นก็ได้
   if (!station_id || !rating) {
     return res.status(400).json({ message: 'station_id and rating are required.' });
   }
-
+    
   if (rating < 1 || rating > 5) {
     return res.status(400).json({ message: 'Rating must be between 1 and 5.' });
   }
 
   try {
-    // Check that the station exists
+    // เช็คว่ามีสถานีอยู่มีอยู่จริงไหม?
     const [stationRows] = await pool.query(
       'SELECT station_id FROM stations WHERE station_id = ?',
       [station_id]
@@ -65,7 +65,7 @@ router.post('/', auth, async (req, res) => {
       return res.status(404).json({ message: 'Station not found.' });
     }
 
-    // Prevent duplicate reviews from the same user for the same station
+    // เช็ค หuser เคยรีวิวสถานีนี้ไปแล้วไหม?
     const [existing] = await pool.query(
       'SELECT review_id FROM reviews WHERE user_id = ? AND station_id = ?',
       [req.user.user_id, station_id]
@@ -114,14 +114,16 @@ router.get('/station/:stationId', async (req, res) => {
   try {
     const [reviews] = await pool.query(
       `SELECT r.review_id, r.rating, r.comment, r.created_at,
-              u.name AS reviewer_name
+            CONCAT(u.first_name, ' ', u.last_name) AS reviewer_name
        FROM reviews r
        JOIN users u ON r.user_id = u.user_id
        WHERE r.station_id = ?
        ORDER BY r.created_at DESC`,
       [req.params.stationId]
     );
-
+    //คะแนนเฉลี่ย
+    // AVG(rating) เฉลี่ยคะแนนทุกรีวิวของสถานีนี้
+    // COUNT(*)  นับจำนวนรีวิวทั้งหมด
     const [avgResult] = await pool.query(
       'SELECT AVG(rating) AS average_rating, COUNT(*) AS total_reviews FROM reviews WHERE station_id = ?',
       [req.params.stationId]
@@ -132,6 +134,7 @@ router.get('/station/:stationId', async (req, res) => {
       average_rating: avgResult[0].average_rating
         ? parseFloat(parseFloat(avgResult[0].average_rating).toFixed(2))
         : null,
+      // total_reviews คือจำนวนรีวิวทั้งหมด
       total_reviews: avgResult[0].total_reviews,
     });
   } catch (error) {
@@ -172,13 +175,14 @@ router.delete('/:id', auth, async (req, res) => {
     );
 
     if (rows.length === 0) {
+      // 404 = ไม่เจอรีวิว id นี้ใน db ส่ง404 กลับเพราะลบสิ่งที่มไ่มีอยู่ไม่ได้
       return res.status(404).json({ message: 'Review not found.' });
     }
 
     const review = rows[0];
 
-    // Allow deletion only if user owns the review or is admin
     if (review.user_id !== req.user.user_id && req.user.role !== 'admin') {
+      // 403 = ไม่มีสิทธิ์
       return res.status(403).json({ message: 'Not authorized to delete this review.' });
     }
 

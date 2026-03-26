@@ -64,7 +64,6 @@ export default function BookingPage() {
     const end = new Date(now.getTime() + duration * 60 * 1000)
     api.post('/api/bookings', {
       charger_id: Number(chargerId),
-      vehicle_id: Number(vehicleId),
       start_time: now.toISOString(),
       end_time: end.toISOString()
     })

@@ -157,7 +157,7 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla  	PATCH ban
+///lalla  	PATCH /api/users/:id/ban
 router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
   const { is_banned } = req.body;
@@ -195,9 +195,11 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [name, email, password]
+ *             required: [first_name, last_name, email, password]
  *             properties:
- *               name:
+ *               first_name:
+ *                 type: string
+ *               last_name:
  *                 type: string
  *               email:
  *                 type: string
@@ -213,11 +215,11 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla  POST technician
+///lalla  POST /api/users/technician
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
   const { first_name, last_name, email, password, phone } = req.body;
 
-  if (!first_name || !last_name|| !email || !password) {
+  if (!first_name || !last_name || !email || !password) {
     return res.status(400).json({ message: 'first_name, last_name, email, and password are required.' });
   }
 
@@ -230,8 +232,8 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
     const password_hash = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      'INSERT INTO users (first_name, last_name, password_hash, phone, role) VALUES (?, ?, ?, ?, ?)',
-      [first_name, last_name,  password_hash, phone || null, 'technician']
+      'INSERT INTO users (first_name, last_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [first_name, last_name, email, password_hash, phone || null, 'technician']
     );
 
     return res.status(201).json({

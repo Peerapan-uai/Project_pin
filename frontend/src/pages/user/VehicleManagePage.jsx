@@ -14,7 +14,7 @@ export default function VehicleManagePage() {
   const [form, setForm] = useState({ brand: '', model: '', license_plate: '', connector_type: 'CCS', battery_capacity_kwh: '' })
   const [submitting, setSubmitting] = useState(false)
 
-  const connectorTypes = ['CCS', 'CHAdeMO', 'Type2', 'GB/T']
+  const connectorTypes = ['CCS', 'CHAdeMO', 'Type2', 'Type1']
 
   useEffect(() => {
     api.get('/api/vehicles')

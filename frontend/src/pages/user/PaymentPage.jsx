@@ -28,7 +28,7 @@ export default function PaymentPage() {
     api.post('/api/payments', {
       session_id: Number(sessionId),
       amount,
-      method
+      payment_method: method
     })
       .then(() => setPaid(true))
       .catch(() => setError('การชำระเงินไม่สำเร็จ กรุณาลองใหม่'))

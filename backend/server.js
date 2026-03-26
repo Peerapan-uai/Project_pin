@@ -54,7 +54,7 @@ const swaggerOptions = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./routes/*.js'], // JSDoc comments in route files are picked up here
+  apis: ['./routes/*.js', './server.js'], // JSDoc comments in route files are picked up here
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -73,8 +73,36 @@ app.use('/api/reviews', reviewRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
 
-// ─── Health Check ─────────────────────────────────────────────────────────────
-// lalla
+/**
+ * @swagger
+ * /api/admin/stats:
+ *   get:
+ *     summary: Get dashboard statistics (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Dashboard stats
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 total_users:
+ *                   type: integer
+ *                 bookings_today:
+ *                   type: integer
+ *                 payments_count:
+ *                   type: number
+ *                 charger_issue:
+ *                   type: integer
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Server error
+ */
+// lalla  GET	/api/admin/stats	Get dashboard statistics
 app.get('/api/admin/stats', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`

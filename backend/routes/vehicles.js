@@ -30,7 +30,7 @@ router.get('/', auth, async (req, res) => {
       //ถ้าไม่ย่อจะใช้
       // const result = await pool.query(...)
       // const rows = result[0]
-      'SELECT * FROM vehicles WHERE user_id = ? ORDER BY created_at DESC',
+      'SELECT * FROM vehicles WHERE user_id = ? ORDER BY vehicle_id DESC',
       [req.user.user_id]
     );
     return res.status(200).json(rows);
@@ -94,19 +94,17 @@ router.get('/:id', auth, async (req, res) => {
  *         application/json:
  *           schema:
  *             type: object
- *             required: [make, model, year, license_plate, connector_type]
+ *             required: [brand, model, license_plate, connector_type]
  *             properties:
- *               make:
+ *               brand:
  *                 type: string
  *               model:
  *                 type: string
- *               year:
- *                 type: integer
  *               license_plate:
  *                 type: string
  *               connector_type:
  *                 type: string
- *                 enum: [CCS, CHAdeMO, Type2, Tesla]
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               battery_capacity_kwh:
  *                 type: number
  *     responses:
@@ -118,17 +116,17 @@ router.get('/:id', auth, async (req, res) => {
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { make, model, year, license_plate, connector_type, battery_capacity_kwh } = req.body;
+  const { brand, model, license_plate, connector_type, battery_capacity_kwh } = req.body;
 
-  if (!make || !model || !year || !license_plate || !connector_type) {
-    return res.status(400).json({ message: 'Make, model, year, license plate, and connector type are required.' });
+  if (!brand || !model || !license_plate || !connector_type) {
+    return res.status(400).json({ message: 'Brand, model, license plate, and connector type are required.' });
   }
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO vehicles (user_id, make, model, year, license_plate, connector_type, battery_capacity_kwh)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [req.user.user_id, make, model, year, license_plate, connector_type, battery_capacity_kwh || null]
+      `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.user.user_id, brand, model, license_plate, connector_type, battery_capacity_kwh || null]
     );
 
     return res.status(201).json({
@@ -162,16 +160,15 @@ router.post('/', auth, async (req, res) => {
  *           schema:
  *             type: object
  *             properties:
- *               make:
+ *               brand:
  *                 type: string
  *               model:
  *                 type: string
- *               year:
- *                 type: integer
  *               license_plate:
  *                 type: string
  *               connector_type:
  *                 type: string
+ *                 enum: [CCS, CHAdeMO, Type2, Type1]
  *               battery_capacity_kwh:
  *                 type: number
  *     responses:
@@ -183,13 +180,13 @@ router.post('/', auth, async (req, res) => {
  *         description: Server error
  */
 router.put('/:id', auth, async (req, res) => {
-  const { make, model, year, license_plate, connector_type, battery_capacity_kwh } = req.body;
+  const { brand, model, license_plate, connector_type, battery_capacity_kwh } = req.body;
 
   try {
     const [result] = await pool.query(
-      `UPDATE vehicles SET make = ?, model = ?, year = ?, license_plate = ?,
+      `UPDATE vehicles SET brand = ?, model = ?, license_plate = ?,
        connector_type = ?, battery_capacity_kwh = ? WHERE vehicle_id = ? AND user_id = ?`,
-      [make, model, year, license_plate, connector_type, battery_capacity_kwh || null, req.params.id, req.user.user_id]
+      [brand, model, license_plate, connector_type, battery_capacity_kwh || null, req.params.id, req.user.user_id]
     );
 
     if (result.affectedRows === 0) {
@@ -202,6 +199,9 @@ router.put('/:id', auth, async (req, res) => {
     return res.status(500).json({ message: 'Server error updating vehicle.' });
   }
 });
+
+
+
 
 /**
  * @swagger
@@ -235,7 +235,6 @@ router.delete('/:id', auth, async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Vehicle not found or not owned by you.' });
     }
-
     return res.status(200).json({ message: 'Vehicle deleted successfully.' });
   } catch (error) {
     console.error('Delete vehicle error:', error);

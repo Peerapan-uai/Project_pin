@@ -30,6 +30,7 @@ const roleCheck = require('../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+/// nem
 router.get('/', async (req, res) => {
   const { connector_type } = req.query;
 
@@ -38,7 +39,6 @@ router.get('/', async (req, res) => {
     let params = [];
 
     if (connector_type) {
-      // Filter stations that have at least one charger with the given connector type
       query = `
         SELECT DISTINCT s.* FROM stations s
         INNER JOIN chargers c ON s.station_id = c.station_id
@@ -78,6 +78,8 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
+
+/// nem
 router.get('/:id', async (req, res) => {
   try {
     const [stationRows] = await pool.query(
@@ -128,9 +130,17 @@ router.get('/:id', async (req, res) => {
  *                 type: number
  *               longitude:
  *                 type: number
- *               description:
+ *               floor:
  *                 type: string
- *               amenities:
+ *               open_time:
+ *                 type: string
+ *                 description: Opening time (e.g. 08:00:00)
+ *               close_time:
+ *                 type: string
+ *                 description: Closing time (e.g. 22:00:00)
+ *               image:
+ *                 type: string
+ *               status:
  *                 type: string
  *     responses:
  *       201:
@@ -150,9 +160,9 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO stations ( name, address, latitude, longitude, floor, open_time, close_time, image, status)
+      `INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, image, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, address, latitude, longitude, floor, open_time, close_time, image, status || null]
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null]
     );
 
     return res.status(201).json({
@@ -194,9 +204,17 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *                 type: number
  *               longitude:
  *                 type: number
- *               description:
+ *               floor:
  *                 type: string
- *               amenities:
+ *               open_time:
+ *                 type: string
+ *                 description: Opening time (e.g. 08:00:00)
+ *               close_time:
+ *                 type: string
+ *                 description: Closing time (e.g. 22:00:00)
+ *               image:
+ *                 type: string
+ *               status:
  *                 type: string
  *     responses:
  *       200:
@@ -206,15 +224,15 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-///lalla   "Update a station (Admin only)"
+///lalla   PUT	/api/stations/{id}	Update a station (Admin only)"
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
 
   try {
     const [result] = await pool.query(
       `UPDATE stations SET name = ?, address = ?, latitude = ?, longitude = ?,
-       floor = ?, open_time = ?,  close_time = ?, image = ?, status = ? WHERE station_id = ?`,
-      [name, address, latitude, longitude, floor, open_time, close_time, image, status, req.params.id]
+       floor = ?, open_time = ?, close_time = ?, image = ?, status = ? WHERE station_id = ?`,
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {
@@ -250,6 +268,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+// lalla  DELETE	/api/stations/{id}	Delete a station
 router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [result] = await pool.query(
