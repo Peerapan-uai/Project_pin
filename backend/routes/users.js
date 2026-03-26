@@ -98,6 +98,31 @@ router.put('/profile', auth, async (req, res) => {
 
 /**
  * @swagger
+ * /api/users/profile:
+ *   delete:
+ *     summary: Delete the authenticated user's own account
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Account deleted
+ *       500:
+ *         description: Server error
+ */
+/// nem
+router.delete('/profile', auth, async (req, res) => {
+  try {
+    await pool.query('DELETE FROM users WHERE user_id = ?', [req.user.user_id]);
+    return res.status(200).json({ message: 'Account deleted successfully.' });
+  } catch (error) {
+    console.error('Delete account error:', error);
+    return res.status(500).json({ message: 'Server error deleting account.' });
+  }
+});
+
+/**
+ * @swagger
  * /api/users:
  *   get:
  *     summary: Get all users (Admin only)

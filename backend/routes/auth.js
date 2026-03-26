@@ -81,7 +81,7 @@ router.post('/register', async (req, res) => {
     return res.status(201).json({
       message: 'User registered successfully.',
       token,
-      user: { user_id: userId, name: `${first_name} ${last_name}`, email, role: 'user' },
+      user: { user_id: userId, first_name, last_name, email, role: 'user' },
     });
   } catch (error) {
     console.error('Register error:', error);
@@ -156,7 +156,8 @@ router.post('/login', async (req, res) => {
       // src/context/AuthContext.jsx login > create > localStorage 28-33
       user: {
         user_id: user.user_id,
-        name: `${user.first_name} ${user.last_name}`,
+        first_name: user.first_name,
+        last_name: user.last_name,
         email: user.email,
         role: user.role,
       },
@@ -177,7 +178,7 @@ router.post('/login', async (req, res) => {
  *       200:
  *         description: Logged out successfully
  */
-router.post(' the /logout', (req, res) => {
+router.post('/logout', (req, res) => {
   // JWT is stateless;client is responsible for discarding the token.
   return res.status(200).json({ message: 'Logged out successfully.' });
 });

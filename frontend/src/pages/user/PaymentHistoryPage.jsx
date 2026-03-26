@@ -14,7 +14,7 @@ export default function PaymentHistoryPage() {
 
   useEffect(() => {
     api.get('/api/payments/history')
-      .then(res => setPayments(res.data))
+      .then(res => setPayments(res.data.payments || []))
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
   }, [])

@@ -86,6 +86,30 @@ Tables ที่ต้องมี:
 > ⚠️ endpoint นี้ยังไม่มีใน code — lalla ต้องสร้าง route ใหม่เองใน server.js
 > เพิ่ม `GET /api/admin/stats` สำหรับดึงสถิติหน้า dashboard (จำนวน user, booking วันนี้, รายได้, ตู้มีปัญหา)
 
+### Payments — Admin only (+1 เพิ่มใหม่)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 15 | GET | `/api/payments/all` | ดูประวัติการจ่ายเงินทุกคนในระบบ (admin view) | ❌ |
+
+### Sessions — Admin only (+1 เพิ่มใหม่)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 16 | GET | `/api/sessions/all` | ดู charging session ทุกคนในระบบ (admin view) | ❌ |
+
+---
+
+## ⚠️ Dependencies จาก nem ที่ต้องรู้
+
+### Auto-notification เมื่อมี ticket ใหม่
+- **nem จะแก้** `POST /api/tickets` ให้ INSERT ลง `notifications` table ให้ technician ทุกคนอัตโนมัติ
+- **lalla ต้องทำ** ให้ tech dashboard อ่าน notification เหล่านี้และแสดงผล (unread badge + list)
+- notification message จะเป็น: `"มี ticket ใหม่: {title} — ตู้ {charger_name}"`
+
+### ปุ่มแจ้งปัญหาใน BookingPage
+- nem เพิ่มปุ่ม 🔧 ใน BookingPage → นำ user ไปหน้า `/report` พร้อม pre-fill charger_id
+- ticket จะถูกสร้างผ่าน `POST /api/tickets` (nem's endpoint)
+- lalla ต้องทำให้ tech dashboard เห็น ticket นั้นและ assign งานได้
+
 ---
 
 ## ⚠️ ห้ามแตะเด็ดขาด — ของ nem
@@ -125,6 +149,33 @@ Tables ที่ต้องมี:
 - **เขียนใหม่** → ลบ db เก่าใน phpMyAdmin แล้วสร้างเอง
 
 ถ้าแก้ schema ต้องบอกฉันด้วย เพราะ query ใน backend ต้องตรงกับชื่อ column
+
+---
+
+## ⚠️ Schema ที่ nem เพิ่มล่าสุด — ต้องรัน ALTER TABLE ด้วย
+
+nem เพิ่ม 2 columns ใหม่เข้า DB แล้ว (schema.sql อัพเดทแล้ว) แต่ถ้า DB ตัวเองยังไม่มี ต้องรันใน phpMyAdmin:
+
+```sql
+ALTER TABLE vehicles
+  ADD COLUMN battery_current_kwh DECIMAL(6,2) DEFAULT NULL
+  AFTER battery_capacity_kwh;
+
+ALTER TABLE chargers
+  ADD COLUMN temperature_celsius DECIMAL(5,2) DEFAULT NULL
+  AFTER status;
+```
+
+### `vehicles.battery_current_kwh`
+- เก็บค่าพลังงานปัจจุบันในแบตรถ (kWh)
+- nem อัพเดทอัตโนมัติทุกครั้งที่ชาร์จเสร็จ (`PATCH /api/sessions/:id/stop`)
+- ไม่ต้องทำอะไรฝั่ง lalla
+
+### `chargers.temperature_celsius`
+- เก็บอุณหภูมิของตู้ชาร์จ (°C) — ป้องกัน overheat
+- ตู้ชาร์จเร็ว (DC Fast Charge) ที่ทำงานหนักอุณหภูมิจะสูง ถ้าเกิน ~60°C ถือว่าอันตราย
+- **lalla ต้องทำ:** แสดงค่า temperature ในหน้า admin charger management
+- แนะนำ: ถ้า temperature >= 60 ให้แสดง badge "ร้อนเกิน" สีแดง หรือ auto set status = 'out_of_service'
 
 ---
 

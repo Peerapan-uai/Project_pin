@@ -48,6 +48,7 @@ CREATE TABLE vehicles (
   license_plate        VARCHAR(50)  NOT NULL,
   connector_type       ENUM('CCS','CHAdeMO','Type2','Type1') NOT NULL,
   battery_capacity_kwh DECIMAL(6,2) NOT NULL,
+  battery_current_kwh  DECIMAL(6,2) DEFAULT NULL,
   PRIMARY KEY (vehicle_id),
   CONSTRAINT fk_vehicles_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -80,6 +81,7 @@ CREATE TABLE chargers (
   power_kw        DECIMAL(6,2)    NOT NULL,
   price_per_kwh   DECIMAL(6,2)    NOT NULL,
   status          ENUM('available','reserved','charging','out_of_service') NOT NULL DEFAULT 'available',
+  temperature_celsius DECIMAL(5,2) DEFAULT NULL,
   qr_code         VARCHAR(500)    DEFAULT NULL,
   PRIMARY KEY (charger_id),
   CONSTRAINT fk_chargers_station FOREIGN KEY (station_id) REFERENCES stations (station_id) ON DELETE CASCADE

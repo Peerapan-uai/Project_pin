@@ -95,7 +95,8 @@ router.post('/', auth, async (req, res) => {
 router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name
+      `SELECT b.*, c.charger_name, c.connector_type, c.power_kw,
+              s.name AS station_name, s.latitude, s.longitude
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id
