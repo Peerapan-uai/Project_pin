@@ -24,6 +24,7 @@ import ReportIssuePage from '../pages/user/ReportIssuePage'
 import ProfilePage from '../pages/user/ProfilePage'
 import VehicleManagePage from '../pages/user/VehicleManagePage'
 import NotificationsPage from '../pages/user/NotificationsPage'
+import SearchPage from '../pages/user/SearchPage'
 
 // Admin pages
 import AdminLoginPage from '../pages/admin/AdminLoginPage'
@@ -70,6 +71,7 @@ export default function AppRouter() {
 
       {/* User pages */}
       <Route path="/home" element={<PrivateRoute><MobileLayout><HomePage /></MobileLayout></PrivateRoute>} />
+      <Route path="/search" element={<PrivateRoute><MobileLayout><SearchPage /></MobileLayout></PrivateRoute>} />
       <Route path="/stations/:id" element={<PrivateRoute><MobileLayout><StationDetailPage /></MobileLayout></PrivateRoute>} />
       <Route path="/chargers/:id" element={<PrivateRoute><MobileLayout><ChargerDetailPage /></MobileLayout></PrivateRoute>} />
       <Route path="/booking/:chargerId" element={<PrivateRoute><MobileLayout><BookingPage /></MobileLayout></PrivateRoute>} />

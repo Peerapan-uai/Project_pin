@@ -170,6 +170,32 @@ router.patch('/:id/stop', auth, async (req, res) => {
       [session.booking_id]
     );
 
+    // อัพเดท battery ในรถที่ตรง connector_type กับ charger นี้ (best effort — ไม่ให้กระทบ response หลัก)
+    try {
+      const [vehicleRows] = await pool.query(
+        `SELECT v.vehicle_id, v.battery_current_kwh, v.battery_capacity_kwh
+         FROM vehicles v
+         JOIN chargers c ON c.connector_type = v.connector_type
+         WHERE v.user_id = ? AND c.charger_id = ?
+         LIMIT 1`,
+        [req.user.user_id, session.charger_id]
+      );
+      if (vehicleRows.length > 0) {
+        const v = vehicleRows[0];
+        const current = v.battery_current_kwh ?? 0;
+        const updated = Math.min(
+          parseFloat((current + energy_kwh).toFixed(2)),
+          v.battery_capacity_kwh
+        );
+        await pool.query(
+          `UPDATE vehicles SET battery_current_kwh = ? WHERE vehicle_id = ?`,
+          [updated, v.vehicle_id]
+        );
+      }
+    } catch (batteryErr) {
+      console.warn('Battery update skipped:', batteryErr.message);
+    }
+
     return res.status(200).json({
       message: 'Charging session stopped.',
       energy_kwh: energy_kwh,
@@ -243,7 +269,8 @@ router.get('/:id/status', auth, async (req, res) => {
     const [rows] = await pool.query(
       `SELECT s.session_id, s.status, s.start_time, s.end_time,
               s.energy_kwh,
-              c.charger_id, c.connector_type, c.power_kw,
+              TIMESTAMPDIFF(SECOND, s.start_time, NOW()) AS duration_seconds,
+              c.charger_id, c.connector_type, c.power_kw, c.price_per_kwh,
               st.name AS station_name
        FROM charging_sessions s
        JOIN chargers c ON s.charger_id = c.charger_id

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import StatusBadge from '../../components/StatusBadge'
-import { FaBolt, FaCalendarAlt } from 'react-icons/fa'
+import { FaBolt, FaCalendarAlt, FaDirections } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function BookingHistoryPage() {
@@ -11,6 +11,7 @@ export default function BookingHistoryPage() {
   const [bookings, setBookings] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [starting, setStarting] = useState(null)
 
   useEffect(() => {
     api.get('/api/bookings')
@@ -18,6 +19,19 @@ export default function BookingHistoryPage() {
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
   }, [])
+
+  const handleStartCharging = (booking) => {
+    setStarting(booking.booking_id)
+    api.post('/api/sessions/start', {
+      booking_id: booking.booking_id,
+      charger_id: booking.charger_id
+    })
+      .then(res => navigate(`/charging/${res.data.session_id}`))
+      .catch(() => {
+        setError('เริ่มชาร์จไม่สำเร็จ กรุณาลองใหม่')
+        setStarting(null)
+      })
+  }
 
   if (loading) return <div className="flex justify-center p-10"><div className="text-gray-500">กำลังโหลด...</div></div>
 
@@ -37,7 +51,7 @@ export default function BookingHistoryPage() {
             <div className="flex items-start justify-between">
               <div className="flex-1 min-w-0">
                 <p className="font-semibold text-gray-900 text-sm">{b.station_name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.vehicle_name}</p>
+                <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.connector_type}</p>
                 <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
                   <FaCalendarAlt size={10} />
                   <span>{new Date(b.start_time).toLocaleDateString('th-TH')}</span>
@@ -45,6 +59,28 @@ export default function BookingHistoryPage() {
               </div>
               <StatusBadge status={b.status} />
             </div>
+            {b.status === 'confirmed' && (
+              <div className="mt-3 flex gap-2">
+                <button
+                  onClick={() => handleStartCharging(b)}
+                  disabled={starting === b.booking_id}
+                  className="flex-1 py-2.5 bg-primary disabled:opacity-50 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+                >
+                  <FaBolt size={13} />
+                  {starting === b.booking_id ? 'กำลังเริ่ม...' : 'เริ่มชาร์จเลย'}
+                </button>
+                {b.latitude && b.longitude && (
+                  <a
+                    href={`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}&travelmode=driving`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="px-3 py-2.5 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"
+                  >
+                    <FaDirections size={16} />
+                  </a>
+                )}
+              </div>
+            )}
             {b.total_amount && (
               <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-sm">
                 <span className="text-gray-500">{b.energy_kwh} kWh</span>

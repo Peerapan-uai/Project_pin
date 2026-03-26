@@ -35,19 +35,27 @@ router.get('/', async (req, res) => {
   const { connector_type } = req.query;
 
   try {
-    let query = 'SELECT * FROM stations';
+    let query = `
+      SELECT s.*,
+        COUNT(DISTINCT c.charger_id) AS total_chargers,
+        SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) AS available_chargers,
+        ROUND(AVG(r.rating), 1) AS rating,
+        COUNT(DISTINCT r.review_id) AS review_count,
+        GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types
+      FROM stations s
+      LEFT JOIN chargers c ON s.station_id = c.station_id
+      LEFT JOIN reviews r ON s.station_id = r.station_id
+    `;
     let params = [];
 
     if (connector_type) {
-      query = `
-        SELECT DISTINCT s.* FROM stations s
-        INNER JOIN chargers c ON s.station_id = c.station_id
-        WHERE c.connector_type = ?
-      `;
+      query += ` WHERE s.station_id IN (
+        SELECT station_id FROM chargers WHERE connector_type = ?
+      )`;
       params = [connector_type];
     }
 
-    query += ' ORDER BY station_id ASC';
+    query += ' GROUP BY s.station_id ORDER BY s.station_id ASC';
 
     const [rows] = await pool.query(query, params);
     return res.status(200).json(rows);

@@ -68,15 +68,18 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Payment already recorded for this session.' });
     }
 
+    const transaction_ref = `TXN${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
     const [result] = await pool.query(
-      `INSERT INTO payments (user_id, session_id, amount, method, status, paid_at)
-       VALUES (?, ?, ?, ?, 'completed', NOW())`,
-      [req.user.user_id, session_id, amount, method]
+      `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at)
+       VALUES (?, ?, ?, ?, 'completed', ?, NOW())`,
+      [req.user.user_id, session_id, amount, method, transaction_ref]
     );
 
     return res.status(201).json({
       message: 'Payment recorded successfully.',
       payment_id: result.insertId,
+      transaction_ref,
     });
   } catch (error) {
     console.error('Create payment error:', error);

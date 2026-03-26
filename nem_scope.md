@@ -1,12 +1,13 @@
 # nem_scope — งานของ nem (33 endpoints)
 
 ## สถานะปัจจุบัน
-- Frontend (UI) — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว)
-- Backend routes — **กำลังทำ 🔄** (auth ✅, users ✅, vehicles ✅, stations ✅, chargers ✅, bookings 🔄 — รอเทสเมื่อ DB พร้อม)
-- เชื่อม Frontend ↔ Backend — **ยังไม่ได้ทำ ❌**
-
-> ⚠️ ไฟล์ใน `backend/routes/` มีอยู่แล้วแต่เป็น draft ที่ยังมี bug
-> nem ต้องเขียน/แก้ทีละ endpoint เองจนครบ แล้วเทสให้ผ่านก่อน
+- Backend routes — **เทสผ่านหมดแล้ว ✅** (ทุก endpoint เทสผ่าน Swagger แล้ว)
+- Frontend (UI) — **เชื่อม Backend แล้วส่วนใหญ่ ✅** (บางหน้ายังปรับอยู่)
+- Frontend ที่ยังค้าง 🔄:
+  - SearchPage: GPS + sort ตามระยะห่าง
+  - ChargingPage: real-time kW/kWh/ค่าไฟ
+  - BookingPage: ปุ่ม 🔧 แจ้งปัญหา
+  - POST /api/tickets: auto-notify technician
 
 ---
 
@@ -68,42 +69,42 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 | 15 | POST | `/api/bookings` | จองตู้ชาร์จ | ✅ |
 | 16 | GET | `/api/bookings` | ดูประวัติการจองของตัวเอง | ✅ |
 | 17 | GET | `/api/bookings/queue/:chargerId` | ดู queue | ✅ |
-| 18 | GET | `/api/bookings/:id` | ดูการจองเดียว | ❌ |
-| 19 | PATCH | `/api/bookings/:id/cancel` | ยกเลิกการจอง | ❌ |
+| 18 | GET | `/api/bookings/:id` | ดูการจองเดียว | ✅ |
+| 19 | PATCH | `/api/bookings/:id/cancel` | ยกเลิกการจอง | ✅ |
 
 ### Sessions (4)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 20 | POST | `/api/sessions/start` | เริ่มชาร์จ | ❌ |
-| 21 | PATCH | `/api/sessions/:id/stop` | หยุดชาร์จ + คำนวณค่าใช้จ่าย | ❌ |
-| 22 | GET | `/api/sessions/history` | ดูประวัติการชาร์จ | ❌ |
-| 23 | GET | `/api/sessions/:id/status` | เช็คสถานะ session | ❌ |
+| 20 | POST | `/api/sessions/start` | เริ่มชาร์จ | ✅ |
+| 21 | PATCH | `/api/sessions/:id/stop` | หยุดชาร์จ + คำนวณค่าใช้จ่าย | ✅ |
+| 22 | GET | `/api/sessions/history` | ดูประวัติการชาร์จ | ✅ |
+| 23 | GET | `/api/sessions/:id/status` | เช็คสถานะ session | ✅ |
 
 ### Payments (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 24 | POST | `/api/payments` | บันทึกการจ่ายเงิน | ❌ |
-| 25 | GET | `/api/payments/history` | ดูประวัติการจ่าย | ❌ |
-| 26 | GET | `/api/payments/:id` | ดูรายการจ่ายเดียว | ❌ |
+| 24 | POST | `/api/payments` | บันทึกการจ่ายเงิน | ✅ |
+| 25 | GET | `/api/payments/history` | ดูประวัติการจ่าย | ✅ |
+| 26 | GET | `/api/payments/:id` | ดูรายการจ่ายเดียว | ✅ |
 
 ### Reviews (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 27 | POST | `/api/reviews` | รีวิวสถานี | ❌ |
-| 28 | GET | `/api/reviews/station/:id` | ดูรีวิวของสถานี | ❌ |
-| 29 | DELETE | `/api/reviews/:id` | ลบรีวิวของตัวเอง | ❌ |
+| 27 | POST | `/api/reviews` | รีวิวสถานี | ✅ |
+| 28 | GET | `/api/reviews/station/:id` | ดูรีวิวของสถานี | ✅ |
+| 29 | DELETE | `/api/reviews/:id` | ลบรีวิวของตัวเอง | ✅ |
 
 ### Tickets — แค่สร้าง (1)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 30 | POST | `/api/tickets` | แจ้งปัญหา | ❌ |
+| 30 | POST | `/api/tickets` | แจ้งปัญหา | ✅ |
 
 ### Notifications (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 31 | GET | `/api/notifications` | ดูการแจ้งเตือน | ❌ |
-| 32 | PATCH | `/api/notifications/read-all` | อ่านทั้งหมด | ❌ |
-| 33 | PATCH | `/api/notifications/:id/read` | อ่านทีละอัน | ❌ |
+| 31 | GET | `/api/notifications` | ดูการแจ้งเตือน | ✅ |
+| 32 | PATCH | `/api/notifications/read-all` | อ่านทั้งหมด | ✅ |
+| 33 | PATCH | `/api/notifications/:id/read` | อ่านทีละอัน | ✅ |
 
 ---
 

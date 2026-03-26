@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FaMapMarkerAlt, FaStar, FaClock, FaBolt, FaArrowLeft } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaStar, FaClock, FaBolt, FaDirections } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import StatusBadge from '../../components/StatusBadge'
@@ -59,6 +59,16 @@ export default function StationDetailPage() {
               {station.open_time}–{station.close_time}
             </span>
           </div>
+          {station.latitude && station.longitude && (
+            <a
+              href={`https://www.google.com/maps/dir/?api=1&destination=${station.latitude},${station.longitude}&travelmode=driving`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 flex items-center justify-center gap-2 w-full py-2.5 bg-blue-50 text-blue-600 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-colors"
+            >
+              <FaDirections size={15} /> นำทางมาที่นี่
+            </a>
+          )}
         </div>
 
         {/* Chargers */}
