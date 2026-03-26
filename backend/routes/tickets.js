@@ -81,8 +81,8 @@ const upload = multer({
 router.post('/', auth, async (req, res) => {
   const { title, description, charger_id, priority } = req.body;
 
-  if (!title || !description) {
-    return res.status(400).json({ message: 'Title and description are required.' });
+  if (!title || !description || !charger_id) {
+    return res.status(400).json({ message: 'Title, description, and charger_id are required.' });
   }
 
   try {
@@ -112,11 +112,12 @@ router.post('/', auth, async (req, res) => {
         const chargerSuffix = chargerInfo ? ` — ตู้ ${chargerInfo.charger_name}` : '';
         const notifValues = techRows.map((t) => [
           t.user_id,
+          'แจ้งปัญหาใหม่',
           `มี ticket ใหม่: ${title}${chargerSuffix}`,
-          'ticket',
+          'maintenance',
         ]);
         await pool.query(
-          `INSERT INTO notifications (user_id, message, type) VALUES ?`,
+          `INSERT INTO notifications (user_id, title, message, type) VALUES ?`,
           [notifValues]
         );
       }

@@ -171,7 +171,7 @@ export default function ProfilePage() {
 
       {/* Edit Modal */}
       {showEdit && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end">
           <div className="bg-white w-full rounded-t-3xl p-6 space-y-4">
             <h2 className="text-lg font-bold text-gray-900">แก้ไขข้อมูล</h2>
             {editError && <p className="text-red-500 text-sm">{editError}</p>}
@@ -226,7 +226,7 @@ export default function ProfilePage() {
 
       {/* Delete Confirm Modal */}
       {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-6">
+        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center px-6">
           <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
             <div className="text-center">
               <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">

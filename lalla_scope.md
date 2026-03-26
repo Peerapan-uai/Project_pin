@@ -153,10 +153,13 @@ backend ของโปรเจกต์นี้คืน response ไม่�
 |----------|-------------|------------------------|
 | `GET /api/tickets` | `{ tickets: [...] }` | `res.data.tickets` |
 | `GET /api/users` | `{ users: [...] }` | `res.data.users` |
-| `GET /api/stations` | `{ stations: [...] }` | `res.data.stations` |
+| `GET /api/stations` | `[...]` (array ตรงๆ) | `res.data` |
+| `GET /api/stations/:id` | `{ station: {...}, chargers: [...] }` | `res.data.station` / `res.data.chargers` |
 | `GET /api/chargers/station/:id` | `[...]` หรือ `{ chargers: [...] }` | `res.data.chargers \|\| res.data` |
-| `GET /api/bookings` | `[...]` | `res.data` |
-| `GET /api/vehicles` | `[...]` | `res.data` |
+| `GET /api/bookings` | `[...]` (array ตรงๆ) | `res.data` |
+| `GET /api/bookings/:id` | `{ booking: {...} }` | `res.data.booking` |
+| `GET /api/sessions/history` | `{ sessions: [...] }` | `res.data.sessions` |
+| `GET /api/vehicles` | `[...]` (array ตรงๆ) | `res.data` |
 | `GET /api/notifications` | `{ notifications: [...] }` | `res.data.notifications` |
 
 **Pattern ที่ปลอดภัย** ถ้าไม่แน่ใจให้เขียน:

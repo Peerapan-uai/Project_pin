@@ -169,7 +169,7 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
     const [result] = await pool.query(
       `INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, image, status)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null]
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active']
     );
 
     return res.status(201).json({
@@ -238,7 +238,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
     const [result] = await pool.query(
       `UPDATE stations SET name = ?, address = ?, latitude = ?, longitude = ?,
        floor = ?, open_time = ?, close_time = ?, image = ?, status = ? WHERE station_id = ?`,
-      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || null, req.params.id]
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active', req.params.id]
     );
 
     if (result.affectedRows === 0) {
