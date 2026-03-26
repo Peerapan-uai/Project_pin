@@ -14,14 +14,14 @@ export default function DashboardPage() {
     Promise.all([
       api.get('/api/users'),
       api.get('/api/stations'),
-      api.get('/api/bookings'),
+      api.get('/api/bookings/all'),
       api.get('/api/tickets'),
     ])
       .then(([usersRes, stationsRes, bookingsRes, ticketsRes]) => {
-        setUsers(usersRes.data)
-        setStations(stationsRes.data)
-        setBookings(bookingsRes.data)
-        setTickets(ticketsRes.data)
+        setUsers(usersRes.data.users ?? [])
+        setStations(Array.isArray(stationsRes.data) ? stationsRes.data : [])
+        setBookings(bookingsRes.data.bookings ?? [])
+        setTickets(ticketsRes.data.tickets ?? [])
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))

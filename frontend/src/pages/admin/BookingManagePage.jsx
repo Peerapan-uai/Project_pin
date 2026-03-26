@@ -8,8 +8,8 @@ export default function BookingManagePage() {
   const [loading, setLoading]   = useState(true)
 
   useEffect(() => {
-    api.get('/api/bookings')
-      .then((res) => setBookings(res.data))
+    api.get('/api/bookings/all')
+      .then((res) => setBookings(res.data.bookings ?? []))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }, [])
@@ -40,7 +40,6 @@ export default function BookingManagePage() {
                 <td className="px-5 py-4 text-gray-400 text-xs">#{b.booking_id}</td>
                 <td className="px-5 py-4">
                   <p className="font-medium text-gray-900">{b.first_name} {b.last_name}</p>
-                  <p className="text-xs text-gray-400">{b.vehicle_name}</p>
                 </td>
                 <td className="px-5 py-4 hidden md:table-cell">
                   <p className="text-gray-800">{b.station_name}</p>
@@ -49,10 +48,12 @@ export default function BookingManagePage() {
                 <td className="px-5 py-4 hidden lg:table-cell">
                   <div className="flex items-center gap-1 text-xs text-gray-500">
                     <FaCalendarAlt size={10} />
-                    {new Date(b.start_time).toLocaleDateString('th-TH')}
+                    {b.start_time ? new Date(b.start_time).toLocaleDateString('th-TH') : '-'}
                   </div>
                 </td>
-                <td className="px-5 py-4 text-center"><StatusBadge status={b.status} /></td>
+                <td className="px-5 py-4 text-center">
+                  {b.status ? <StatusBadge status={b.status} /> : <span className="text-gray-400 text-xs">-</span>}
+                </td>
                 <td className="px-5 py-4 text-right font-semibold text-primary">
                   {b.total_amount ? `${b.total_amount} ฿` : '-'}
                 </td>
@@ -60,6 +61,9 @@ export default function BookingManagePage() {
             ))}
           </tbody>
         </table>
+        {bookings.length === 0 && (
+          <div className="text-center py-12 text-gray-400 text-sm">ไม่มีรายการจอง</div>
+        )}
       </div>
     </div>
   )

@@ -4,10 +4,10 @@ import StatusBadge from '../../components/StatusBadge'
 import { FaTicketAlt, FaUserCog } from 'react-icons/fa'
 
 export default function TicketManagePage() {
-  const [tickets, setTickets]       = useState([])
-  const [technicians, setTechnicians] = useState([])
+  const [tickets, setTickets]           = useState([])
+  const [technicians, setTechnicians]   = useState([])
   const [filterStatus, setFilterStatus] = useState('all')
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]           = useState(true)
 
   const fetchData = () => {
     setLoading(true)
@@ -16,8 +16,8 @@ export default function TicketManagePage() {
       api.get('/api/users'),
     ])
       .then(([ticketsRes, usersRes]) => {
-        setTickets(ticketsRes.data)
-        setTechnicians(usersRes.data.filter((u) => u.role === 'technician'))
+        setTickets(ticketsRes.data.tickets ?? [])
+        setTechnicians((usersRes.data.users ?? []).filter((u) => u.role === 'technician'))
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
@@ -26,7 +26,7 @@ export default function TicketManagePage() {
   useEffect(() => { fetchData() }, [])
 
   const assign = (ticketId, techId) => {
-    api.patch(`/api/tickets/${ticketId}/assign`, { assigned_to: Number(techId) })
+    api.patch(`/api/tickets/${ticketId}/assign`, { technician_id: Number(techId) })
       .then(() => fetchData())
       .catch((err) => console.error(err))
   }
@@ -68,9 +68,9 @@ export default function TicketManagePage() {
                 </div>
                 <p className="text-xs text-gray-500">{t.charger_name} · {t.station_name}</p>
                 <p className="text-xs text-gray-400 mt-1">{t.description}</p>
-                {t.tech_name && (
+                {t.assigned_to_name && (
                   <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
-                    <FaUserCog size={10} /> มอบหมายให้ {t.tech_name}
+                    <FaUserCog size={10} /> มอบหมายให้ {t.assigned_to_name}
                   </p>
                 )}
               </div>
@@ -96,6 +96,9 @@ export default function TicketManagePage() {
             )}
           </div>
         ))}
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-gray-400 text-sm">ไม่พบตั๋วที่ค้นหา</div>
+        )}
       </div>
     </div>
   )

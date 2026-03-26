@@ -1,11 +1,12 @@
 # lalla_scope — งานของ lalla (14 endpoints + Database)
 
 ## สถานะปัจจุบัน
-- Database schema — **ยังไม่ได้เขียน ❌** (มี draft อยู่ที่ `backend/schema.sql` แต่ต้องตัดสินใจใช้หรือเขียนใหม่)
-- Backend routes admin/tech — **ยังไม่ได้เขียน ❌** (มี skeleton อยู่แต่มี bug ต้องเขียนใหม่ทีละ endpoint)
-- Frontend admin/tech — **ทำเสร็จแล้ว ✅** (ทุกหน้าสร้างไว้แล้ว แต่ยังใช้ mock data)
+- Database schema — **เสร็จแล้ว ✅** (import ลง MySQL แล้ว มี sample data พร้อมเทส)
+- Backend routes admin/tech — **เสร็จแล้ว ✅** (ทุก endpoint เขียนครบ แก้ bug หมดแล้ว)
+- Frontend admin/tech — **เสร็จแล้ว ✅** (AdminLoginPage ใช้งานได้แล้ว, DashboardPage แก้ bug แล้ว)
+- เทส Swagger — **เสร็จแล้ว ✅** (เทสครบทุก 15 endpoint ผ่านหมด)
 
-> ⚠️ งานด่วนที่สุดคือ **Database schema** เพราะ nem รอ tables อยู่ก่อนจะเริ่มเทส API ได้
+> อัปเดตล่าสุด: 2026-03-26
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
@@ -51,40 +52,55 @@ Tables ที่ต้องมี:
 ### Users — Admin only (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 1 | GET | `/api/users` | ดู user ทั้งหมดในระบบ | ❌ |
-| 2 | PATCH | `/api/users/:id/ban` | ban/unban user | ❌ |
-| 3 | POST | `/api/users/technician` | สร้าง account ช่าง | ❌ |
+| 1 | GET | `/api/users` | ดู user ทั้งหมดในระบบ | ✅ |
+| 2 | PATCH | `/api/users/:id/ban` | ban/unban user | ✅ |
+| 3 | POST | `/api/users/technician` | สร้าง account ช่าง | ✅ |
 
 ### Stations — Admin only (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 4 | POST | `/api/stations` | เพิ่มสถานีใหม่ | ❌ |
-| 5 | PUT | `/api/stations/:id` | แก้ข้อมูลสถานี | ❌ |
-| 6 | DELETE | `/api/stations/:id` | ลบสถานี | ❌ |
+| 4 | POST | `/api/stations` | เพิ่มสถานีใหม่ | ✅ |
+| 5 | PUT | `/api/stations/:id` | แก้ข้อมูลสถานี | ✅ |
+| 6 | DELETE | `/api/stations/:id` | ลบสถานี | ✅ |
 
 ### Chargers — Admin/Tech (3)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 7 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ❌ |
-| 8 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ❌ |
-| 9 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/in_use/maintenance) | ❌ |
+| 7 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ✅ |
+| 8 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ✅ |
+| 9 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/reserved/charging/out_of_service) | ✅ |
 
 ### Tickets — Admin/Tech (4)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 10 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ❌ |
-| 11 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ❌ |
-| 12 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket | ❌ |
-| 13 | POST | `/api/tickets/:id/image` | อัพโหลดรูปประกอบ | ❌ |
+| 10 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ✅ |
+| 11 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ✅ |
+| 12 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket (reported/assigned/in_progress/completed) | ✅ |
+| 13 | POST | `/api/tickets/:id/image` | อัพโหลดรูป repair_image | ✅ |
 
 ### Bookings — Admin only (1)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 14 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ❌ |
+| 14 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ✅ |
 
 ### Dashboard Stats — Admin only
-> ⚠️ endpoint นี้ยังไม่มีใน code — lalla ต้องสร้าง route ใหม่เองใน server.js
-> เพิ่ม `GET /api/admin/stats` สำหรับดึงสถิติหน้า dashboard (จำนวน user, booking วันนี้, รายได้, ตู้มีปัญหา)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 15 | GET | `/api/admin/stats` | ดึงสถิติ dashboard (total_users, bookings_today, payments_count, charger_issue) | ✅ |
+
+---
+
+## Frontend ที่เพิ่มใหม่ (2026-03-26)
+
+| ไฟล์ | หน้าที่ | สถานะ |
+|------|---------|-------|
+| `pages/admin/AdminLoginPage.jsx` | หน้า login PC-style สำหรับ Admin และ Technician | ✅ |
+| `routes/AppRouter.jsx` | เพิ่ม route `/admin/login` | ✅ |
+
+- เข้าได้ที่ `http://localhost:3000/admin/login`
+- ถ้า login ด้วย role `user` จะขึ้น error "ไม่มีสิทธิ์เข้าใช้งานระบบ Staff"
+- admin → `/admin/dashboard`, technician → `/tech/dashboard`
+- ใช้ `api.post('/api/auth/login')` และ `useAuth()` hook เดียวกับ nem
 
 ---
 
@@ -143,10 +159,24 @@ Tables ที่ต้องมี:
 
 ## วิธีเทส API
 
-1. รัน backend: `nodemon server.js`
-2. เปิด `http://localhost:5000/api-docs` (Swagger)
-3. Login ด้วย admin account ก่อน → เอา token ไปใส่ใน Authorize
-4. ทดสอบ route ที่เพิ่งเขียน
+1. รัน backend: `cd backend && nodemon server.js`
+2. รัน frontend: `cd frontend && npm run dev`
+3. เปิด `http://localhost:5001/api-docs` (Swagger)
+4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
+5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
+
+## สิ่งที่แก้/เพิ่มวันที่ 2026-03-26
+
+| สิ่งที่ทำ | ไฟล์ที่แก้ |
+|-----------|-----------|
+| แก้ port frontend จาก 5000 → 5001 | `frontend/.env` |
+| reset password hash ของ admin ใน DB | phpMyAdmin |
+| แก้ bug DashboardPage `users.filter is not a function` | `frontend/src/pages/admin/DashboardPage.jsx` |
+| แก้ Swagger doc ของ POST /api/users/technician (`name` → `first_name`+`last_name`) | `backend/routes/users.js` |
+| เพิ่ม Swagger doc ให้ GET /api/bookings/all | `backend/routes/bookings.js` |
+| เพิ่ม Swagger doc ให้ GET /api/admin/stats | `backend/server.js` |
+| แก้ Swagger config ให้อ่าน server.js ด้วย | `backend/server.js` |
+| เทสทุก 15 endpoint ผ่านหมด | — |
 
 ---
 

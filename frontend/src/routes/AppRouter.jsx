@@ -26,6 +26,7 @@ import VehicleManagePage from '../pages/user/VehicleManagePage'
 import NotificationsPage from '../pages/user/NotificationsPage'
 
 // Admin pages
+import AdminLoginPage from '../pages/admin/AdminLoginPage'
 import DashboardPage from '../pages/admin/DashboardPage'
 import StationManagePage from '../pages/admin/StationManagePage'
 import ChargerManagePage from '../pages/admin/ChargerManagePage'
@@ -64,6 +65,7 @@ export default function AppRouter() {
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/admin/login" element={<AdminLoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
 
       {/* User pages */}

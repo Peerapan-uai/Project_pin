@@ -3,14 +3,14 @@ import api from '../../utils/api'
 import { FaUser, FaBan, FaSearch } from 'react-icons/fa'
 
 export default function UserManagePage() {
-  const [users, setUsers]   = useState([])
-  const [search, setSearch] = useState('')
+  const [users, setUsers]     = useState([])
+  const [search, setSearch]   = useState('')
   const [loading, setLoading] = useState(true)
 
   const fetchUsers = () => {
     setLoading(true)
     api.get('/api/users')
-      .then((res) => setUsers(res.data.filter((u) => u.role === 'user')))
+      .then((res) => setUsers((res.data.users ?? []).filter((u) => u.role === 'user')))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }
@@ -18,8 +18,7 @@ export default function UserManagePage() {
   useEffect(() => { fetchUsers() }, [])
 
   const toggleBan = (user) => {
-    const payload = user.is_banned ? { ban_reason: null } : { ban_reason: 'banned by admin' }
-    api.patch(`/api/users/${user.user_id}/ban`, payload)
+    api.patch(`/api/users/${user.user_id}/ban`, { is_banned: !user.is_banned })
       .then(() => fetchUsers())
       .catch((err) => console.error(err))
   }
@@ -93,6 +92,9 @@ export default function UserManagePage() {
             ))}
           </tbody>
         </table>
+        {filtered.length === 0 && (
+          <div className="text-center py-12 text-gray-400 text-sm">ไม่พบผู้ใช้</div>
+        )}
       </div>
     </div>
   )
