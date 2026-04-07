@@ -147,7 +147,7 @@ CREATE TABLE reviews (
   review_id  INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id    INT UNSIGNED NOT NULL,
   station_id INT UNSIGNED NOT NULL,
-  rating     TINYINT      NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  rating     TINYINT      NOT NULL,
   comment    TEXT         DEFAULT NULL,
   created_at TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (review_id),
@@ -193,10 +193,22 @@ CREATE TABLE notifications (
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- notification_logs
+-- =====================================================================
+CREATE TABLE notification_logs (
+  log_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  notification_id   INT UNSIGNED NOT NULL,
+  user_id           INT UNSIGNED NOT NULL,
+  delivered_at      DATETIME     DEFAULT NULL,
+  read_at           DATETIME     DEFAULT NULL,
+  status            ENUM('pending', 'delivered', 'failed') NOT NULL DEFAULT 'pending',
+  PRIMARY KEY (log_id),
+  CONSTRAINT fk_notification_logs_notification FOREIGN KEY (notification_id) REFERENCES notifications (notification_id) ON DELETE CASCADE,
+  CONSTRAINT fk_notification_logs_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- -------------------------------------------------------------
 -- payment_refunds
--- -------------------------------------------------------------
+-- =====================================================================
 CREATE TABLE payment_refunds (
   refund_id    INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   payment_id   INT UNSIGNED    NOT NULL,
@@ -207,6 +219,20 @@ CREATE TABLE payment_refunds (
   PRIMARY KEY (refund_id),
   CONSTRAINT fk_refunds_payment FOREIGN KEY (payment_id)  REFERENCES payments (payment_id) ON DELETE CASCADE,
   CONSTRAINT fk_refunds_admin   FOREIGN KEY (refunded_by) REFERENCES users    (user_id)    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- messages
+-- =====================================================================
+CREATE TABLE messages (
+  message_id  INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  sender_id   INT UNSIGNED NOT NULL,
+  receiver_id INT UNSIGNED NOT NULL,
+  content     TEXT         NOT NULL,
+  is_read     TINYINT(1)   NOT NULL DEFAULT 0,
+  created_at  TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (message_id),
+  CONSTRAINT fk_messages_sender   FOREIGN KEY (sender_id)   REFERENCES users (user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- =============================================================
