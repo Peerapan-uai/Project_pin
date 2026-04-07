@@ -1,5 +1,4 @@
 # Study Guide — EV Charger Project
-> อัปเดต: 2026-04-04 | เหลือ 4 วัน (ต้องเสร็จภายใน 8 เม.ย.)
 > ข้อมูลทุกอย่างในนี้ verified จาก GitHub issues / npm / official docs จริงๆ
 
 ---
@@ -369,26 +368,6 @@ Google ประกาศจะหยุด release Maps SDK สำหรับ 
 npm install omise promptpay-qr qrcode @json2csv/node puppeteer
 
 # Frontend ไม่ต้องเพิ่ม (Omise ใช้ CDN)
-```
-
----
-
-## Priority 4 วันที่เหลือ
-
-### เนม
-```
-วันที่ 5 (วันนี้)  → PromptPay QR
-วันที่ 6           → บัตรเครดิต Omise  
-วันที่ 7           → ngrok + webhook, Auto-notify ช่าง
-วันที่ 8           → เก็บ bug, เทสรวม
-```
-
-### ลัลลา
-```
-วันที่ 5 (วันนี้)  → CSV export
-วันที่ 6           → PDF (Puppeteer)
-วันที่ 7           → Notification broadcast
-วันที่ 8           → เก็บ bug, เทสรวม
 ```
 
 ---
