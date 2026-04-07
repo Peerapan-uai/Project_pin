@@ -11,7 +11,7 @@ export default function VehicleManagePage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ brand: '', model: '', license_plate: '', connector_type: 'CCS', battery_capacity_kwh: '' })
+  const [form, setForm] = useState({ brand: '', model: '', license_plate: '', connector_type: 'CCS', battery_capacity_kwh: '', battery_soc_pct: '' })
   const [submitting, setSubmitting] = useState(false)
   const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
@@ -27,16 +27,21 @@ export default function VehicleManagePage() {
   const handleAdd = () => {
     if (!form.brand || !form.model || !form.license_plate) return
     setSubmitting(true)
+    const cap = form.battery_capacity_kwh ? Number(form.battery_capacity_kwh) : undefined
+    const soc = form.battery_soc_pct !== '' ? Number(form.battery_soc_pct) : null
+    const current = cap && soc != null ? parseFloat(((soc / 100) * cap).toFixed(2)) : null
     api.post('/api/vehicles', {
-      ...form,
-      battery_capacity_kwh: form.battery_capacity_kwh ? Number(form.battery_capacity_kwh) : undefined
+      brand: form.brand, model: form.model, license_plate: form.license_plate,
+      connector_type: form.connector_type,
+      battery_capacity_kwh: cap,
+      battery_current_kwh: current
     })
       .then(() => {
         return api.get('/api/vehicles')
       })
       .then(res => {
         setVehicles(res.data)
-        setForm({ brand: '', model: '', license_plate: '', connector_type: 'CCS', battery_capacity_kwh: '' })
+        setForm({ brand: '', model: '', license_plate: '', connector_type: 'CCS', battery_capacity_kwh: '', battery_soc_pct: '' })
         setShowForm(false)
       })
       .catch(() => setError('เพิ่มยานพาหนะไม่สำเร็จ'))
@@ -84,6 +89,11 @@ export default function VehicleManagePage() {
             </select>
             <input type="number" placeholder="ความจุแบตเตอรี่ (kWh)" value={form.battery_capacity_kwh}
               onChange={(e) => setForm((p) => ({ ...p, battery_capacity_kwh: e.target.value }))}
+              className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input type="number" placeholder="แบตปัจจุบัน % (ไม่บังคับ เช่น 80)" min="0" max="100"
+              value={form.battery_soc_pct}
+              onChange={(e) => setForm((p) => ({ ...p, battery_soc_pct: e.target.value }))}
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <div className="flex gap-2">

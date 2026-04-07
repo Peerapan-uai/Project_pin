@@ -116,7 +116,7 @@ router.get('/:id', auth, async (req, res) => {
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { brand, model, license_plate, connector_type, battery_capacity_kwh } = req.body;
+  const { brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh } = req.body;
 
   if (!brand || !model || !license_plate || !connector_type) {
     return res.status(400).json({ message: 'Brand, model, license plate, and connector type are required.' });
@@ -124,9 +124,9 @@ router.post('/', auth, async (req, res) => {
 
   try {
     const [result] = await pool.query(
-      `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [req.user.user_id, brand, model, license_plate, connector_type, battery_capacity_kwh || null]
+      `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [req.user.user_id, brand, model, license_plate, connector_type, battery_capacity_kwh || null, battery_current_kwh ?? null]
     );
 
     return res.status(201).json({

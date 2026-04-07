@@ -156,6 +156,13 @@ router.post('/', auth, async (req, res) => {
       [req.user.user_id, session_id, amount, method, transaction_ref]
     );
 
+    try {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'payment')`,
+        [req.user.user_id, 'ชำระเงินสำเร็จ', `ชำระเงินจำนวน ${amount} บาท เรียบร้อยแล้ว เลขอ้างอิง: ${transaction_ref}`]
+      );
+    } catch (_) {}
+
     return res.status(201).json({
       message: 'Payment recorded successfully.',
       payment_id: result.insertId,

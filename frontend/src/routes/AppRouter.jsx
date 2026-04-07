@@ -18,6 +18,7 @@ import BookingPage from '../pages/user/BookingPage'
 import ChargingPage from '../pages/user/ChargingPage'
 import PaymentPage from '../pages/user/PaymentPage'
 import BookingHistoryPage from '../pages/user/BookingHistoryPage'
+import BookingDetailPage from '../pages/user/BookingDetailPage'
 import PaymentHistoryPage from '../pages/user/PaymentHistoryPage'
 import ReviewPage from '../pages/user/ReviewPage'
 import ReportIssuePage from '../pages/user/ReportIssuePage'
@@ -79,6 +80,7 @@ export default function AppRouter() {
       <Route path="/charging/:sessionId" element={<PrivateRoute><MobileLayout><ChargingPage /></MobileLayout></PrivateRoute>} />
       <Route path="/payment/:sessionId" element={<PrivateRoute><MobileLayout><PaymentPage /></MobileLayout></PrivateRoute>} />
       <Route path="/bookings" element={<PrivateRoute><MobileLayout><BookingHistoryPage /></MobileLayout></PrivateRoute>} />
+      <Route path="/bookings/:id" element={<PrivateRoute><MobileLayout><BookingDetailPage /></MobileLayout></PrivateRoute>} />
       <Route path="/payments" element={<PrivateRoute><MobileLayout><PaymentHistoryPage /></MobileLayout></PrivateRoute>} />
       <Route path="/review/:stationId" element={<PrivateRoute><MobileLayout><ReviewPage /></MobileLayout></PrivateRoute>} />
       <Route path="/report" element={<PrivateRoute><MobileLayout><ReportIssuePage /></MobileLayout></PrivateRoute>} />

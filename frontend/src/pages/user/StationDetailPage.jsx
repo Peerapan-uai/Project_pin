@@ -11,17 +11,20 @@ export default function StationDetailPage() {
   const navigate = useNavigate()
   const [station, setStation] = useState(null)
   const [chargers, setChargers] = useState([])
+  const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
   useEffect(() => {
     Promise.all([
       api.get(`/api/stations/${id}`),
-      api.get(`/api/chargers/station/${id}`)
+      api.get(`/api/chargers/station/${id}`),
+      api.get(`/api/reviews/station/${id}`)
     ])
-      .then(([stationRes, chargersRes]) => {
+      .then(([stationRes, chargersRes, reviewsRes]) => {
         setStation(stationRes.data.station || stationRes.data)
         setChargers(Array.isArray(chargersRes.data) ? chargersRes.data : chargersRes.data.chargers || [])
+        setReviews(reviewsRes.data.reviews || reviewsRes.data || [])
       })
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
@@ -51,8 +54,27 @@ export default function StationDetailPage() {
           </div>
           <p className="text-xs text-gray-500 mt-0.5 ml-4">{station.floor}</p>
           <div className="flex items-center gap-4 mt-3 pt-3 border-t border-gray-100">
-            <span className="flex items-center gap-1 text-sm text-amber-500 font-medium">
-              <FaStar size={13} /> {station.rating} <span className="text-gray-400 font-normal text-xs">({station.review_count} รีวิว)</span>
+            <span className="flex items-center gap-1.5">
+              {reviews.length > 0 ? (() => {
+                const avg = reviews.reduce((s, r) => s + r.rating, 0) / reviews.length
+                const rounded = Math.round(avg)
+                return <>
+                  <span className="text-sm font-bold text-amber-500">{avg.toFixed(1)}</span>
+                  <span className="flex items-center gap-0.5">
+                    {[1,2,3,4,5].map(s => (
+                      <FaStar key={s} size={12} className={s <= rounded ? 'text-amber-400' : 'text-gray-200'} />
+                    ))}
+                  </span>
+                  <span className="text-xs text-gray-400">({reviews.length})</span>
+                </>
+              })() : (
+                <>
+                  <span className="flex items-center gap-0.5">
+                    {[1,2,3,4,5].map(s => <FaStar key={s} size={12} className="text-gray-200" />)}
+                  </span>
+                  <span className="text-xs text-gray-400">(ยังไม่มีรีวิว)</span>
+                </>
+              )}
             </span>
             <span className="flex items-center gap-1 text-sm text-gray-500">
               <FaClock size={13} className="text-gray-400" />
@@ -95,6 +117,45 @@ export default function StationDetailPage() {
               </button>
             ))}
           </div>
+        </div>
+        {/* Reviews */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="font-semibold text-gray-800">รีวิว ({reviews.length})</h3>
+            <button
+              onClick={() => navigate(`/review/${id}`)}
+              className="text-xs text-primary font-semibold hover:text-green-600"
+            >
+              + เขียนรีวิว
+            </button>
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="bg-white rounded-xl p-4 text-center text-gray-400 text-sm border border-gray-100">
+              ยังไม่มีรีวิว — เป็นคนแรกที่รีวิวสถานีนี้
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {reviews.map((r) => (
+                <div key={r.review_id} className="bg-white rounded-xl p-3.5 shadow-sm border border-gray-100">
+                  <div className="flex items-center justify-between mb-1">
+                    <p className="text-sm font-semibold text-gray-800">
+                      {r.first_name ? `${r.first_name} ${r.last_name}` : r.reviewer_name || 'ผู้ใช้'}
+                    </p>
+                    <div className="flex items-center gap-0.5">
+                      {[1,2,3,4,5].map(s => (
+                        <FaStar key={s} size={11} className={s <= r.rating ? 'text-amber-400' : 'text-gray-200'} />
+                      ))}
+                    </div>
+                  </div>
+                  {r.comment && <p className="text-xs text-gray-600 leading-relaxed">{r.comment}</p>}
+                  <p className="text-xs text-gray-300 mt-1">
+                    {new Date(r.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
+                  </p>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       </div>
 
