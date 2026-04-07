@@ -18,7 +18,7 @@ export default function UpdateTicketPage() {
   useEffect(() => {
     api.get('/api/tickets')
       .then((res) => {
-        const found = res.data.find((t) => t.ticket_id === Number(id))
+        const found = res.data.tickets.find((t) => t.ticket_id === Number(id))
         if (found) {
           setTicket(found)
           setStatus(found.status || 'in_progress')

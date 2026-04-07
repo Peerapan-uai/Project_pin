@@ -9,7 +9,7 @@ export default function TechNotificationsPage() {
   const fetchNotifications = () => {
     setLoading(true)
     api.get('/api/notifications')
-      .then((res) => setNotifications(res.data))
+      .then((res) => setNotifications(res.data.notifications ?? []))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }
@@ -22,7 +22,17 @@ export default function TechNotificationsPage() {
       .catch((err) => console.error(err))
   }
 
+  const markRead = (id) => {
+    api.patch(`/api/notifications/${id}/read`)
+      .then(() => setNotifications((prev) =>
+        prev.map((n) => n.notification_id === id ? { ...n, is_read: true } : n)
+      ))
+      .catch((err) => console.error(err))
+  }
+
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
+
+  const unreadCount = notifications.filter((n) => !n.is_read).length
 
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
@@ -30,14 +40,16 @@ export default function TechNotificationsPage() {
         <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-xl font-bold text-gray-900">การแจ้งเตือน</h1>
-            <p className="text-gray-500 text-sm mt-0.5">ยังไม่อ่าน {notifications.filter((n) => !n.is_read).length} รายการ</p>
+            <p className="text-gray-500 text-sm mt-0.5">ยังไม่อ่าน {unreadCount} รายการ</p>
           </div>
-          <button
-            onClick={markAllRead}
-            className="text-xs text-primary font-medium hover:text-green-600"
-          >
-            อ่านทั้งหมด
-          </button>
+          {unreadCount > 0 && (
+            <button
+              onClick={markAllRead}
+              className="text-xs text-primary font-medium hover:text-green-600"
+            >
+              อ่านทั้งหมด
+            </button>
+          )}
         </div>
 
         {notifications.length === 0 && (
@@ -51,14 +63,19 @@ export default function TechNotificationsPage() {
           {notifications.map((n) => (
             <div
               key={n.notification_id}
-              className={`bg-white rounded-xl p-4 shadow-sm border flex gap-3 ${!n.is_read ? 'border-primary/20' : 'border-gray-100'}`}
+              onClick={() => !n.is_read && markRead(n.notification_id)}
+              className={`bg-white rounded-xl p-4 shadow-sm border flex gap-3 transition-colors ${
+                !n.is_read
+                  ? 'border-primary/20 cursor-pointer hover:bg-primary/5'
+                  : 'border-gray-100'
+              }`}
             >
               <div className="w-9 h-9 bg-orange-100 text-orange-600 rounded-full flex items-center justify-center flex-shrink-0">
                 <FaTools size={14} />
               </div>
               <div className="flex-1 min-w-0">
                 <div className="flex items-start justify-between gap-2">
-                  <p className={`text-sm font-semibold ${!n.is_read ? 'text-gray-900' : 'text-gray-700'}`}>{n.title}</p>
+                  <p className={`text-sm font-semibold ${!n.is_read ? 'text-gray-900' : 'text-gray-500'}`}>{n.title}</p>
                   {!n.is_read && <span className="w-2 h-2 bg-primary rounded-full flex-shrink-0 mt-1" />}
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>

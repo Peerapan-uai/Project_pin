@@ -3,9 +3,10 @@ import api from '../../utils/api'
 import { FaUser, FaBan, FaSearch } from 'react-icons/fa'
 
 export default function UserManagePage() {
-  const [users, setUsers]     = useState([])
-  const [search, setSearch]   = useState('')
-  const [loading, setLoading] = useState(true)
+  const [users, setUsers]           = useState([])
+  const [search, setSearch]         = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
+  const [loading, setLoading]       = useState(true)
 
   const fetchUsers = () => {
     setLoading(true)
@@ -25,9 +26,11 @@ export default function UserManagePage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
-  const filtered = users.filter(
-    (u) => `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(search.toLowerCase())
-  )
+  const filtered = users.filter((u) => {
+    const matchSearch = `${u.first_name} ${u.last_name} ${u.email} ${u.phone ?? ''}`.toLowerCase().includes(search.toLowerCase())
+    const matchStatus = filterStatus === 'all' || (filterStatus === 'banned' ? u.is_banned : !u.is_banned)
+    return matchSearch && matchStatus
+  })
 
   return (
     <div>
@@ -35,15 +38,26 @@ export default function UserManagePage() {
         <h1 className="text-2xl font-bold text-gray-900">จัดการผู้ใช้</h1>
         <p className="text-gray-500 text-sm mt-0.5">ผู้ใช้งานทั้งหมด {users.length} คน</p>
       </div>
-      <div className="mb-4 relative max-w-sm">
-        <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ค้นหาผู้ใช้..."
-          className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <div className="relative flex-1 min-w-[200px] max-w-sm">
+          <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
+            className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+        <select
+          value={filterStatus}
+          onChange={(e) => setFilterStatus(e.target.value)}
+          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+        >
+          <option value="all">ทุกสถานะ</option>
+          <option value="active">ปกติ</option>
+          <option value="banned">ถูกแบน</option>
+        </select>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">

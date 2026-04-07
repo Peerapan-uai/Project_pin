@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import StatusBadge from '../../components/StatusBadge'
-import { FaTicketAlt, FaCheckCircle, FaClock, FaWrench, FaChevronRight } from 'react-icons/fa'
+import { FaTicketAlt, FaCheckCircle, FaClock, FaWrench, FaChevronRight, FaCalendarAlt } from 'react-icons/fa'
 
 export default function TechDashboardPage() {
   const navigate = useNavigate()
@@ -11,12 +11,21 @@ export default function TechDashboardPage() {
   const [tickets, setTickets] = useState([])
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
+  const fetchTickets = () => {
     api.get('/api/tickets')
-      .then((res) => setTickets(res.data))
+      .then((res) => setTickets(res.data.tickets ?? []))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchTickets() }, [])
+
+  const handleAccept = (e, ticketId) => {
+    e.stopPropagation()
+    api.patch(`/api/tickets/${ticketId}/status`, { status: 'in_progress' })
+      .then(() => fetchTickets())
+      .catch((err) => console.error(err))
+  }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
@@ -59,10 +68,10 @@ export default function TechDashboardPage() {
             </div>
           )}
           {open.map((t) => (
-            <button
+            <div
               key={t.ticket_id}
               onClick={() => navigate(`/tech/tickets/${t.ticket_id}`)}
-              className="w-full bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-left hover:shadow-md hover:border-primary/30 transition-all active:scale-[0.98] flex items-center gap-3"
+              className="w-full bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-left hover:shadow-md hover:border-primary/30 transition-all active:scale-[0.98] flex items-center gap-3 cursor-pointer"
             >
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2 flex-wrap mb-1">
@@ -71,9 +80,25 @@ export default function TechDashboardPage() {
                 </div>
                 <p className="font-semibold text-sm text-gray-900">{t.title}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{t.charger_name} · {t.station_name}</p>
+                {t.created_at && (
+                  <div className="flex items-center gap-1 mt-1 text-xs text-gray-400">
+                    <FaCalendarAlt size={9} />
+                    <span>แจ้งเมื่อ: {new Date(t.created_at).toLocaleDateString('th-TH')}</span>
+                  </div>
+                )}
               </div>
-              <FaChevronRight size={12} className="text-gray-300 flex-shrink-0" />
-            </button>
+              <div className="flex flex-col items-end gap-2 flex-shrink-0">
+                {t.status === 'assigned' && (
+                  <button
+                    onClick={(e) => handleAccept(e, t.ticket_id)}
+                    className="text-xs px-3 py-1.5 bg-primary text-white rounded-lg font-medium hover:bg-green-600 transition-colors"
+                  >
+                    รับงาน
+                  </button>
+                )}
+                <FaChevronRight size={12} className="text-gray-300" />
+              </div>
+            </div>
           ))}
         </div>
       </div>

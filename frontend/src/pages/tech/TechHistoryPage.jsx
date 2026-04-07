@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
 import StatusBadge from '../../components/StatusBadge'
-import { FaHistory, FaCheckCircle, FaCalendarAlt, FaChevronRight } from 'react-icons/fa'
+import { FaHistory, FaCheckCircle, FaCalendarAlt, FaChevronRight, FaClipboardCheck, FaCalendarCheck } from 'react-icons/fa'
 
 export default function TechHistoryPage() {
   const navigate  = useNavigate()
@@ -13,7 +13,7 @@ export default function TechHistoryPage() {
 
   useEffect(() => {
     api.get('/api/tickets')
-      .then((res) => setTickets(res.data))
+      .then((res) => setTickets(res.data.tickets ?? []))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }, [])
@@ -24,11 +24,48 @@ export default function TechHistoryPage() {
     (t) => t.assigned_to === user?.user_id && t.status === 'completed'
   )
 
+  const now = new Date()
+  const thisMonth = completed.filter((t) => {
+    if (!t.completed_at) return false
+    const d = new Date(t.completed_at)
+    return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear()
+  })
+
+  const avgDays = completed.length > 0
+    ? (completed.reduce((sum, t) => {
+        if (!t.created_at || !t.completed_at) return sum
+        const diff = (new Date(t.completed_at) - new Date(t.created_at)) / (1000 * 60 * 60 * 24)
+        return sum + diff
+      }, 0) / completed.length).toFixed(1)
+    : 0
+
   return (
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-xl font-bold text-gray-900 mb-1">ประวัติงาน</h1>
         <p className="text-gray-500 text-sm mb-5">งานที่เสร็จสิ้นแล้ว {completed.length} รายการ</p>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 gap-3 mb-6">
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+            <div className="w-10 h-10 bg-green-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FaCalendarCheck size={16} className="text-primary" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{thisMonth.length}</p>
+              <p className="text-xs text-gray-500">เสร็จเดือนนี้</p>
+            </div>
+          </div>
+          <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex items-center gap-3">
+            <div className="w-10 h-10 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0">
+              <FaClipboardCheck size={16} className="text-blue-500" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-gray-900">{avgDays}</p>
+              <p className="text-xs text-gray-500">เฉลี่ยวัน/งาน</p>
+            </div>
+          </div>
+        </div>
 
         {completed.length === 0 && (
           <div className="text-center py-16 text-gray-400 bg-white rounded-2xl border border-gray-100">

@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
-import { FaBolt, FaCheckCircle } from 'react-icons/fa'
+import { FaBolt, FaCheckCircle, FaWrench } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function BookingPage() {
@@ -154,6 +154,14 @@ export default function BookingPage() {
           className="w-full py-3.5 bg-primary disabled:opacity-50 text-white font-semibold rounded-xl shadow-md shadow-green-200 hover:bg-green-600 transition-colors"
         >
           {submitting ? 'กำลังจอง...' : 'ยืนยันการจอง'}
+        </button>
+
+        <button
+          onClick={() => navigate('/report', { state: { chargerId: Number(chargerId), stationId: charger.station_id } })}
+          className="w-full py-3 flex items-center justify-center gap-2 text-sm text-gray-500 hover:text-red-500 transition-colors"
+        >
+          <FaWrench size={13} />
+          แจ้งปัญหาตู้ชาร์จนี้
         </button>
       </div>
       <BottomNav />

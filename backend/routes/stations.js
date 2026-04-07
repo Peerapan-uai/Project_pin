@@ -38,7 +38,7 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT s.*,
         COUNT(DISTINCT c.charger_id) AS total_chargers,
-        SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END) AS available_chargers,
+        COALESCE(SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END), 0) AS available_chargers,
         ROUND(AVG(r.rating), 1) AS rating,
         COUNT(DISTINCT r.review_id) AS review_count,
         GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types
@@ -86,6 +86,79 @@ router.get('/', async (req, res) => {
  *       500:
  *         description: Server error
  */
+
+/**
+ * @swagger
+ * /api/stations/nearby:
+ *   get:
+ *     summary: Get stations sorted by distance from a given location
+ *     tags: [Stations]
+ *     security: []
+ *     parameters:
+ *       - in: query
+ *         name: lat
+ *         required: true
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: lng
+ *         required: true
+ *         schema:
+ *           type: number
+ *       - in: query
+ *         name: radius
+ *         schema:
+ *           type: number
+ *         description: Radius in km (default 10)
+ *     responses:
+ *       200:
+ *         description: List of stations sorted by distance
+ *       400:
+ *         description: Missing lat or lng
+ *       500:
+ *         description: Server error
+ */
+/// lalla
+router.get('/nearby', async (req, res) => {
+  const { lat, lng, radius = 10 } = req.query
+
+  if (!lat || !lng) {
+    return res.status(400).json({ message: 'lat and lng are required.' })
+  }
+
+  const latNum = parseFloat(lat)
+  const lngNum = parseFloat(lng)
+  const radiusNum = parseFloat(radius)
+
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.*,
+        COUNT(DISTINCT c.charger_id) AS total_chargers,
+        COALESCE(SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END), 0) AS available_chargers,
+        ROUND(AVG(r.rating), 1) AS rating,
+        COUNT(DISTINCT r.review_id) AS review_count,
+        GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types,
+        ROUND(
+          6371 * ACOS(
+            COS(RADIANS(?)) * COS(RADIANS(s.latitude)) *
+            COS(RADIANS(s.longitude) - RADIANS(?)) +
+            SIN(RADIANS(?)) * SIN(RADIANS(s.latitude))
+          ), 2
+        ) AS distance_km
+      FROM stations s
+      LEFT JOIN chargers c ON s.station_id = c.station_id
+      LEFT JOIN reviews r ON s.station_id = r.station_id
+      GROUP BY s.station_id
+      HAVING distance_km <= ?
+      ORDER BY distance_km ASC`,
+      [latNum, lngNum, latNum, radiusNum]
+    )
+    return res.status(200).json(rows)
+  } catch (error) {
+    console.error('Get nearby stations error:', error)
+    return res.status(500).json({ message: 'Server error fetching nearby stations.' })
+  }
+})
 
 /// nem
 router.get('/:id', async (req, res) => {

@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   FaTachometerAlt,
@@ -9,8 +10,10 @@ import {
   FaTicketAlt,
   FaBell,
   FaSignOutAlt,
+  FaMoneyBillWave,
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
+import api from '../utils/api'
 
 const navItems = [
   { to: '/admin/dashboard',     label: 'แดชบอร์ด',           Icon: FaTachometerAlt },
@@ -20,16 +23,27 @@ const navItems = [
   { to: '/admin/technicians',   label: 'จัดการช่าง',         Icon: FaUserCog },
   { to: '/admin/bookings',      label: 'การจอง',             Icon: FaClipboardList },
   { to: '/admin/tickets',       label: 'ตั๋วแจ้งปัญหา',     Icon: FaTicketAlt },
+  { to: '/admin/payments',      label: 'การเงิน',            Icon: FaMoneyBillWave },
   { to: '/admin/notifications', label: 'แจ้งเตือน',          Icon: FaBell },
 ]
 
 export default function Sidebar() {
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    api.get('/api/notifications')
+      .then((res) => {
+        const notifs = res.data.notifications ?? []
+        setUnreadCount(notifs.filter((n) => !n.is_read).length)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleLogout = () => {
     logout()
-    navigate('/')
+    navigate('/admin/login')
   }
 
   return (
@@ -60,7 +74,14 @@ export default function Sidebar() {
                   }`
                 }
               >
-                <Icon size={16} className="flex-shrink-0" />
+                <div className="relative flex-shrink-0">
+                  <Icon size={16} />
+                  {to === '/admin/notifications' && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </div>
                 {label}
               </NavLink>
             </li>

@@ -1,13 +1,8 @@
-# nem_scope — งานของ nem (33 endpoints)
+# nem_scope — งานของ nem (33 endpoints + 1 พบใน code)
 
 ## สถานะปัจจุบัน
 - Backend routes — **เทสผ่านหมดแล้ว ✅** (ทุก endpoint เทสผ่าน Swagger แล้ว)
-- Frontend (UI) — **เชื่อม Backend แล้วส่วนใหญ่ ✅** (บางหน้ายังปรับอยู่)
-- Frontend ที่ยังค้าง 🔄:
-  - SearchPage: GPS + sort ตามระยะห่าง
-  - ChargingPage: real-time kW/kWh/ค่าไฟ
-  - BookingPage: ปุ่ม 🔧 แจ้งปัญหา
-  - POST /api/tickets: auto-notify technician
+- Frontend (UI) — **เชื่อม Backend แล้วครบทุกหน้า ✅**
 
 ---
 
@@ -85,7 +80,7 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 |---|--------|------|---------|-------|
 | 24 | POST | `/api/payments` | บันทึกการจ่ายเงิน | ✅ |
 | 25 | GET | `/api/payments/history` | ดูประวัติการจ่าย | ✅ |
-| 26 | GET | `/api/payments/:id` | ดูรายการจ่ายเดียว | ✅ |
+| 26 | GET | `/api/payments/:id` | ดูรายการจ่ายเดียว | ✅ (แก้ bug route ผิดแล้ว) |
 
 ### Reviews (3)
 | # | Method | Path | หน้าที่ | สถานะ |
@@ -116,7 +111,9 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 | `routes/users.js` | ~81 | `UPDATE SET name = ?` → error | ✅ แก้แล้ว |
 | `routes/bookings.js` | ~145 | `u.name AS user_name` → ไม่มี column | ✅ แก้แล้ว |
 | `routes/reviews.js` | ~117 | `u.name AS reviewer_name` → ไม่มี column | เปลี่ยนเป็น `CONCAT(u.first_name, ' ', u.last_name)` |
-| `pages/user/VehicleManagePage.jsx` | ~29 | ส่ง `brand` แต่ backend ต้องการ `make` | เปลี่ยน field ให้ตรงกับ DB |
+| `pages/user/VehicleManagePage.jsx` | ~29 | ~~ส่ง `brand` แต่ backend ต้องการ `make`~~ | ✅ ไม่ใช่ bug — ทั้ง schema, backend, frontend ใช้ `brand` ถูกต้อง |
+| `routes/payments.js` | 149 | route ชื่อ `/all` แต่ logic ใช้ `req.params.id` → ควรเป็น `/:id` | ✅ แก้แล้ว (lalla แก้ให้) |
+| `routes/payments.js` | 173 | `router.get('/all')` ซ้ำและไม่มี handler | ✅ แก้แล้ว (lalla แก้ให้) |
 
 ---
 
@@ -155,11 +152,84 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 
 ---
 
-## ฟีเจอร์ที่ต้องทำในอนาคต
+## endpoint ที่พบใน code แต่ไม่อยู่ใน scope เดิม
 
-| ฟีเจอร์ | ไฟล์ | รายละเอียด |
-|---------|------|------------|
-| ดูรีวิวโดยไม่ต้อง login | `routes/reviews.js` | `GET /station/:stationId` ไม่มี auth แต่ตอนนี้ระบบบังคับ login ก่อนใช้งาน ต้องทำ public access ให้ได้ |
+| ไฟล์ | Method | Path | หมายเหตุ |
+|------|--------|------|---------|
+| `routes/users.js` | DELETE | `/api/users/profile` | มีอยู่ใน code — ลบ profile ตัวเอง |
+
+## Background Job ที่มีอยู่ในระบบ
+
+| ไฟล์ | หน้าที่ | รายละเอียด |
+|------|---------|-----------|
+| `jobs/expireBookings.js` | หมดอายุ booking อัตโนมัติ | ทุก 1 นาที ตรวจ booking ที่ confirmed > 30 นาที → set status = 'expired' + คืนตู้ชาร์จเป็น available |
+
+> รวม nem ใน code จริง = **48 endpoints** (34 เดิม + 14 payment ใหม่)
+
+---
+
+## API ที่ต้องทำในอนาคต — เพิ่ม nem จาก 34 → 51 endpoints
+
+> ยังไม่ได้ทำ รอหลังจากอาจารย์ database ดูงานก่อน
+> อัปเดตล่าสุด: 2026-04-07
+
+### Payment จริง — เพิ่ม 14 (nem รับผิดชอบทั้งหมด)
+> ตัดสินใจแล้ว: nem ทำ payment ทั้งหมด (Option 1 - Monolith style)
+> 3 endpoints แรก (35-37) มีแล้ว ✅ แต่นับรวมเพื่อให้เห็น payment flow ครบ
+
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 35 | POST | `/api/payments` | บันทึกการจ่ายเงิน (สร้าง payment record) | ✅ |
+| 36 | GET | `/api/payments/history` | ดูประวัติการจ่ายทั้งหมดของตัวเอง | ✅ |
+| 37 | GET | `/api/payments/:id` | ดูรายการจ่ายเดียว | ✅ |
+| 38 | POST | `/api/payments/qr` | generate PromptPay QR Code จริง (ใช้ npm promptpay-qr) | ✅ |
+| 39 | POST | `/api/payments/charge` | จ่ายด้วยบัตรเครดิต/เดบิต ผ่าน Omise API | ✅ |
+| 40 | PATCH | `/api/payments/:id/confirm` | user confirm ว่าสแกน QR จ่ายแล้ว | ✅ |
+| 41 | GET | `/api/payments/:id/status` | check สถานะ payment | ✅ |
+| 42 | POST | `/api/payments/webhook/omise` | รับ webhook จาก Omise (card charge success/fail) | ✅ |
+| 43 | POST | `/api/payments/webhook/promptpay` | รับ webhook จากธนาคาร (QR transfer success) | ✅ |
+| 44 | GET | `/api/payments/admin/all` | admin ดูรายการจ่ายทั้งหมด | ✅ |
+| 45 | GET | `/api/payments/admin/:id` | admin ดูรายการจ่ายเดียว | ✅ |
+| 46 | POST | `/api/payments/:id/refund` | admin คืนเงิน | ✅ |
+| 47 | GET | `/api/payments/:id/refunds` | ดูประวัติการคืนเงิน | ✅ |
+| 48 | DELETE | `/api/payments/:id/cancel` | admin ยกเลิก payment ที่ pending | ✅ |
+
+หมายเหตุ: API เขียนเสร็จหมดแล้ว ✅ — เหลือแค่เชื่อม frontend:
+- PromptPay QR: ต้องสมัคร npm `promptpay-qr` + `qrcode`
+- Omise: ต้องสมัคร account ที่ omise.co → ใส่ test API key
+- Webhook: ต้อง expose localhost ด้วย ngrok ตอนเทส
+
+### Notifications user — 3 endpoints (มีแล้ว ✅)
+> อยู่ใน 34 endpoints ที่ทำเสร็จแล้ว แต่นับรวมเพื่อให้ครบ 51
+
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 49 | GET | `/api/notifications` | ดูการแจ้งเตือนของตัวเอง | ✅ |
+| 50 | PATCH | `/api/notifications/read-all` | อ่านทั้งหมด | ✅ |
+| 51 | PATCH | `/api/notifications/:id/read` | อ่านทีละอัน | ✅ |
+
+### Auto-notify Technician — เพิ่ม Logic (ไม่ใช่ endpoint ใหม่)
+| งาน | ไฟล์ | รายละเอียด | สถานะ |
+|-----|------|------------|-------|
+| POST /api/tickets: auto-notify ช่าง | `routes/tickets.js` | เมื่อ user สร้าง ticket → INSERT notification ให้ช่างทุกคนอัตโนมัติ | ✅ |
+
+> รวมถ้าทำครบ = **51 endpoints** ✅
+
+---
+
+## ฟีเจอร์ Frontend ที่ต้องทำในอนาคต
+
+> ยังไม่ได้ทำ รอหลังจากอาจารย์ database ดูงานก่อน
+
+| ฟีเจอร์ | ไฟล์ | รายละเอียด | สถานะ |
+|---------|------|------------|-------|
+| SearchPage: GPS + sort ระยะห่าง | `pages/user/SearchPage.jsx` | useGeolocation hook + fetchNearby + formatDistance | ✅ |
+| SearchPage: Google Maps แสดงแผนที่ | `pages/user/SearchPage.jsx` | ใช้ `@react-google-maps/api` + pin สถานี | ⏳ |
+| ChargingPage: real-time kW/kWh/ค่าไฟ | `pages/user/ChargingPage.jsx` | polling 10s + tick timer 1s คำนวณ kWh/cost live | ✅ |
+| BookingPage: ปุ่ม 🔧 แจ้งปัญหา | `pages/user/BookingPage.jsx` | navigate `/report` พร้อม pre-fill chargerId + stationId | ✅ |
+| PaymentPage: PromptPay QR จริง | `pages/user/PaymentPage.jsx` | เรียก `POST /api/payments/qr` → แสดง QR ให้ user สแกน (backend เสร็จแล้ว ✅ เหลือ frontend) | ⏳ |
+| PaymentPage: บัตรเครดิต/เดบิต | `pages/user/PaymentPage.jsx` | ใช้ Omise.js tokenize บัตร → ส่ง token ไป `POST /api/payments/charge` (backend เสร็จแล้ว ✅ เหลือ frontend) | ⏳ |
+| ดูรีวิวโดยไม่ต้อง login | `routes/reviews.js` | `GET /station/:stationId` ไม่มี auth middleware แล้ว | ✅ |
 
 ---
 

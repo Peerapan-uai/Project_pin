@@ -1,13 +1,14 @@
+import { useState, useEffect } from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   FaTachometerAlt,
-  FaTicketAlt,
   FaHistory,
   FaBell,
   FaSignOutAlt,
   FaBolt,
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
+import api from '../utils/api'
 
 const techNavItems = [
   { to: '/tech/dashboard',      label: 'แดชบอร์ด',      Icon: FaTachometerAlt },
@@ -15,7 +16,6 @@ const techNavItems = [
   { to: '/tech/notifications',  label: 'แจ้งเตือน',     Icon: FaBell },
 ]
 
-// Mobile bottom nav items for tech
 const mobileNavItems = [
   { to: '/tech/dashboard',     label: 'แดชบอร์ด',   Icon: FaTachometerAlt },
   { to: '/tech/history',       label: 'ประวัติ',     Icon: FaHistory },
@@ -25,6 +25,16 @@ const mobileNavItems = [
 export default function ResponsiveLayout({ children }) {
   const navigate = useNavigate()
   const { logout } = useAuth()
+  const [unreadCount, setUnreadCount] = useState(0)
+
+  useEffect(() => {
+    api.get('/api/notifications')
+      .then((res) => {
+        const notifs = res.data.notifications ?? []
+        setUnreadCount(notifs.filter((n) => !n.is_read).length)
+      })
+      .catch(() => {})
+  }, [])
 
   const handleLogout = () => {
     logout()
@@ -62,7 +72,14 @@ export default function ResponsiveLayout({ children }) {
                       }`
                     }
                   >
-                    <Icon size={16} className="flex-shrink-0" />
+                    <div className="relative flex-shrink-0">
+                      <Icon size={16} />
+                      {to === '/tech/notifications' && unreadCount > 0 && (
+                        <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                          {unreadCount > 9 ? '9+' : unreadCount}
+                        </span>
+                      )}
+                    </div>
                     {label}
                   </NavLink>
                 </li>
@@ -103,7 +120,14 @@ export default function ResponsiveLayout({ children }) {
             >
               {({ isActive }) => (
                 <>
-                  <Icon size={20} className={isActive ? 'text-primary' : 'text-gray-400'} />
+                  <div className="relative">
+                    <Icon size={20} className={isActive ? 'text-primary' : 'text-gray-400'} />
+                    {to === '/tech/notifications' && unreadCount > 0 && (
+                      <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                        {unreadCount > 9 ? '9+' : unreadCount}
+                      </span>
+                    )}
+                  </div>
                   <span className={isActive ? 'text-primary' : 'text-gray-400'}>{label}</span>
                 </>
               )}

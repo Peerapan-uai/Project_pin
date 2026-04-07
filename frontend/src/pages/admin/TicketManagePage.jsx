@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
-import { FaTicketAlt, FaUserCog } from 'react-icons/fa'
+import { FaTicketAlt, FaUserCog, FaTools, FaWrench } from 'react-icons/fa'
 
 export default function TicketManagePage() {
-  const [tickets, setTickets]           = useState([])
-  const [technicians, setTechnicians]   = useState([])
-  const [filterStatus, setFilterStatus] = useState('all')
-  const [loading, setLoading]           = useState(true)
+  const [tickets, setTickets]             = useState([])
+  const [technicians, setTechnicians]     = useState([])
+  const [filterStatus, setFilterStatus]   = useState('all')
+  const [filterPriority, setFilterPriority] = useState('all')
+  const [filterTech, setFilterTech]       = useState('all')
+  const [loading, setLoading]             = useState(true)
 
   const fetchData = () => {
     setLoading(true)
@@ -33,17 +35,23 @@ export default function TicketManagePage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
-  const filtered = filterStatus === 'all' ? tickets : tickets.filter((t) => t.status === filterStatus)
-  const statuses = ['all', 'reported', 'assigned', 'in_progress', 'completed']
+  const filtered = tickets.filter((t) => {
+    const matchStatus   = filterStatus === 'all'   || t.status === filterStatus
+    const matchPriority = filterPriority === 'all' || t.priority === filterPriority
+    const matchTech     = filterTech === 'all'     || String(t.assigned_to) === filterTech
+    return matchStatus && matchPriority && matchTech
+  })
+  const statuses   = ['all', 'reported', 'assigned', 'in_progress', 'completed']
+  const priorities = ['low', 'medium', 'high', 'critical']
 
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">ตั๋วแจ้งปัญหา</h1>
-        <p className="text-gray-500 text-sm mt-0.5">ตั๋วทั้งหมด {tickets.length} รายการ</p>
+        <h1 className="text-2xl font-bold text-gray-900">จัดการตั๋วซ่อม</h1>
+        <p className="text-gray-500 text-sm mt-0.5">ตั๋วทั้งหมด {tickets.length} รายการ · รอมอบหมาย {tickets.filter((t) => t.status === 'reported').length} รายการ</p>
       </div>
 
-      <div className="flex gap-2 mb-4 flex-wrap">
+      <div className="flex gap-2 mb-3 flex-wrap">
         {statuses.map((s) => (
           <button
             key={s}
@@ -53,6 +61,27 @@ export default function TicketManagePage() {
             {s === 'all' ? 'ทั้งหมด' : <StatusBadge status={s} />}
           </button>
         ))}
+      </div>
+      <div className="flex gap-3 mb-4 flex-wrap">
+        <select
+          value={filterPriority}
+          onChange={(e) => setFilterPriority(e.target.value)}
+          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+        >
+          <option value="all">ทุกความเร่งด่วน</option>
+          {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
+        </select>
+        <select
+          value={filterTech}
+          onChange={(e) => setFilterTech(e.target.value)}
+          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+        >
+          <option value="all">ช่างทั้งหมด</option>
+          <option value="null">ยังไม่มอบหมาย</option>
+          {technicians.map((tech) => (
+            <option key={tech.user_id} value={tech.user_id}>{tech.first_name} {tech.last_name}</option>
+          ))}
+        </select>
       </div>
 
       <div className="space-y-3">
@@ -74,18 +103,25 @@ export default function TicketManagePage() {
                   </p>
                 )}
               </div>
-              {t.status === 'reported' && (
+              {(t.status === 'reported' || t.status === 'assigned') && (
                 <div className="flex-shrink-0">
-                  <select
-                    defaultValue=""
-                    onChange={(e) => e.target.value && assign(t.ticket_id, e.target.value)}
-                    className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  >
-                    <option value="">มอบหมายช่าง...</option>
-                    {technicians.map((tech) => (
-                      <option key={tech.user_id} value={tech.user_id}>{tech.first_name} {tech.last_name}</option>
-                    ))}
-                  </select>
+                  <div className="flex items-center gap-2">
+                    <FaWrench size={12} className="text-gray-400" />
+                    <select
+                      value={t.assigned_to ?? ''}
+                      onChange={(e) => e.target.value && assign(t.ticket_id, e.target.value)}
+                      className={`border rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary transition-colors ${
+                        t.status === 'reported'
+                          ? 'border-amber-300 bg-amber-50 text-amber-800'
+                          : 'border-blue-200 bg-blue-50 text-blue-800'
+                      }`}
+                    >
+                      <option value="">{t.status === 'reported' ? 'มอบหมายช่าง...' : 'เปลี่ยนช่าง...'}</option>
+                      {technicians.map((tech) => (
+                        <option key={tech.user_id} value={tech.user_id}>{tech.first_name} {tech.last_name}</option>
+                      ))}
+                    </select>
+                  </div>
                 </div>
               )}
             </div>

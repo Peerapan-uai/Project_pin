@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import { FaCheckCircle } from 'react-icons/fa'
@@ -7,9 +7,12 @@ import api from '../../utils/api'
 
 export default function ReportIssuePage() {
   const navigate = useNavigate()
+  const location = useLocation()
+  const prefill = location.state ?? {}
+
   const [stations, setStations] = useState([])
   const [chargers, setChargers] = useState([])
-  const [selectedStationId, setSelectedStationId] = useState('')
+  const [selectedStationId, setSelectedStationId] = useState(prefill.stationId ? String(prefill.stationId) : '')
   const [chargerId, setChargerId] = useState('')
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
@@ -35,7 +38,12 @@ export default function ReportIssuePage() {
     api.get(`/api/chargers/station/${selectedStationId}`)
       .then(res => {
         setChargers(res.data)
-        setChargerId('')
+        // pre-fill charger ถ้ามาจาก BookingPage
+        if (prefill.chargerId) {
+          setChargerId(String(prefill.chargerId))
+        } else {
+          setChargerId('')
+        }
       })
       .catch(() => setChargers([]))
       .finally(() => setLoadingChargers(false))

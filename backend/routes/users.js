@@ -182,6 +182,71 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   put:
+ *     summary: Update any user's info (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [first_name, last_name]
+ *             properties:
+ *               first_name:
+ *                 type: string
+ *               last_name:
+ *                 type: string
+ *               phone:
+ *                 type: string
+ *               password:
+ *                 type: string
+ *                 description: ถ้าไม่ส่งมา จะไม่เปลี่ยนรหัสผ่าน
+ *     responses:
+ *       200:
+ *         description: User updated successfully
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+///lalla  PUT /api/users/:id  (admin edit any user)
+router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
+  const { id } = req.params;
+  const { first_name, last_name, phone, password } = req.body;
+
+  try {
+    let query = 'UPDATE users SET first_name = ?, last_name = ?, phone = ? WHERE user_id = ?';
+    let params = [first_name, last_name, phone, id];
+
+    if (password) {
+      const password_hash = await bcrypt.hash(password, 10);
+      query = 'UPDATE users SET first_name = ?, last_name = ?, phone = ?, password_hash = ? WHERE user_id = ?';
+      params = [first_name, last_name, phone, password_hash, id];
+    }
+
+    const [result] = await pool.query(query, params);
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found.' });
+    }
+    return res.status(200).json({ message: 'User updated successfully.' });
+  } catch (error) {
+    console.error('Update user error:', error);
+    return res.status(500).json({ message: 'Server error updating user.' });
+  }
+});
+
 ///lalla  	PATCH /api/users/:id/ban
 router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;

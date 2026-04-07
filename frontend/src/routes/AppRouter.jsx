@@ -36,6 +36,7 @@ import TechnicianManagePage from '../pages/admin/TechnicianManagePage'
 import BookingManagePage from '../pages/admin/BookingManagePage'
 import TicketManagePage from '../pages/admin/TicketManagePage'
 import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage'
+import PaymentsPage from '../pages/admin/PaymentsPage'
 
 // Tech pages
 import TechDashboardPage from '../pages/tech/TechDashboardPage'
@@ -94,6 +95,7 @@ export default function AppRouter() {
       <Route path="/admin/bookings" element={<RoleRoute roles={['admin']}><DesktopLayout><BookingManagePage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/tickets" element={<RoleRoute roles={['admin']}><DesktopLayout><TicketManagePage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/notifications" element={<RoleRoute roles={['admin']}><DesktopLayout><AdminNotificationsPage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/payments" element={<RoleRoute roles={['admin']}><DesktopLayout><PaymentsPage /></DesktopLayout></RoleRoute>} />
 
       {/* Tech pages */}
       <Route path="/tech/dashboard" element={<RoleRoute roles={['technician']}><ResponsiveLayout><TechDashboardPage /></ResponsiveLayout></RoleRoute>} />

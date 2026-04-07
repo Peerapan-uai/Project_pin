@@ -3,8 +3,92 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import StatusBadge from '../../components/StatusBadge'
-import { FaBolt, FaCalendarAlt, FaDirections } from 'react-icons/fa'
+import { FaBolt, FaCalendarAlt, FaDirections, FaClock } from 'react-icons/fa'
 import api from '../../utils/api'
+
+
+function useSecsLeft(startTime) {
+  const EXPIRE_MINUTES = 30
+  const [secsLeft, setSecsLeft] = useState(() => {
+    const expireAt = new Date(startTime).getTime() + EXPIRE_MINUTES * 60 * 1000
+    return Math.max(0, Math.floor((expireAt - Date.now()) / 1000))
+  })
+  useEffect(() => {
+    const calc = () => {
+      const expireAt = new Date(startTime).getTime() + EXPIRE_MINUTES * 60 * 1000
+      setSecsLeft(Math.max(0, Math.floor((expireAt - Date.now()) / 1000)))
+    }
+    const t = setInterval(calc, 1000)
+    return () => clearInterval(t)
+  }, [startTime])
+  return secsLeft
+}
+
+function BookingCard({ b, starting, onStart, navigate }) {
+  const secsLeft = useSecsLeft(b.start_time)
+  const expired = secsLeft === 0
+  const urgent = secsLeft <= 300 && secsLeft > 0
+
+  return (
+    <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+      <div className="flex items-start justify-between">
+        <div className="flex-1 min-w-0">
+          <p className="font-semibold text-gray-900 text-sm">{b.station_name}</p>
+          <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.connector_type}</p>
+          <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
+            <FaCalendarAlt size={10} />
+            <span>{new Date(b.start_time).toLocaleDateString('th-TH')}</span>
+          </div>
+          {b.status === 'confirmed' && (
+            expired ? (
+              <p className="text-xs text-red-500 font-semibold mt-1.5">หมดเวลาจอง</p>
+            ) : (
+              <div className={`flex items-center gap-1 mt-1.5 text-xs font-semibold ${urgent ? 'text-red-500' : 'text-amber-500'}`}>
+                <FaClock size={10} />
+                <span>หมดอายุใน {Math.floor(secsLeft / 60)}:{String(secsLeft % 60).padStart(2, '0')} นาที</span>
+              </div>
+            )
+          )}
+        </div>
+        {b.status === 'confirmed' && expired
+          ? <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">หมดอายุ</span>
+          : <StatusBadge status={b.status} />
+        }
+      </div>
+      {b.status === 'confirmed' && !expired && (
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={() => onStart(b)}
+            disabled={starting === b.booking_id}
+            className="flex-1 py-2.5 bg-primary disabled:opacity-50 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
+          >
+            <FaBolt size={13} />
+            {starting === b.booking_id ? 'กำลังเริ่ม...' : 'เริ่มชาร์จเลย'}
+          </button>
+          {b.latitude && b.longitude && (
+            <button
+              onClick={() => navigate('/search', { state: { navigateTo: {
+                station_id: b.station_id,
+                name: b.station_name,
+                latitude: b.latitude,
+                longitude: b.longitude,
+              }}})}
+              className="px-3 py-2.5 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+            >
+              <FaDirections size={16} />
+            </button>
+          )}
+        </div>
+      )}
+      {b.total_amount && (
+        <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-sm">
+          <span className="text-gray-500">{b.energy_kwh} kWh</span>
+          <span className="font-semibold text-primary">{b.total_amount} บาท</span>
+        </div>
+      )}
+    </div>
+  )
+}
 
 export default function BookingHistoryPage() {
   const navigate = useNavigate()
@@ -47,47 +131,7 @@ export default function BookingHistoryPage() {
           </div>
         )}
         {bookings.map((b) => (
-          <div key={b.booking_id} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-            <div className="flex items-start justify-between">
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-gray-900 text-sm">{b.station_name}</p>
-                <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.connector_type}</p>
-                <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
-                  <FaCalendarAlt size={10} />
-                  <span>{new Date(b.start_time).toLocaleDateString('th-TH')}</span>
-                </div>
-              </div>
-              <StatusBadge status={b.status} />
-            </div>
-            {b.status === 'confirmed' && (
-              <div className="mt-3 flex gap-2">
-                <button
-                  onClick={() => handleStartCharging(b)}
-                  disabled={starting === b.booking_id}
-                  className="flex-1 py-2.5 bg-primary disabled:opacity-50 text-white text-sm font-semibold rounded-xl hover:bg-green-600 transition-colors flex items-center justify-center gap-2"
-                >
-                  <FaBolt size={13} />
-                  {starting === b.booking_id ? 'กำลังเริ่ม...' : 'เริ่มชาร์จเลย'}
-                </button>
-                {b.latitude && b.longitude && (
-                  <a
-                    href={`https://www.google.com/maps/dir/?api=1&destination=${b.latitude},${b.longitude}&travelmode=driving`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-2.5 bg-blue-50 text-blue-600 rounded-xl flex items-center justify-center"
-                  >
-                    <FaDirections size={16} />
-                  </a>
-                )}
-              </div>
-            )}
-            {b.total_amount && (
-              <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-sm">
-                <span className="text-gray-500">{b.energy_kwh} kWh</span>
-                <span className="font-semibold text-primary">{b.total_amount} บาท</span>
-              </div>
-            )}
-          </div>
+          <BookingCard key={b.booking_id} b={b} starting={starting} onStart={handleStartCharging} navigate={navigate} />
         ))}
       </div>
       <BottomNav />

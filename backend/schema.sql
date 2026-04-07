@@ -194,18 +194,33 @@ CREATE TABLE notifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 
+-- -------------------------------------------------------------
+-- payment_refunds
+-- -------------------------------------------------------------
+CREATE TABLE payment_refunds (
+  refund_id    INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  payment_id   INT UNSIGNED    NOT NULL,
+  amount       DECIMAL(10,2)   NOT NULL,
+  reason       TEXT            DEFAULT NULL,
+  refunded_by  INT UNSIGNED    NOT NULL,
+  refunded_at  TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (refund_id),
+  CONSTRAINT fk_refunds_payment FOREIGN KEY (payment_id)  REFERENCES payments (payment_id) ON DELETE CASCADE,
+  CONSTRAINT fk_refunds_admin   FOREIGN KEY (refunded_by) REFERENCES users    (user_id)    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- =============================================================
 -- Sample Data
 -- Password for all users: "password123"
--- bcrypt hash: $2b$10$rBnbBNEQjlyMTPHVaJSqnOMVNpDT3i.9Sf4E.C7WiIIDhKFD1Hwui
+-- bcrypt hash: $2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu
 -- =============================================================
 
 -- Users: 1 admin, 1 technician, 2 regular users
 INSERT INTO users (email, password_hash, first_name, last_name, phone, role) VALUES
-  ('admin@evcharge.com',      '$2b$10$rBnbBNEQjlyMTPHVaJSqnOMVNpDT3i.9Sf4E.C7WiIIDhKFD1Hwui', 'Admin',    'System',   '0800000001', 'admin'),
-  ('tech@evcharge.com',       '$2b$10$rBnbBNEQjlyMTPHVaJSqnOMVNpDT3i.9Sf4E.C7WiIIDhKFD1Hwui', 'Somchai',  'Techarat',  '0800000002', 'technician'),
-  ('alice@example.com',       '$2b$10$rBnbBNEQjlyMTPHVaJSqnOMVNpDT3i.9Sf4E.C7WiIIDhKFD1Hwui', 'Alice',    'Wongsiri',  '0811111111', 'user'),
-  ('bob@example.com',         '$2b$10$rBnbBNEQjlyMTPHVaJSqnOMVNpDT3i.9Sf4E.C7WiIIDhKFD1Hwui', 'Bob',      'Prasert',   '0822222222', 'user');
+  ('admin@evcharge.com',      '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Admin',    'System',   '0800000001', 'admin'),
+  ('tech@evcharge.com',       '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Somchai',  'Techarat',  '0800000002', 'technician'),
+  ('alice@example.com',       '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice',    'Wongsiri',  '0811111111', 'user'),
+  ('bob@example.com',         '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob',      'Prasert',   '0822222222', 'user');
 
 -- Stations: 2 stations
 INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, status) VALUES

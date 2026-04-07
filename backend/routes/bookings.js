@@ -53,7 +53,7 @@ router.post('/', auth, async (req, res) => {
   try {
     const [conflicts] = await pool.query(
       `SELECT booking_id FROM bookings
-       WHERE charger_id = ? AND status NOT IN ('cancelled')
+       WHERE charger_id = ? AND status NOT IN ('cancelled', 'expired', 'completed')
        AND NOT (end_time <= ? OR start_time >= ?)`,
       [charger_id, start_time, end_time]
     );
@@ -66,6 +66,12 @@ router.post('/', auth, async (req, res) => {
       `INSERT INTO bookings (user_id, charger_id, start_time, end_time, status)
        VALUES (?, ?, ?, ?, 'confirmed')`,
       [req.user.user_id, charger_id, start_time, end_time]
+    );
+
+    // ล็อคตู้ชาร์จทันที → คนอื่นจองไม่ได้
+    await pool.query(
+      `UPDATE chargers SET status = 'reserved' WHERE charger_id = ?`,
+      [charger_id]
     );
 
     return res.status(201).json({
@@ -194,20 +200,63 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
 router.get('/all', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT b.booking_id, b.status, b.start_time, b.end_time, b.total_amount,
+      SELECT b.booking_id, b.status, b.start_time, b.end_time,
              u.first_name, u.last_name,
              c.charger_id, c.charger_name,
-             s.name AS station_name
+             s.station_id, s.name AS station_name,
+             p.amount AS total_amount, p.method AS payment_method, p.status AS payment_status
       FROM bookings b
       JOIN chargers c ON c.charger_id = b.charger_id
       JOIN stations s ON s.station_id = c.station_id
       JOIN users u ON u.user_id = b.user_id
+      LEFT JOIN charging_sessions cs ON cs.booking_id = b.booking_id
+      LEFT JOIN payments p ON p.session_id = cs.session_id
       ORDER BY b.start_time DESC
     `);
     return res.status(200).json({ bookings: rows });
   } catch (error) {
     console.error('Get all booking error:', error);
     return res.status(500).json({ message: 'Server error fetching booking.' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/bookings/{id}/admin-cancel:
+ *   patch:
+ *     summary: Cancel any booking (Admin only)
+ *     tags: [Bookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Booking cancelled successfully
+ *       404:
+ *         description: Booking not found or already cancelled
+ *       500:
+ *         description: Server error
+ */
+///lalla   PATCH /api/bookings/:id/admin-cancel  (Admin cancel any booking)
+router.patch('/:id/admin-cancel', auth, roleCheck('admin'), async (req, res) => {
+  const { id } = req.params;
+  try {
+    const [result] = await pool.query(
+      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status != 'cancelled'`,
+      [id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Booking not found or already cancelled.' });
+    }
+    return res.status(200).json({ message: 'Booking cancelled successfully.' });
+  } catch (error) {
+    console.error('Admin cancel booking error:', error);
+    return res.status(500).json({ message: 'Server error cancelling booking.' });
   }
 });
 
@@ -259,15 +308,25 @@ router.get('/:id', auth, async (req, res) => {
 /// nem
 router.patch('/:id/cancel', auth, async (req, res) => {
   try {
-    const [result] = await pool.query(
-      `UPDATE bookings SET status = 'cancelled'
-       WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
+    const [bookingRows] = await pool.query(
+      `SELECT charger_id FROM bookings WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
       [req.params.id, req.user.user_id]
     );
 
-    if (result.affectedRows === 0) {
+    if (bookingRows.length === 0) {
       return res.status(404).json({ message: 'Booking not found or cannot be cancelled.' });
     }
+
+    await pool.query(
+      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ?`,
+      [req.params.id]
+    );
+
+    // คืนตู้ชาร์จกลับว่าง
+    await pool.query(
+      `UPDATE chargers SET status = 'available' WHERE charger_id = ? AND status = 'reserved'`,
+      [bookingRows[0].charger_id]
+    );
 
     return res.status(200).json({ message: 'Booking cancelled successfully.' });
   } catch (error) {

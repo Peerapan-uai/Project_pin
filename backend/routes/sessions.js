@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
+const { get } = require('mongoose');
+const roleCheck = require('../middleware/roleCheck');
 
 /**
  * @swagger
@@ -56,12 +58,11 @@ router.post('/start', auth, async (req, res) => {
       return res.status(400).json({ message: 'No valid confirmed booking found.' });
     }
 
-    // เช็คว่าตู้ชาทว่างอยู่จริงไหม
+    // ยอมรับทั้ง available และ reserved (reserved = มีคนจองและเป็นคนนั้นที่กำลังจะใช้)
     const [chargerRows] = await pool.query(
-      `SELECT * FROM chargers WHERE charger_id = ? AND status = 'available'`,
+      `SELECT * FROM chargers WHERE charger_id = ? AND status IN ('available', 'reserved')`,
       [charger_id]
     );
-    // ถ้ามีคนใช้อยู่ส่ง 400 
     if (chargerRows.length === 0) {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
@@ -289,5 +290,20 @@ router.get('/:id/status', auth, async (req, res) => {
     return res.status(500).json({ message: 'Server error fetching session status.' });
   }
 });
-
+/// lalla. GET /api/sessions/all
+router.get('/all', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT s.*, u.first_name, u.last_name, c.charger_name, st.name AS station_name
+      from charging_sessions s
+      join chargers c on s.charger_id = c.charger_id
+      join stations st on c.station_id = st.station_id
+      join users u on s.user_id = u.user_id
+      order by s.start_time DESC`)
+    return res.status(200).json({ sessions: rows })
+  } catch (error) {
+    console.error('Get all sessions error:', error)
+    return res.status(500).json({ message: 'Server error fetching sessions.' })
+  }
+});
 module.exports = router;

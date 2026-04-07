@@ -9,6 +9,8 @@ const logger = require('./middleware/logger');
 const auth = require('./middleware/auth');
 const roleCheck = require('./middleware/roleCheck');
 
+const { startExpireJob } = require('./jobs/expireBookings');
+
 // Route imports
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -146,6 +148,7 @@ const startServer = async () => {
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
+    startExpireJob();
   });
 };
 

@@ -1,4 +1,4 @@
-# lalla_scope — งานของ lalla (14 endpoints + Database)
+# lalla_scope — งานของ lalla (22 endpoints + Database)
 
 ## สถานะปัจจุบัน
 - Database schema — **เสร็จแล้ว ✅** (import ลง MySQL แล้ว มี sample data พร้อมเทส)
@@ -6,20 +6,22 @@
 - Frontend admin/tech — **เสร็จแล้ว ✅** (AdminLoginPage ใช้งานได้แล้ว, DashboardPage แก้ bug แล้ว)
 - เทส Swagger — **เสร็จแล้ว ✅** (เทสครบทุก 15 endpoint ผ่านหมด)
 
-> อัปเดตล่าสุด: 2026-03-26
+> อัปเดตล่าสุด: 2026-04-07
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
 
 | กลุ่ม | จำนวน |
 |-------|-------|
-| Users admin (GET all, ban, สร้างช่าง) | 3 |
+| Users admin (GET all, ban, สร้างช่าง, แก้ข้อมูล) | 4 |
 | Stations admin (POST/PUT/DELETE) | 3 |
-| Chargers admin+tech (POST/PUT/PATCH status) | 3 |
+| Chargers admin+tech (GET all, POST/PUT/PATCH status/DELETE) | 5 |
 | Tickets admin+tech (GET all, assign, status, image) | 4 |
-| Bookings admin (GET all) | 1 |
-| **รวม** | **14** |
-| Dashboard Stats (ต้องสร้าง route ใหม่) | +1 |
+| Bookings admin (GET all, admin-cancel) | 2 |
+| Payments admin (GET admin/all) | 1 |
+| Dashboard Stats | 1 |
+| Sessions admin (GET all) | 1 |
+| **รวม** | **22** |
 
 ---
 
@@ -49,12 +51,13 @@ Tables ที่ต้องมี:
 
 ## API ที่ lalla ต้องเขียน (14 endpoints)
 
-### Users — Admin only (3)
+### Users — Admin only (4)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
 | 1 | GET | `/api/users` | ดู user ทั้งหมดในระบบ | ✅ |
 | 2 | PATCH | `/api/users/:id/ban` | ban/unban user | ✅ |
 | 3 | POST | `/api/users/technician` | สร้าง account ช่าง | ✅ |
+| 4 | PUT | `/api/users/:id` | admin แก้ไขข้อมูล user/ช่าง (ชื่อ/เบอร์/รหัสผ่าน) | ✅ |
 
 ### Stations — Admin only (3)
 | # | Method | Path | หน้าที่ | สถานะ |
@@ -63,30 +66,43 @@ Tables ที่ต้องมี:
 | 5 | PUT | `/api/stations/:id` | แก้ข้อมูลสถานี | ✅ |
 | 6 | DELETE | `/api/stations/:id` | ลบสถานี | ✅ |
 
-### Chargers — Admin/Tech (3)
+### Chargers — Admin/Tech (5)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 7 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ✅ |
-| 8 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ✅ |
-| 9 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/reserved/charging/out_of_service) | ✅ |
+| 7 | GET | `/api/chargers` | ดูตู้ชาร์จทั้งหมด (admin only) | ✅ |
+| 8 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ✅ |
+| 9 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ✅ |
+| 10 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/reserved/charging/out_of_service) | ✅ |
+| 11 | DELETE | `/api/chargers/:id` | ลบตู้ชาร์จ | ✅ |
 
 ### Tickets — Admin/Tech (4)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 10 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ✅ |
-| 11 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ✅ |
-| 12 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket (reported/assigned/in_progress/completed) | ✅ |
-| 13 | POST | `/api/tickets/:id/image` | อัพโหลดรูป repair_image | ✅ |
+| 12 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ✅ |
+| 13 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ✅ |
+| 14 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket (reported/assigned/in_progress/completed) | ✅ |
+| 15 | POST | `/api/tickets/:id/image` | อัพโหลดรูป repair_image | ✅ |
 
-### Bookings — Admin only (1)
+### Bookings — Admin only (2)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 14 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ✅ |
+| 16 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ✅ |
+| 17 | PATCH | `/api/bookings/:id/admin-cancel` | admin ยกเลิก booking ใดก็ได้ | ✅ |
 
-### Dashboard Stats — Admin only
+### Payments — Admin only (1)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 15 | GET | `/api/admin/stats` | ดึงสถิติ dashboard (total_users, bookings_today, payments_count, charger_issue) | ✅ |
+| 18 | GET | `/api/payments/admin/all` | ดูรายการจ่ายเงินทั้งหมด พร้อม station/charger info | ✅ |
+
+### Sessions — Admin only (1)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 19 | GET | `/api/sessions/all` | ดู charging session ทุกคน (admin view) | ✅ |
+
+### Dashboard Stats — Admin only (1)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 20 | GET | `/api/admin/stats` | ดึงสถิติ dashboard (total_users, bookings_today, payments_count, charger_issue) | ✅ |
 
 ---
 
@@ -102,28 +118,20 @@ Tables ที่ต้องมี:
 - admin → `/admin/dashboard`, technician → `/tech/dashboard`
 - ใช้ `api.post('/api/auth/login')` และ `useAuth()` hook เดียวกับ nem
 
-### Payments — Admin only (+1 เพิ่มใหม่)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 15 | GET | `/api/payments/all` | ดูประวัติการจ่ายเงินทุกคนในระบบ (admin view) | ❌ |
-
-### Sessions — Admin only (+1 เพิ่มใหม่)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 16 | GET | `/api/sessions/all` | ดู charging session ทุกคนในระบบ (admin view) | ❌ |
+> รวม lalla ใน code จริง = **23 endpoints** (22 เดิม + nearby)
 
 ---
 
 ## ⚠️ Dependencies จาก nem ที่ต้องรู้
 
 ### Auto-notification เมื่อมี ticket ใหม่
-- **nem จะแก้** `POST /api/tickets` ให้ INSERT ลง `notifications` table ให้ technician ทุกคนอัตโนมัติ
+- **nem แก้แล้ว ✅** `POST /api/tickets` INSERT notification ให้ช่างทุกคนอัตโนมัติ (bulk insert)
+- notification title: `"มีแจ้งปัญหาใหม่"`, message: `"ตั๋วซ่อม #{id}: {title}"`
 - **lalla ต้องทำ** ให้ tech dashboard อ่าน notification เหล่านี้และแสดงผล (unread badge + list)
-- notification message จะเป็น: `"มี ticket ใหม่: {title} — ตู้ {charger_name}"`
 
 ### ปุ่มแจ้งปัญหาใน BookingPage
-- nem เพิ่มปุ่ม 🔧 ใน BookingPage → นำ user ไปหน้า `/report` พร้อม pre-fill charger_id
-- ticket จะถูกสร้างผ่าน `POST /api/tickets` (nem's endpoint)
+- **nem ทำแล้ว ✅** ปุ่ม "แจ้งปัญหาตู้ชาร์จนี้" ใน BookingPage → navigate `/report` พร้อม pre-fill chargerId + stationId
+- ReportIssuePage รับ location.state มา pre-fill สถานี + ตู้ชาร์จอัตโนมัติ
 - lalla ต้องทำให้ tech dashboard เห็น ticket นั้นและ assign งานได้
 
 ---
@@ -215,6 +223,111 @@ ALTER TABLE chargers
 3. เปิด `http://localhost:5001/api-docs` (Swagger)
 4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
 5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
+
+## แผนงานอนาคต — เพิ่ม lalla จาก 22 → 40 endpoints
+
+> ยังไม่ได้ทำ รอหลังจากอาจารย์ database ดูงานก่อน
+> อัปเดตล่าสุด: 2026-04-07
+
+### Google Maps — เพิ่ม 8
+> lalla เป็นคนเขียน API ทั้งหมด, nem เรียกใช้จาก frontend
+
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 23 | GET | `/api/stations/nearby` | หาสถานีใกล้เคียงจาก lat/lng + radius (ใช้ Haversine Formula) | ✅ |
+| 24 | GET | `/api/stations/filter` | filter สถานีตาม charger type (DC Fast / AC Slow) + status | ⏳ |
+| 25 | GET | `/api/stations/:id/availability` | check ตู้ว่างทั้งหมดในสถานี real-time | ⏳ |
+| 26 | POST | `/api/distances/calculate` | คำนวณระยะห่างจาก user → สถานี (lat/lng → km) | ⏳ |
+| 27 | POST | `/api/users/:id/location` | บันทึก location ปัจจุบันของ user | ⏳ |
+| 28 | POST | `/api/locations/search` | search box autocomplete ชื่อสถานี/ที่อยู่ | ⏳ |
+| 29 | GET | `/api/stations/:id/chargers` | ดูตู้ชาร์จทั้งหมดในสถานี (สำหรับ map info window) | ⏳ |
+| 30 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, availability) | ⏳ |
+
+ต้องสมัครก่อน:
+- Google Maps API key: สมัครที่ Google Cloud Console (มี free tier $200/เดือน)
+- npm: `@react-google-maps/api` (frontend), ไม่ต้อง package พิเศษ backend
+
+### Admin Reports — เพิ่ม 5
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 31 | GET | `/api/admin/reports/revenue` | รายได้รายวัน/เดือน/ปี (filter by date range, station) | ⏳ |
+| 32 | GET | `/api/admin/reports/usage` | สถิติการใช้งาน charger (utilization%, peak hours, downtime) | ⏳ |
+| 33 | GET | `/api/admin/reports/stations` | สถิติแยกตามสถานี (revenue, session count, charger status) | ⏳ |
+| 34 | GET | `/api/admin/reports/comparison` | เปรียบเทียบ vs เดือนที่แล้ว/ปีที่แล้ว (revenue%, sessions%) | ⏳ |
+| 35 | POST | `/api/admin/reports/export` | export report เป็น CSV หรือ PDF | ⏳ |
+
+### Notification Admin — เพิ่ม 5
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 36 | POST | `/api/notifications/broadcast` | admin ส่ง notification ถึงทุกคน | ⏳ |
+| 37 | POST | `/api/notifications/targeted` | admin ส่งเฉพาะกลุ่ม (by role/location/status) | ⏳ |
+| 38 | POST | `/api/notifications/schedule` | admin ตั้งเวลาส่ง notification | ⏳ |
+| 39 | GET | `/api/notifications/analytics` | ดูสถิติ delivery rate / read rate | ⏳ |
+| 40 | GET | `/api/users/:id` | admin ดู user รายคน + ประวัติทั้งหมด | ⏳ |
+
+### Admin Logs — เพิ่ม 2
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 41 | GET | `/api/admin/logs` | ดู log ทั้งหมด (webhook/error/activity) | ⏳ |
+| 42 | GET | `/api/admin/logs/:type` | filter log ตาม type | ⏳ |
+
+> รวมถ้าทำครบ = **42 endpoints** ✅
+
+---
+
+## Database ที่ต้องเพิ่ม (อนาคต)
+
+> รัน query เหล่านี้ใน phpMyAdmin ก่อน implement API ใหม่
+
+### 1. ALTER TABLE payments (เพิ่ม 4 columns)
+```sql
+ALTER TABLE payments
+ADD COLUMN webhook_id VARCHAR(255) NULL,
+ADD COLUMN refund_status ENUM('none','pending','completed','failed') DEFAULT 'none',
+ADD COLUMN refund_amount DECIMAL(10,2) NULL,
+ADD COLUMN expires_at DATETIME NULL;
+```
+**เหตุผล:** รองรับ webhook idempotency, refund tracking, QR expire
+
+### 2. CREATE TABLE refunds (ใหม่)
+```sql
+CREATE TABLE refunds (
+  refund_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  payment_id INT UNSIGNED NOT NULL,
+  amount DECIMAL(10,2) NOT NULL,
+  reason VARCHAR(255),
+  status ENUM('pending','completed','failed') DEFAULT 'pending',
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (refund_id),
+  FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+**เหตุผล:** 1 payment อาจมีหลาย refund (partial refund) ต้องแยก table
+
+### 3. ALTER TABLE stations (เพิ่ม Spatial Index)
+```sql
+ALTER TABLE stations
+ADD INDEX idx_location (latitude, longitude);
+```
+**เหตุผล:** query nearby stations เร็วขึ้น ไม่ full table scan
+
+### 4. CREATE TABLE notification_logs (ใหม่)
+```sql
+CREATE TABLE notification_logs (
+  log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  notification_id INT UNSIGNED NOT NULL,
+  user_id INT UNSIGNED NOT NULL,
+  delivered_at TIMESTAMP NULL,
+  read_at TIMESTAMP NULL,
+  status ENUM('pending','delivered','failed') DEFAULT 'pending',
+  PRIMARY KEY (log_id),
+  FOREIGN KEY (notification_id) REFERENCES notifications(notification_id),
+  FOREIGN KEY (user_id) REFERENCES users(user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+```
+**เหตุผล:** track delivery/read rate สำหรับ `GET /api/notifications/analytics`
+
+---
 
 ## สิ่งที่แก้/เพิ่มวันที่ 2026-03-26
 

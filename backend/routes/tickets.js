@@ -100,9 +100,33 @@ router.post('/', auth, async (req, res) => {
       ]
     );
 
+    const ticketId = result.insertId;
+
+    // auto-notify: แจ้งช่างทุกคนที่มีในระบบ
+    try {
+      const [technicians] = await pool.query(
+        `SELECT user_id FROM users WHERE role = 'technician'`
+      );
+
+      if (technicians.length > 0) {
+        const notifValues = technicians.map(t => [
+          t.user_id,
+          'มีแจ้งปัญหาใหม่',
+          `ตั๋วซ่อม #${ticketId}: ${title}`,
+          'maintenance',
+        ]);
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type) VALUES ?`,
+          [notifValues]
+        );
+      }
+    } catch (notifErr) {
+      console.warn('Notify technicians failed (non-critical):', notifErr.message);
+    }
+
     return res.status(201).json({
       message: 'Support ticket created successfully.',
-      ticket_id: result.insertId,
+      ticket_id: ticketId,
     });
   } catch (error) {
     console.error('Create ticket error:', error);
@@ -132,19 +156,33 @@ router.get('/', auth, async (req, res) => {
 
     if (req.user.role === 'admin' || req.user.role === 'technician') {
       query = `
-        SELECT t.*, CONCAT(u.first_name, ' ', u.last_name) AS submitted_by,
-               CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name
+        SELECT t.*,
+               CONCAT(u.first_name, ' ', u.last_name) AS reporter_name,
+               CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name,
+               c.charger_name,
+               s.name AS station_name,
+               s.address AS station_address
         FROM maintenance_tickets t
         JOIN users u ON t.reported_by = u.user_id
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
+        LEFT JOIN chargers c ON t.charger_id = c.charger_id
+        LEFT JOIN stations s ON c.station_id = s.station_id
         ORDER BY t.created_at DESC
       `;
       params = [];
     } else {
       query = `
-        SELECT t.*, CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name
+        SELECT t.*,
+               CONCAT(u.first_name, ' ', u.last_name) AS reporter_name,
+               CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name,
+               c.charger_name,
+               s.name AS station_name,
+               s.address AS station_address
         FROM maintenance_tickets t
+        JOIN users u ON t.reported_by = u.user_id
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
+        LEFT JOIN chargers c ON t.charger_id = c.charger_id
+        LEFT JOIN stations s ON c.station_id = s.station_id
         WHERE t.reported_by = ?
         ORDER BY t.created_at DESC
       `;

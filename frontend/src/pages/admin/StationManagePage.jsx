@@ -4,16 +4,26 @@ import StatusBadge from '../../components/StatusBadge'
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes } from 'react-icons/fa'
 
 const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active' }
+const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
 
 export default function StationManagePage() {
-  const [stations, setStations] = useState([])
-  const [search, setSearch]     = useState('')
-  const [loading, setLoading]   = useState(true)
-  const [showModal, setShowModal] = useState(false)
-  const [editingId, setEditingId] = useState(null)
-  const [form, setForm]           = useState(EMPTY_FORM)
-  const [saving, setSaving]       = useState(false)
-  const [error, setError]         = useState('')
+  const [stations, setStations]         = useState([])
+  const [search, setSearch]             = useState('')
+  const [loading, setLoading]           = useState(true)
+  const [showModal, setShowModal]       = useState(false)
+  const [editingId, setEditingId]       = useState(null)
+  const [form, setForm]                 = useState(EMPTY_FORM)
+  const [saving, setSaving]             = useState(false)
+  const [error, setError]               = useState('')
+
+  // charger modal state
+  const [chargerStation, setChargerStation] = useState(null)
+  const [chargers, setChargers]             = useState([])
+  const [chargerLoading, setChargerLoading] = useState(false)
+  const [editingCharger, setEditingCharger] = useState(null)
+  const [chargerForm, setChargerForm]       = useState(EMPTY_CHARGER_FORM)
+  const [chargerError, setChargerError]     = useState('')
+  const [chargerSaving, setChargerSaving]   = useState(false)
 
   const fetchStations = () => {
     setLoading(true)
@@ -65,6 +75,72 @@ export default function StationManagePage() {
       .then(() => { closeModal(); fetchStations() })
       .catch((err) => setError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setSaving(false))
+  }
+
+  const openChargerModal = (station) => {
+    setChargerStation(station)
+    setEditingCharger(null)
+    setChargerForm(EMPTY_CHARGER_FORM)
+    setChargerError('')
+    setChargerLoading(true)
+    api.get(`/api/stations/${station.station_id}`)
+      .then((res) => setChargers(res.data.chargers ?? []))
+      .catch(() => setChargers([]))
+      .finally(() => setChargerLoading(false))
+  }
+  const closeChargerModal = () => { setChargerStation(null); setEditingCharger(null) }
+
+  const startEditCharger = (c) => {
+    setEditingCharger(c.charger_id)
+    setChargerForm({
+      charger_name: c.charger_name ?? '',
+      connector_type: c.connector_type ?? '',
+      power_kw: c.power_kw ?? '',
+      price_per_kwh: c.price_per_kwh ?? '',
+      status: c.status ?? 'available',
+    })
+    setChargerError('')
+  }
+
+  const handleDeleteCharger = (id) => {
+    if (!window.confirm('ยืนยันการลบตู้ชาร์จนี้?')) return
+    api.delete(`/api/chargers/${id}`)
+      .then(() => {
+        setChargers((prev) => prev.filter((c) => c.charger_id !== id))
+        fetchStations()
+      })
+      .catch((err) => setChargerError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+  }
+
+  const handleChargerSubmit = (e) => {
+    e.preventDefault()
+    if (!chargerForm.charger_name || !chargerForm.connector_type || !chargerForm.power_kw || !chargerForm.price_per_kwh) {
+      setChargerError('กรุณากรอกข้อมูลให้ครบ')
+      return
+    }
+    setChargerSaving(true)
+    const payload = {
+      ...chargerForm,
+      station_id: chargerStation.station_id,
+      power_kw: Number(chargerForm.power_kw),
+      price_per_kwh: Number(chargerForm.price_per_kwh),
+    }
+    const req = editingCharger
+      ? api.put(`/api/chargers/${editingCharger}`, payload)
+      : api.post('/api/chargers', payload)
+    req
+      .then(() => {
+        setEditingCharger(null)
+        setChargerForm(EMPTY_CHARGER_FORM)
+        setChargerError('')
+        return api.get(`/api/stations/${chargerStation.station_id}`)
+      })
+      .then((res) => {
+        setChargers(res.data.chargers ?? [])
+        fetchStations()
+      })
+      .catch((err) => setChargerError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setChargerSaving(false))
   }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -134,10 +210,12 @@ export default function StationManagePage() {
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center justify-center gap-2">
-                    <button onClick={() => openEdit(s)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><FaEdit size={14} /></button>
+                    <button onClick={() => openChargerModal(s)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="จัดการตู้ชาร์จ"><FaBolt size={14} /></button>
+                    <button onClick={() => openEdit(s)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไขสถานี"><FaEdit size={14} /></button>
                     <button
                       onClick={() => handleDelete(s.station_id)}
                       className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
+                      title="ลบสถานี"
                     >
                       <FaTrash size={14} />
                     </button>
@@ -152,8 +230,134 @@ export default function StationManagePage() {
         )}
       </div>
 
-      {/* Add/Edit Modal */}
-      {showModal && (
+      {/* Charger Management Modal */}
+      {chargerStation && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-2xl max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+              <div>
+                <h2 className="font-bold text-gray-900">ตู้ชาร์จ — {chargerStation.name}</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{chargers.length} ตู้</p>
+              </div>
+              <button onClick={closeChargerModal} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="overflow-y-auto flex-1 p-6 space-y-4">
+              {chargerError && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{chargerError}</p>}
+
+              {/* Charger list */}
+              {chargerLoading
+                ? <p className="text-sm text-gray-400 text-center py-4">กำลังโหลด...</p>
+                : chargers.length === 0
+                  ? <p className="text-sm text-gray-400 text-center py-4">ยังไม่มีตู้ชาร์จ</p>
+                  : (
+                    <div className="space-y-2">
+                      {chargers.map((c) => (
+                        <div key={c.charger_id} className="flex items-center justify-between bg-gray-50 rounded-xl px-4 py-3 gap-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="w-8 h-8 bg-primary/10 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <FaBolt size={13} className="text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="font-medium text-sm text-gray-900 truncate">{c.charger_name}</p>
+                              <p className="text-xs text-gray-400">{c.connector_type} · {c.power_kw} kW · {c.price_per_kwh} ฿/kWh</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 flex-shrink-0">
+                            <StatusBadge status={c.status} />
+                            <button onClick={() => startEditCharger(c)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded-lg"><FaEdit size={13} /></button>
+                            <button onClick={() => handleDeleteCharger(c.charger_id)} className="p-1.5 text-red-400 hover:bg-red-100 rounded-lg"><FaTrash size={13} /></button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )
+              }
+
+              {/* Add/Edit charger form */}
+              <div className="border-t border-gray-100 pt-4">
+                <p className="text-sm font-semibold text-gray-700 mb-3">{editingCharger ? 'แก้ไขตู้ชาร์จ' : 'เพิ่มตู้ชาร์จใหม่'}</p>
+                <form onSubmit={handleChargerSubmit} className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">ชื่อตู้ *</label>
+                      <input
+                        value={chargerForm.charger_name}
+                        onChange={(e) => setChargerForm({ ...chargerForm, charger_name: e.target.value })}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="เช่น Charger A1"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">Connector *</label>
+                      <input
+                        value={chargerForm.connector_type}
+                        onChange={(e) => setChargerForm({ ...chargerForm, connector_type: e.target.value })}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="เช่น Type2, CHAdeMO"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">กำลัง (kW) *</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={chargerForm.power_kw}
+                        onChange={(e) => setChargerForm({ ...chargerForm, power_kw: e.target.value })}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="22"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">ราคา/kWh *</label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={chargerForm.price_per_kwh}
+                        onChange={(e) => setChargerForm({ ...chargerForm, price_per_kwh: e.target.value })}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                        placeholder="7.50"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
+                    <select
+                      value={chargerForm.status}
+                      onChange={(e) => setChargerForm({ ...chargerForm, status: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    >
+                      <option value="available">available</option>
+                      <option value="in_use">in_use</option>
+                      <option value="out_of_service">out_of_service</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-3">
+                    {editingCharger && (
+                      <button
+                        type="button"
+                        onClick={() => { setEditingCharger(null); setChargerForm(EMPTY_CHARGER_FORM); setChargerError('') }}
+                        className="flex-1 py-2 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+                      >
+                        ยกเลิก
+                      </button>
+                    )}
+                    <button
+                      type="submit"
+                      disabled={chargerSaving}
+                      className="flex-1 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 disabled:opacity-50 flex items-center justify-center gap-2"
+                    >
+                      {chargerSaving ? 'กำลังบันทึก...' : editingCharger ? 'บันทึก' : <><FaPlus size={12} /> เพิ่มตู้</>}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add/Edit Station Modal */}
+      {!chargerStation && showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
