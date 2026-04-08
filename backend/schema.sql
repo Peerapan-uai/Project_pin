@@ -282,3 +282,31 @@ INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_
 -- Vehicle: 1 vehicle for Alice (user_id = 3)
 INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh) VALUES
   (3, 'Tesla', 'Model 3', 'กข 1234', 'CCS', 75.00);
+
+-- =============================================================
+-- MongoDB Collections (Logs System)
+-- =============================================================
+-- Database: ev_charger
+-- Collection: logs
+-- Purpose: Store API request logs for auditing and debugging
+-- 
+-- Fields:
+-- - method: String (GET, POST, PUT, DELETE, PATCH)
+-- - url: String (API endpoint path)
+-- - statusCode: Number (HTTP status code: 200, 400, 404, 500...)
+-- - userId: Number (user_id from users table, null if anonymous)
+-- - userRole: String (user, admin, technician)
+-- - ip: String (Client IP address)
+-- - userAgent: String (Browser/Client information)
+-- - responseTime: Number (milliseconds)
+-- - body: Object (Request body JSON)
+-- - createdAt: Date (Timestamp with TTL: 7776000 sec = 90 days auto-delete)
+-- 
+-- Indexes:
+-- 1. userId_1 — Fast lookup by user
+-- 2. statusCode_1 — Find error logs (500, 404, etc.)
+-- 3. createdAt_1 with TTL — Auto-delete logs older than 90 days
+-- 
+-- TTL Configuration:
+-- db.logs.createIndex({ createdAt: 1 }, { expireAfterSeconds: 7776000 })
+-- =============================================================
