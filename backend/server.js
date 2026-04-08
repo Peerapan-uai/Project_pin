@@ -10,6 +10,7 @@ const auth = require('./middleware/auth');
 const roleCheck = require('./middleware/roleCheck');
 
 const { startExpireJob } = require('./jobs/expireBookings');
+const { startExpirePaymentsJob } = require('./jobs/expirePayments');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -149,6 +150,7 @@ const startServer = async () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     startExpireJob();
+    startExpirePaymentsJob();
   });
 };
 

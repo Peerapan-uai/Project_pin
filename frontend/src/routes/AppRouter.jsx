@@ -1,50 +1,57 @@
+import { lazy, Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext'
 
-// Layouts
+// Layouts (โหลดทันที เพราะใช้ทุกหน้า)
 import MobileLayout from '../layouts/MobileLayout'
 import DesktopLayout from '../layouts/DesktopLayout'
 import ResponsiveLayout from '../layouts/ResponsiveLayout'
 
 // Shared pages
-import LoginPage from '../pages/shared/LoginPage'
-import RegisterPage from '../pages/shared/RegisterPage'
+const LoginPage = lazy(() => import('../pages/shared/LoginPage'))
+const RegisterPage = lazy(() => import('../pages/shared/RegisterPage'))
 
 // User pages
-import HomePage from '../pages/user/HomePage'
-import StationDetailPage from '../pages/user/StationDetailPage'
-import ChargerDetailPage from '../pages/user/ChargerDetailPage'
-import BookingPage from '../pages/user/BookingPage'
-import ChargingPage from '../pages/user/ChargingPage'
-import PaymentPage from '../pages/user/PaymentPage'
-import BookingHistoryPage from '../pages/user/BookingHistoryPage'
-import BookingDetailPage from '../pages/user/BookingDetailPage'
-import PaymentHistoryPage from '../pages/user/PaymentHistoryPage'
-import ReviewPage from '../pages/user/ReviewPage'
-import ReportIssuePage from '../pages/user/ReportIssuePage'
-import ProfilePage from '../pages/user/ProfilePage'
-import VehicleManagePage from '../pages/user/VehicleManagePage'
-import NotificationsPage from '../pages/user/NotificationsPage'
-import SearchPage from '../pages/user/SearchPage'
+const HomePage = lazy(() => import('../pages/user/HomePage'))
+const StationDetailPage = lazy(() => import('../pages/user/StationDetailPage'))
+const ChargerDetailPage = lazy(() => import('../pages/user/ChargerDetailPage'))
+const BookingPage = lazy(() => import('../pages/user/BookingPage'))
+const ChargingPage = lazy(() => import('../pages/user/ChargingPage'))
+const PaymentPage = lazy(() => import('../pages/user/PaymentPage'))
+const BookingHistoryPage = lazy(() => import('../pages/user/BookingHistoryPage'))
+const BookingDetailPage = lazy(() => import('../pages/user/BookingDetailPage'))
+const PaymentHistoryPage = lazy(() => import('../pages/user/PaymentHistoryPage'))
+const ReviewPage = lazy(() => import('../pages/user/ReviewPage'))
+const ReportIssuePage = lazy(() => import('../pages/user/ReportIssuePage'))
+const ProfilePage = lazy(() => import('../pages/user/ProfilePage'))
+const VehicleManagePage = lazy(() => import('../pages/user/VehicleManagePage'))
+const NotificationsPage = lazy(() => import('../pages/user/NotificationsPage'))
+const SearchPage = lazy(() => import('../pages/user/SearchPage'))
 
 // Admin pages
-import AdminLoginPage from '../pages/admin/AdminLoginPage'
-import DashboardPage from '../pages/admin/DashboardPage'
-import StationManagePage from '../pages/admin/StationManagePage'
-import ChargerManagePage from '../pages/admin/ChargerManagePage'
-import UserManagePage from '../pages/admin/UserManagePage'
-import TechnicianManagePage from '../pages/admin/TechnicianManagePage'
-import BookingManagePage from '../pages/admin/BookingManagePage'
-import TicketManagePage from '../pages/admin/TicketManagePage'
-import AdminNotificationsPage from '../pages/admin/AdminNotificationsPage'
-import PaymentsPage from '../pages/admin/PaymentsPage'
+const AdminLoginPage = lazy(() => import('../pages/admin/AdminLoginPage'))
+const DashboardPage = lazy(() => import('../pages/admin/DashboardPage'))
+const StationManagePage = lazy(() => import('../pages/admin/StationManagePage'))
+const ChargerManagePage = lazy(() => import('../pages/admin/ChargerManagePage'))
+const UserManagePage = lazy(() => import('../pages/admin/UserManagePage'))
+const TechnicianManagePage = lazy(() => import('../pages/admin/TechnicianManagePage'))
+const BookingManagePage = lazy(() => import('../pages/admin/BookingManagePage'))
+const TicketManagePage = lazy(() => import('../pages/admin/TicketManagePage'))
+const AdminNotificationsPage = lazy(() => import('../pages/admin/AdminNotificationsPage'))
+const PaymentsPage = lazy(() => import('../pages/admin/PaymentsPage'))
 
 // Tech pages
-import TechDashboardPage from '../pages/tech/TechDashboardPage'
-import TicketDetailPage from '../pages/tech/TicketDetailPage'
-import UpdateTicketPage from '../pages/tech/UpdateTicketPage'
-import TechHistoryPage from '../pages/tech/TechHistoryPage'
-import TechNotificationsPage from '../pages/tech/TechNotificationsPage'
+const TechDashboardPage = lazy(() => import('../pages/tech/TechDashboardPage'))
+const TicketDetailPage = lazy(() => import('../pages/tech/TicketDetailPage'))
+const UpdateTicketPage = lazy(() => import('../pages/tech/UpdateTicketPage'))
+const TechHistoryPage = lazy(() => import('../pages/tech/TechHistoryPage'))
+const TechNotificationsPage = lazy(() => import('../pages/tech/TechNotificationsPage'))
+
+const PageLoader = () => (
+  <div className="min-h-screen flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+  </div>
+)
 
 // PrivateRoute — ต้อง login ก่อน
 function PrivateRoute({ children }) {
@@ -65,6 +72,7 @@ function RoleRoute({ children, roles }) {
 
 export default function AppRouter() {
   return (
+    <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/login" element={<LoginPage />} />
@@ -108,5 +116,6 @@ export default function AppRouter() {
 
       <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
+    </Suspense>
   )
 }

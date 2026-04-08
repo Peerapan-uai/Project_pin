@@ -17,6 +17,9 @@ export default function PaymentPage() {
   const [txRef, setTxRef] = useState('')
   const [loading, setLoading] = useState(true)
   const [sessionData, setSessionData] = useState({ total_cost: null, energy_kwh: null })
+  const [qrImage, setQrImage] = useState(null)
+  const [paymentId, setPaymentId] = useState(null)
+  const [cardForm, setCardForm] = useState({ name: '', number: '', expiry: '', cvv: '' })
 
   // รับ total_cost จาก ChargingPage หรือ fetch จาก API
   useEffect(() => {
@@ -35,24 +38,88 @@ export default function PaymentPage() {
     }
   }, [sessionId, location.state])
 
-  const doPayment = (amount) => {
+  // QR: เรียก API สร้าง PromptPay QR จริง แล้วเก็บรูปไว้แสดง
+  const doQR = async (amount) => {
     setStep(STEPS.PROCESSING)
-    api.post('/api/payments', {
-      session_id: Number(sessionId),
-      amount: amount ?? 0,
-      method
-    })
-      .then(res => {
-        const ref = res.data.payment_id
-          ? `TXN${String(res.data.payment_id).padStart(6, '0')}`
-          : `TXN${Date.now().toString().slice(-6)}`
+    setError(null)
+    try {
+      const res = await api.post('/api/payments/qr', {
+        session_id: Number(sessionId),
+        amount: amount ?? 0,
+      })
+      setQrImage(res.data.qr_image)       // base64 PNG จาก backend
+      setPaymentId(res.data.payment_id)   // เก็บไว้ใช้ตอน confirm
+      setStep(STEPS.QR)
+    } catch {
+      setError('ไม่สามารถสร้าง QR ได้ กรุณาลองใหม่')
+      setStep(STEPS.SELECT)
+    }
+  }
+
+  // QR: user กด "ฉันสแกนแล้ว" → บอก backend ว่าจ่ายแล้ว
+  const doConfirm = async () => {
+    setStep(STEPS.PROCESSING)
+    setError(null)
+    try {
+      await api.patch(`/api/payments/${paymentId}/confirm`)
+      setTxRef(`TXN${String(paymentId).padStart(6, '0')}`)
+      setStep(STEPS.SUCCESS)
+    } catch {
+      setError('ยืนยันการชำระเงินไม่สำเร็จ กรุณาลองใหม่')
+      setStep(STEPS.QR)
+    }
+  }
+
+  // Card: tokenize บัตรด้วย Omise.js แล้วส่ง token ไป backend
+  const doCardPayment = async (amount) => {
+    const { name, number, expiry, cvv } = cardForm
+    if (!name || !number || !expiry || !cvv) {
+      setError('กรุณากรอกข้อมูลบัตรให้ครบ')
+      return
+    }
+    const [mm, yy] = expiry.split('/')
+    if (!mm || !yy) {
+      setError('รูปแบบวันหมดอายุไม่ถูกต้อง (MM/YY)')
+      return
+    }
+
+    setStep(STEPS.PROCESSING)
+    setError(null)
+
+    const Omise = window['Omise']
+    if (!Omise) {
+      setError('โหลด Omise ไม่ได้ กรุณา refresh หน้า')
+      setStep(STEPS.CARD)
+      return
+    }
+
+    Omise.setPublicKey('pkey_test_67a5dva6jod9vdg9u6k')
+    Omise.createToken('card', {
+      name,
+      number: number.replace(/\s/g, ''),
+      expiration_month: parseInt(mm, 10),
+      expiration_year: parseInt('20' + yy.trim(), 10),
+      security_code: cvv,
+    }, async (_statusCode, response) => {
+      if (response.object === 'error' || !response.id) {
+        setError(response.message || 'บัตรไม่ถูกต้อง กรุณาตรวจสอบข้อมูล')
+        setStep(STEPS.CARD)
+        return
+      }
+      try {
+        const res = await api.post('/api/payments/charge', {
+          session_id: Number(sessionId),
+          amount: amount ?? 0,
+          token: response.id,
+        })
+        const ref = res.data.transaction_ref || `TXN${String(res.data.payment_id).padStart(6, '0')}`
         setTxRef(ref)
-        setTimeout(() => setStep(STEPS.SUCCESS), 1500)
-      })
-      .catch(() => {
-        setError('การชำระเงินไม่สำเร็จ กรุณาลองใหม่')
-        setStep(STEPS.SELECT)
-      })
+        setStep(STEPS.SUCCESS)
+      } catch (err) {
+        setError(err?.response?.data?.message || 'การชำระเงินไม่สำเร็จ กรุณาลองใหม่')
+        setStep(STEPS.CARD)
+      }
+    })
   }
 
   useEffect(() => {
@@ -61,6 +128,32 @@ export default function PaymentPage() {
       return () => clearTimeout(t)
     }
   }, [step, navigate])
+
+  // polling ตรวจสถานะ payment ทุก 5 วินาที ตอนอยู่หน้า QR
+  useEffect(() => {
+    if (step !== STEPS.QR || !paymentId) return
+
+    const interval = setInterval(async () => {
+      try {
+        const res = await api.get(`/api/payments/${paymentId}/status`)
+        const status = res.data.status
+
+        if (status === 'completed') {
+          // จ่ายแล้ว → ไป SUCCESS อัตโนมัติ ไม่ต้องกดปุ่ม
+          setTxRef(`TXN${String(paymentId).padStart(6, '0')}`)
+          setStep(STEPS.SUCCESS)
+        } else if (status === 'failed') {
+          // หมดอายุ → แสดง error + กลับไปเลือก method ใหม่
+          setError('QR หมดอายุแล้ว กรุณาสร้างใหม่')
+          setStep(STEPS.SELECT)
+        }
+      } catch {
+        // network error — ไม่ทำอะไร รอ poll รอบหน้า
+      }
+    }, 5000)
+
+    return () => clearInterval(interval) // cleanup เมื่อออกจาก QR step
+  }, [step, paymentId])
 
   const amount = sessionData.total_cost
 
@@ -120,7 +213,7 @@ export default function PaymentPage() {
           <p className="text-sm text-gray-500 mb-1">ยอดที่ต้องชำระ</p>
           <p className="text-3xl font-bold text-primary mb-4">{amount ?? '—'} บาท</p>
           <img
-            src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=PromptPay:Session${sessionId}:Amount${amount}`}
+            src={qrImage}
             alt="PromptPay QR"
             className="w-48 h-48 rounded-xl border border-gray-200"
           />
@@ -132,7 +225,7 @@ export default function PaymentPage() {
           <FaMobileAlt size={12} /> เปิดแอปธนาคาร → สแกน QR → ยืนยันการชำระเงิน
         </div>
         <button
-          onClick={() => doPayment(amount)}
+          onClick={() => doConfirm()}
           className="w-full py-3.5 bg-primary text-white font-semibold rounded-xl shadow-md shadow-green-200 hover:bg-green-600 transition-colors"
         >
           ฉันสแกนและจ่ายแล้ว
@@ -153,25 +246,44 @@ export default function PaymentPage() {
         </div>
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 space-y-3">
           <p className="font-semibold text-gray-800">ข้อมูลบัตร</p>
-          <input readOnly placeholder="1234 5678 9012 3456" defaultValue="4242 4242 4242 4242"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-          <input readOnly placeholder="ชื่อเจ้าของบัตร" defaultValue="TEST USER"
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+          <input
+            placeholder="หมายเลขบัตร (16 หลัก)"
+            value={cardForm.number}
+            onChange={e => setCardForm(f => ({ ...f, number: e.target.value }))}
+            maxLength={19}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
+          <input
+            placeholder="ชื่อเจ้าของบัตร (ภาษาอังกฤษ)"
+            value={cardForm.name}
+            onChange={e => setCardForm(f => ({ ...f, name: e.target.value.toUpperCase() }))}
+            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+          />
           <div className="flex gap-2">
-            <input readOnly placeholder="MM/YY" defaultValue="12/28"
-              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-            <input readOnly placeholder="CVV" defaultValue="123"
-              className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+            <input
+              placeholder="MM/YY"
+              value={cardForm.expiry}
+              onChange={e => setCardForm(f => ({ ...f, expiry: e.target.value }))}
+              maxLength={5}
+              className="flex-1 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <input
+              placeholder="CVV"
+              value={cardForm.cvv}
+              onChange={e => setCardForm(f => ({ ...f, cvv: e.target.value }))}
+              maxLength={4}
+              className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
           </div>
-          <p className="text-xs text-gray-400 text-center">* นี่คือโหมด Demo — ไม่มีการเรียกเก็บเงินจริง</p>
+          <p className="text-xs text-gray-400 text-center">* ทดสอบใช้บัตร: 4242 4242 4242 4242 / 12/28 / 123</p>
         </div>
+        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         <button
-          onClick={() => doPayment(amount)}
+          onClick={() => doCardPayment(amount)}
           className="w-full py-3.5 bg-primary text-white font-semibold rounded-xl shadow-md shadow-green-200 hover:bg-green-600 transition-colors"
         >
           ยืนยันการชำระเงิน {amount ?? ''} บาท
         </button>
-        {error && <p className="text-red-500 text-sm text-center">{error}</p>}
       </div>
     </div>
   )
@@ -227,7 +339,7 @@ export default function PaymentPage() {
         </div>
 
         <button
-          onClick={() => setStep(method === 'promptpay' ? STEPS.QR : STEPS.CARD)}
+          onClick={() => method === 'promptpay' ? doQR(amount) : setStep(STEPS.CARD)}
           className="w-full py-3.5 bg-primary text-white font-semibold rounded-xl shadow-md shadow-green-200 hover:bg-green-600 transition-colors"
         >
           ถัดไป →

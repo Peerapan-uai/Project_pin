@@ -5,9 +5,13 @@
 
 SET FOREIGN_KEY_CHECKS = 0;
 
+DROP TABLE IF EXISTS wallet_transactions;
+DROP TABLE IF EXISTS notification_logs;
+DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS maintenance_tickets;
 DROP TABLE IF EXISTS reviews;
+DROP TABLE IF EXISTS payment_refunds;
 DROP TABLE IF EXISTS payments;
 DROP TABLE IF EXISTS charging_sessions;
 DROP TABLE IF EXISTS bookings;
@@ -30,6 +34,7 @@ CREATE TABLE users (
   phone         VARCHAR(20)     DEFAULT NULL,
   profile_image VARCHAR(500)    DEFAULT NULL,
   role          ENUM('user','admin','technician') NOT NULL DEFAULT 'user',
+  wallet_balance DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
   is_banned     BOOLEAN         NOT NULL DEFAULT FALSE,
   ban_reason    TEXT            DEFAULT NULL,
   created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -219,6 +224,19 @@ CREATE TABLE payment_refunds (
   PRIMARY KEY (refund_id),
   CONSTRAINT fk_refunds_payment FOREIGN KEY (payment_id)  REFERENCES payments (payment_id) ON DELETE CASCADE,
   CONSTRAINT fk_refunds_admin   FOREIGN KEY (refunded_by) REFERENCES users    (user_id)    ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- wallet_transactions
+-- =====================================================================
+CREATE TABLE wallet_transactions (
+  txn_id     INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  user_id    INT UNSIGNED    NOT NULL,
+  amount     DECIMAL(10,2)   NOT NULL,
+  type       ENUM('topup','deduct') NOT NULL,
+  ref        VARCHAR(100)    DEFAULT NULL,
+  created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (txn_id),
+  CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- messages
