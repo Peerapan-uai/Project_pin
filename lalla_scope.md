@@ -1,7 +1,8 @@
 # lalla_scope — งานของ lalla (22 endpoints + Database)
 
 ## สถานะปัจจุบัน
-- Database schema — **เสร็จแล้ว ✅** (import ลง MySQL แล้ว มี sample data พร้อมเทส)
+- Database MySQL schema — **เสร็จแล้ว ✅** (import ลง MySQL แล้ว มี sample data พร้อมเทส)
+- Database MongoDB (Logs) — **ยังไม่ได้ทำฝั่ง lalla ⏳** (setup มีแล้ว แต่ยังไม่มี API ดึง log / TTL index)
 - Backend routes admin/tech — **เสร็จแล้ว ✅** (ทุก endpoint เขียนครบ แก้ bug หมดแล้ว)
 - Frontend admin/tech — **เสร็จแล้ว ✅** (AdminLoginPage ใช้งานได้แล้ว, DashboardPage แก้ bug แล้ว)
 - เทส Swagger — **เสร็จแล้ว ✅** (เทสครบทุก 15 endpoint ผ่านหมด)
@@ -166,7 +167,34 @@ Tables ที่ต้องมี:
 
 ---
 
-## หมายเหตุเรื่อง Schema
+## MongoDB — Log System (NoSQL)
+
+โปรเจคนี้ใช้ **2 DB**: MySQL (ข้อมูลหลัก) + MongoDB (เก็บ log)
+
+### ทำไมต้องมี MongoDB ด้วย
+- Log มีปริมาณเยอะมาก (ทุก request = 1 document) → MySQL ไม่เหมาะ
+- แต่ละ log มี body โครงสร้างไม่เหมือนกัน → MongoDB เก็บ JSON ยืดหยุ่นกว่า
+- Log ไม่ต้อง JOIN กับ table อื่น → ไม่จำเป็นต้อง relational
+- MongoDB เขียนไว ไม่มี FK check, ตั้ง TTL auto-delete log เก่าได้
+
+### Setup ที่มีแล้ว (ไม่ต้องทำ)
+| ไฟล์ | หน้าที่ |
+|------|---------|
+| `config/mongodb.js` | เชื่อม MongoDB |
+| `models/Log.js` | Mongoose schema สำหรับ log |
+| `middleware/logger.js` | บันทึกทุก request อัตโนมัติ (ทุก role) |
+| `docker-compose.yml` | MongoDB container + Mongo Express (GUI: `localhost:8082`) |
+
+### งานที่ lalla ต้องทำ (MongoDB)
+| # | งาน | สถานะ |
+|---|------|-------|
+| 1 | `GET /api/admin/logs` — admin ดู log ทั้งหมด | ⏳ |
+| 2 | `GET /api/admin/logs/:type` — filter log (เช่น error 4xx/5xx) | ⏳ |
+| 3 | TTL index — ลบ log เก่าอัตโนมัติ (เช่น เกิน 90 วัน) | ⏳ |
+
+---
+
+## หมายเหตุเรื่อง Schema (MySQL)
 
 ไฟล์ [backend/schema.sql](backend/schema.sql) มีอยู่แล้ว — ตัดสินใจได้ 2 ทาง:
 - **ใช้ต่อ** → import เข้า MySQL แล้วปรับเพิ่มเติมได้
@@ -366,3 +394,34 @@ CREATE TABLE notification_logs (
 - เข้าใจว่าแต่ละบรรทัดทำอะไร ไม่ใช่แค่ copy
 - รู้ว่า bug เกิดจากไหน ไม่ใช่แค่แก้ตามที่บอก
 - พอถึงตอนอาจารย์ถาม จะตอบได้ครับ
+
+## ✅ MongoDB Setup — เสร็จแล้ว (2026-04-08)
+
+### สิ่งที่เสร็จแล้ว:
+- ✅ MongoDB Database: `ev_charger`
+- ✅ Collection: `logs`
+- ✅ Index created:
+  - `userId_1` — search by userId
+  - `statusCode_1` — search by status code
+  - `createdAt_1` + TTL (7776000 sec = 90 days) — auto-delete old logs
+- ✅ config/mongodb.js — connect to MongoDB
+- ✅ models/Log.js — define log schema with fields: method, url, statusCode, userId, userRole, ip, userAgent, responseTime, body, createdAt
+
+### สิ่งที่ยังต้องทำ:
+- ⏳ middleware/logger.js — capture every request and save to MongoDB
+- ⏳ routes/admin/logs.js — 2 endpoints: GET /api/admin/logs, GET /api/admin/logs/:type
+
+## ✅ middleware/logger.js — เสร็จแล้ว (2026-04-08)
+
+### สิ่งที่ทำ:
+- ✅ จับทุก request (method, url, statusCode, userId, userRole, ip, userAgent, body, responseTime)
+- ✅ บันทึก MongoDB อัตโนมัติ
+- ✅ ทดสอบใน Swagger → logs บันทึกลงฐานข้อมูล
+
+### ผลลัพธ์:
+```
+✅ Response finished, saving log...
+✅ Log saved to MongoDB!
+```
+เห็นในทุก API call = ทำงานสมบูรณ์
+

@@ -1,13 +1,11 @@
 const mongoose = require('mongoose');
-require('dotenv').config();
 
 const connectMongoDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/ev_charger');
     console.log('MongoDB connected successfully');
   } catch (error) {
     console.error('MongoDB connection error:', error.message);
-    // Do not exit process — app can run without MongoDB (logs are optional)
   }
 };
 
