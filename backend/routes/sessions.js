@@ -2,7 +2,6 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
-const { get } = require('mongoose');
 const roleCheck = require('../middleware/roleCheck');
 
 /**
@@ -49,6 +48,23 @@ router.post('/start', auth, async (req, res) => {
   }
 
   try {
+    // เช็ค wallet_frozen + unpaid payment
+    const [userRows] = await pool.query(
+      'SELECT wallet_balance, wallet_frozen FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    if (userRows.length > 0 && userRows[0].wallet_frozen) {
+      return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
+    }
+
+    const [unpaidRows] = await pool.query(
+      `SELECT payment_id FROM payments WHERE user_id = ? AND status = 'pending' LIMIT 1`,
+      [req.user.user_id]
+    );
+    if (unpaidRows.length > 0) {
+      return res.status(400).json({ message: 'You have a pending unpaid payment. Please complete it before starting a new session.' });
+    }
+
     const [bookingRows] = await pool.query(
       `SELECT * FROM bookings WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
       [booking_id, req.user.user_id]
@@ -160,25 +176,63 @@ router.patch('/:id/stop', auth, async (req, res) => {
       ? parseFloat((energy_kwh * session.price_per_kwh).toFixed(2)) //ปัทศนิยม 2 ตำแหน่ง
       : null;
 
-    await pool.query(
-      `UPDATE charging_sessions SET end_time = NOW(), status = 'completed',
-       energy_kwh = ? WHERE session_id = ?`,
-      [energy_kwh, req.params.id]
-    );
+    // ยิง 3 queries พร้อมกัน (ไม่ depend กัน) → ~15ms ดีกว่า sequential
+    await Promise.all([
+      pool.query(
+        `UPDATE charging_sessions SET end_time = NOW(), status = 'completed', energy_kwh = ? WHERE session_id = ?`,
+        [energy_kwh, req.params.id]
+      ),
+      pool.query(
+        `UPDATE chargers SET status = 'available' WHERE charger_id = ?`,
+        [session.charger_id]
+      ),
+      pool.query(
+        `UPDATE bookings SET status = 'completed' WHERE booking_id = ?`,
+        [session.booking_id]
+      ),
+    ]);
 
-    // Set charger back to available
-    await pool.query(
-      `UPDATE chargers SET status = 'available' WHERE charger_id = ?`,
-      [session.charger_id]
-    );
+    // auto deduct wallet (best effort — ถ้าพลาดไม่กระทบ response หลัก)
+    let walletDeducted = false;
+    let walletPaymentId = null;
+    if (totalCost != null && totalCost > 0) {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        const [walletRows] = await conn.query(
+          'SELECT wallet_balance, wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
+          [req.user.user_id]
+        );
+        if (walletRows.length > 0 && !walletRows[0].wallet_frozen && walletRows[0].wallet_balance >= totalCost) {
+          const ref = `DEDUCT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+          await conn.query(
+            'UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?',
+            [totalCost, req.user.user_id]
+          );
+          await conn.query(
+            'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
+            [req.user.user_id, totalCost, 'deduct', `session_${req.params.id}`]
+          );
+          const [payResult] = await conn.query(
+            `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at)
+             VALUES (?, ?, ?, 'wallet', 'completed', ?, NOW())`,
+            [req.user.user_id, req.params.id, totalCost, ref]
+          );
+          await conn.commit();
+          walletDeducted = true;
+          walletPaymentId = payResult.insertId;
+        } else {
+          await conn.rollback();
+        }
+      } catch (walletErr) {
+        await conn.rollback();
+        console.warn('Wallet auto-deduct skipped:', walletErr.message);
+      } finally {
+        conn.release();
+      }
+    }
 
-    // Update booking status to completed
-    await pool.query(
-      `UPDATE bookings SET status = 'completed' WHERE booking_id = ?`,
-      [session.booking_id]
-    );
-
-    // อัพเดท battery ในรถที่ตรง connector_type กับ charger นี้ (best effort — ไม่ให้กระทบ response หลัก)
+    // อัพเดท battery (best effort)
     try {
       const [vehicleRows] = await pool.query(
         `SELECT v.vehicle_id, v.battery_current_kwh, v.battery_capacity_kwh
@@ -206,9 +260,10 @@ router.patch('/:id/stop', auth, async (req, res) => {
 
     try {
       const costText = totalCost != null ? ` คิดเป็นเงิน ${totalCost} บาท` : ''
+      const payNote = walletDeducted ? ' ตัดเงินจาก wallet แล้ว' : ' กรุณาชำระเงินเพื่อสิ้นสุดการใช้งาน'
       await pool.query(
         `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'charging')`,
-        [req.user.user_id, 'ชาร์จเสร็จสิ้น', `ชาร์จไป ${energy_kwh} kWh${costText} กรุณาชำระเงินเพื่อสิ้นสุดการใช้งาน`]
+        [req.user.user_id, 'ชาร์จเสร็จสิ้น', `ชาร์จไป ${energy_kwh} kWh${costText}${payNote}`]
       );
     } catch (_) {}
 
@@ -216,6 +271,8 @@ router.patch('/:id/stop', auth, async (req, res) => {
       message: 'Charging session stopped.',
       energy_kwh: energy_kwh,
       total_cost: totalCost,
+      wallet_deducted: walletDeducted,
+      payment_id: walletPaymentId,
     });
   } catch (error) {
     console.error('Stop session error:', error);

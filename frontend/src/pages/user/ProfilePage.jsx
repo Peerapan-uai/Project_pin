@@ -5,7 +5,7 @@ import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
 import {
   FaUser, FaEnvelope, FaPhone, FaCar, FaHistory, FaCreditCard,
-  FaSignOutAlt, FaChevronRight, FaEdit, FaTrash, FaBell
+  FaSignOutAlt, FaChevronRight, FaEdit, FaTrash, FaBell, FaWallet
 } from 'react-icons/fa'
 import api from '../../utils/api'
 
@@ -81,6 +81,7 @@ export default function ProfilePage() {
   }
 
   const menuItems = [
+    { label: 'กระเป๋าเงิน', icon: FaWallet, to: '/wallet' },
     { label: 'ยานพาหนะของฉัน', icon: FaCar, to: '/vehicles' },
     { label: 'ประวัติการจอง', icon: FaHistory, to: '/bookings' },
     { label: 'ประวัติการชำระเงิน', icon: FaCreditCard, to: '/payments' },

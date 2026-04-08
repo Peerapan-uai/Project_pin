@@ -35,6 +35,7 @@ CREATE TABLE users (
   profile_image VARCHAR(500)    DEFAULT NULL,
   role          ENUM('user','admin','technician') NOT NULL DEFAULT 'user',
   wallet_balance DECIMAL(10,2)  NOT NULL DEFAULT 0.00,
+  wallet_frozen  TINYINT(1)     NOT NULL DEFAULT 0,
   is_banned     BOOLEAN         NOT NULL DEFAULT FALSE,
   ban_reason    TEXT            DEFAULT NULL,
   created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -232,7 +233,7 @@ CREATE TABLE wallet_transactions (
   txn_id     INT UNSIGNED    NOT NULL AUTO_INCREMENT,
   user_id    INT UNSIGNED    NOT NULL,
   amount     DECIMAL(10,2)   NOT NULL,
-  type       ENUM('topup','deduct') NOT NULL,
+  type       ENUM('topup','deduct','refund','adjust') NOT NULL,
   ref        VARCHAR(100)    DEFAULT NULL,
   created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (txn_id),
@@ -274,29 +275,104 @@ CREATE INDEX idx_wallet_txn_user      ON wallet_transactions(user_id);
 -- bcrypt hash: $2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu
 -- =============================================================
 
--- Users: 1 admin, 1 technician, 2 regular users
-INSERT INTO users (email, password_hash, first_name, last_name, phone, role) VALUES
-  ('admin@evcharge.com',      '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Admin',    'System',   '0800000001', 'admin'),
-  ('tech@evcharge.com',       '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Somchai',  'Techarat',  '0800000002', 'technician'),
-  ('alice@example.com',       '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice',    'Wongsiri',  '0811111111', 'user'),
-  ('bob@example.com',         '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob',      'Prasert',   '0822222222', 'user');
+-- Users: 1 admin, 4 technicians, 3 regular users
+INSERT INTO users (email, password_hash, first_name, last_name, phone, role, wallet_balance) VALUES
+  ('admin@evcharge.com',  '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Admin',    'System',      '0800000001', 'admin',      0.00),
+  ('tech1@evcharge.com',  '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Somchai',  'Jaidee',      '0800000002', 'technician', 0.00),
+  ('tech2@evcharge.com',  '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Prasit',   'Kaewmanee',   '0800000003', 'technician', 0.00),
+  ('tech3@evcharge.com',  '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Anuchit',  'Srisawat',    '0800000004', 'technician', 0.00),
+  ('tech4@evcharge.com',  '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Wichai',   'Thongkham',   '0800000005', 'technician', 0.00),
+  ('alice@example.com',   '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice',    'Wongsiri',    '0811111111', 'user',       500.00),
+  ('bob@example.com',     '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob',      'Prasert',     '0822222222', 'user',       200.00),
+  ('charlie@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Charlie',  'Somboon',     '0833333333', 'user',       0.00);
 
--- Stations: 2 stations
+-- =============================================================
+-- Stations: 10 สถานี (อิงข้อมูลจริงในกรุงเทพฯ)
+--   ใหญ่ (4 ตู้): สยาม, บางนา, รังสิต
+--   กลาง (3 ตู้): จตุจักร, ลาดพร้าว, พระราม 2, ทองหล่อ
+--   เล็ก  (2 ตู้): รามคำแหง, อารีย์, อ่อนนุช
+-- =============================================================
 INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, status) VALUES
-  ('EV Station Siam',        '991 Rama I Rd, Pathum Wan, Bangkok 10330',      13.74630000, 100.53420000, 'B1',  '06:00:00', '23:00:00', 'active'),
-  ('EV Station Chatuchak',   '587/10 Kamphaeng Phet 2 Rd, Bangkok 10900',     13.79980000, 100.55050000, 'G',   '00:00:00', '00:00:00', 'active');
+  ('EA Anywhere สยามพารากอน',      '991 ถ.พระราม 1 แขวงปทุมวัน กรุงเทพฯ 10330',          13.74630000, 100.53420000, 'B2',   '06:00:00', '23:00:00', 'active'),
+  ('PTT EV Station จตุจักร',       '587/10 ถ.กำแพงเพชร 2 แขวงจตุจักร กรุงเทพฯ 10900',    13.79980000, 100.55050000, NULL,   '00:00:00', '00:00:00', 'active'),
+  ('EA Anywhere เซ็นทรัลบางนา',    '585 ถ.บางนา-ตราด แขวงบางนา กรุงเทพฯ 10260',          13.66700000, 100.60470000, 'B1',   '06:00:00', '22:00:00', 'active'),
+  ('EGAT EV Station ลาดพร้าว',     '2112 ถ.ลาดพร้าว แขวงวังทองหลาง กรุงเทพฯ 10310',      13.78530000, 100.60930000, NULL,   '00:00:00', '00:00:00', 'active'),
+  ('MG Super Charge รามคำแหง',      '99 ถ.รามคำแหง แขวงสะพานสูง กรุงเทพฯ 10240',           13.76200000, 100.64850000, 'G',    '07:00:00', '21:00:00', 'active'),
+  ('PTT EV Station พระราม 2',      '888 ถ.พระราม 2 แขวงบางมด กรุงเทพฯ 10150',             13.65670000, 100.47370000, NULL,   '00:00:00', '00:00:00', 'active'),
+  ('EA Anywhere ทองหล่อ',          '261 ซ.ทองหล่อ 13 แขวงคลองตันเหนือ กรุงเทพฯ 10110',   13.73450000, 100.57820000, 'B1',   '06:00:00', '23:00:00', 'active'),
+  ('Sharge Station อารีย์',        '88 ซ.อารีย์ แขวงสามเสนใน กรุงเทพฯ 10400',              13.77950000, 100.54450000, 'G',    '08:00:00', '20:00:00', 'active'),
+  ('PTT EV Station ฟิวเจอร์รังสิต','94 ถ.พหลโยธิน ต.ประชาธิปัตย์ ธัญบุรี ปทุมธานี 12130', 13.98870000, 100.61560000, NULL,   '00:00:00', '00:00:00', 'active'),
+  ('EV Station อ่อนนุช',          '900 ถ.อ่อนนุช แขวงสวนหลวง กรุงเทพฯ 10250',            13.72440000, 100.62850000, '1',    '06:00:00', '22:00:00', 'active');
 
--- Chargers: 3 at station 1, 2 at station 2
+-- =============================================================
+-- Chargers: 30 ตู้ (อิงราคาจริง DC Fast 6.50-8.50 ฿/kWh, AC 4.50-5.50 ฿/kWh)
+-- =============================================================
+
+-- Station 1: EA Anywhere สยามพารากอน (4 ตู้ — สถานีใหญ่)
 INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
-  (1, 'Charger A1', 'CCS',     50.00, 6.50, 'available',     'QR-SIAM-A1'),
-  (1, 'Charger A2', 'CHAdeMO', 50.00, 6.50, 'available',     'QR-SIAM-A2'),
-  (1, 'Charger A3', 'Type2',   22.00, 5.00, 'out_of_service','QR-SIAM-A3'),
-  (2, 'Charger B1', 'CCS',    100.00, 7.50, 'available',     'QR-CHAT-B1'),
-  (2, 'Charger B2', 'Type2',   22.00, 5.00, 'available',     'QR-CHAT-B2');
+  (1, 'SIAM-DC01',  'CCS',     150.00, 7.50, 'available',      'QR-SIAM-DC01'),
+  (1, 'SIAM-DC02',  'CCS',     150.00, 7.50, 'available',      'QR-SIAM-DC02'),
+  (1, 'SIAM-DC03',  'CHAdeMO',  50.00, 6.50, 'available',      'QR-SIAM-DC03'),
+  (1, 'SIAM-AC01',  'Type2',    22.00, 5.00, 'available',      'QR-SIAM-AC01');
 
--- Vehicle: 1 vehicle for Alice (user_id = 3)
-INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh) VALUES
-  (3, 'Tesla', 'Model 3', 'กข 1234', 'CCS', 75.00);
+-- Station 2: PTT EV จตุจักร (3 ตู้ — สถานีกลาง)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (2, 'JJ-DC01',    'CCS',     100.00, 7.00, 'available',      'QR-JJ-DC01'),
+  (2, 'JJ-DC02',    'CHAdeMO',  50.00, 6.50, 'available',      'QR-JJ-DC02'),
+  (2, 'JJ-AC01',    'Type2',    22.00, 5.00, 'available',      'QR-JJ-AC01');
+
+-- Station 3: EA Anywhere เซ็นทรัลบางนา (4 ตู้ — สถานีใหญ่)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (3, 'BNA-DC01',   'CCS',     150.00, 7.50, 'available',      'QR-BNA-DC01'),
+  (3, 'BNA-DC02',   'CCS',     150.00, 7.50, 'available',      'QR-BNA-DC02'),
+  (3, 'BNA-DC03',   'CHAdeMO',  50.00, 6.50, 'out_of_service', 'QR-BNA-DC03'),
+  (3, 'BNA-AC01',   'Type2',    22.00, 5.00, 'available',      'QR-BNA-AC01');
+
+-- Station 4: EGAT EV ลาดพร้าว (3 ตู้ — สถานีกลาง)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (4, 'LAT-DC01',   'CCS',      80.00, 6.80, 'available',      'QR-LAT-DC01'),
+  (4, 'LAT-DC02',   'CCS',      80.00, 6.80, 'available',      'QR-LAT-DC02'),
+  (4, 'LAT-AC01',   'Type2',    22.00, 4.80, 'available',      'QR-LAT-AC01');
+
+-- Station 5: MG Super Charge รามคำแหง (2 ตู้ — สถานีเล็ก)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (5, 'RAM-DC01',   'CCS',      60.00, 6.50, 'available',      'QR-RAM-DC01'),
+  (5, 'RAM-AC01',   'Type2',     7.40, 4.50, 'available',      'QR-RAM-AC01');
+
+-- Station 6: PTT EV พระราม 2 (3 ตู้ — สถานีกลาง)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (6, 'PR2-DC01',   'CCS',     120.00, 7.00, 'available',      'QR-PR2-DC01'),
+  (6, 'PR2-DC02',   'CHAdeMO',  50.00, 6.50, 'available',      'QR-PR2-DC02'),
+  (6, 'PR2-AC01',   'Type2',    22.00, 5.00, 'available',      'QR-PR2-AC01');
+
+-- Station 7: EA Anywhere ทองหล่อ (3 ตู้ — สถานีกลาง)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (7, 'THL-DC01',   'CCS',     150.00, 8.00, 'available',      'QR-THL-DC01'),
+  (7, 'THL-DC02',   'CCS',     150.00, 8.00, 'available',      'QR-THL-DC02'),
+  (7, 'THL-AC01',   'Type2',    22.00, 5.50, 'available',      'QR-THL-AC01');
+
+-- Station 8: Sharge Station อารีย์ (2 ตู้ — สถานีเล็ก)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (8, 'ARI-DC01',   'CCS',      60.00, 6.80, 'available',      'QR-ARI-DC01'),
+  (8, 'ARI-AC01',   'Type2',     7.40, 4.50, 'available',      'QR-ARI-AC01');
+
+-- Station 9: PTT EV ฟิวเจอร์รังสิต (4 ตู้ — สถานีใหญ่)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (9, 'RST-DC01',   'CCS',     150.00, 7.50, 'available',      'QR-RST-DC01'),
+  (9, 'RST-DC02',   'CCS',     150.00, 7.50, 'available',      'QR-RST-DC02'),
+  (9, 'RST-DC03',   'CHAdeMO',  50.00, 6.50, 'available',      'QR-RST-DC03'),
+  (9, 'RST-AC01',   'Type2',    22.00, 5.00, 'available',      'QR-RST-AC01');
+
+-- Station 10: EV Station อ่อนนุช (2 ตู้ — สถานีเล็ก)
+INSERT INTO chargers (station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code) VALUES
+  (10, 'ONN-DC01',  'CCS',      80.00, 7.00, 'available',      'QR-ONN-DC01'),
+  (10, 'ONN-AC01',  'Type2',    22.00, 5.00, 'available',      'QR-ONN-AC01');
+
+-- Vehicles: 1 คันสำหรับ Alice (user_id = 6), 1 คันสำหรับ Bob (user_id = 7)
+INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh) VALUES
+  (6, 'Tesla',   'Model 3',    'กข 1234', 'CCS',  75.00, 45.00),
+  (7, 'MG',      'MG4 Electric','ขค 5678', 'CCS',  64.00, 30.00),
+  (7, 'Nissan',  'Leaf',        'จฉ 9012', 'CHAdeMO', 40.00, 20.00);
 
 -- =============================================================
 -- MongoDB Collections (Logs System)

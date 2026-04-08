@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaBolt, FaStopCircle, FaClock, FaPlug } from 'react-icons/fa'
+import { FaBolt, FaStopCircle, FaClock, FaPlug, FaWallet, FaExclamationTriangle } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function ChargingPage() {
@@ -12,6 +12,7 @@ export default function ChargingPage() {
   const [loading, setLoading] = useState(true)
   const [stopping, setStopping] = useState(false)
   const [elapsedSec, setElapsedSec] = useState(0)
+  const [walletBalance, setWalletBalance] = useState(null)
   const baseDurationRef = useRef(0)
   const fetchedAtRef = useRef(0)
   const intervalRef = useRef(null)
@@ -29,6 +30,8 @@ export default function ChargingPage() {
         .catch(() => {})
         .finally(() => setLoading(false))
     }
+
+    api.get('/api/wallet/balance').then(res => setWalletBalance(res.data.balance)).catch(() => {})
 
     fetchStatus()
     intervalRef.current = setInterval(fetchStatus, 10000)
@@ -126,6 +129,25 @@ export default function ChargingPage() {
           <div className="flex items-center gap-2 text-sm text-gray-500">
             <FaPlug size={12} />
             <span>{session.connector_type} · {pricePerKwh} ฿/kWh</span>
+          </div>
+        )}
+
+        {/* Wallet balance + warning */}
+        {walletBalance !== null && (
+          <div className={`w-full max-w-xs rounded-2xl px-4 py-3 flex items-center gap-3 ${estimatedCost > walletBalance ? 'bg-red-50 border border-red-200' : 'bg-green-50 border border-green-200'}`}>
+            <FaWallet size={16} className={estimatedCost > walletBalance ? 'text-red-500' : 'text-green-600'} />
+            <div className="flex-1">
+              <p className="text-xs text-gray-500">ยอด Wallet</p>
+              <p className={`text-sm font-bold ${estimatedCost > walletBalance ? 'text-red-600' : 'text-green-700'}`}>
+                ฿{parseFloat(walletBalance).toLocaleString('th-TH', { minimumFractionDigits: 2 })}
+              </p>
+            </div>
+            {estimatedCost > walletBalance && (
+              <div className="flex items-center gap-1 text-xs text-red-500">
+                <FaExclamationTriangle size={12} />
+                <span>ไม่พอ</span>
+              </div>
+            )}
           </div>
         )}
 

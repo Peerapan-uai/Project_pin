@@ -661,11 +661,34 @@ router.post('/:id/refund', auth, roleCheck('admin'), async (req, res) => {
       [req.params.id, refundAmount, reason || null, req.user.user_id]
     );
 
+    // ถ้าจ่ายด้วย wallet → คืนเงินเข้า wallet
+    if (rows[0].method === 'wallet') {
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+        await conn.query(
+          'UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?',
+          [refundAmount, rows[0].user_id]
+        );
+        await conn.query(
+          `INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, 'refund', ?)`,
+          [rows[0].user_id, refundAmount, `refund_payment_${req.params.id}`]
+        );
+        await conn.commit();
+      } catch (walletErr) {
+        await conn.rollback();
+        console.warn('Wallet refund failed:', walletErr.message);
+      } finally {
+        conn.release();
+      }
+    }
+
     return res.status(200).json({
       message: 'Refund processed successfully.',
       refund_id: refundResult.insertId,
       payment_id: Number(req.params.id),
       refund_amount: refundAmount,
+      wallet_refunded: rows[0].method === 'wallet',
     });
   } catch (error) {
     console.error('Refund error:', error);

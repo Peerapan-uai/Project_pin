@@ -1,10 +1,11 @@
 import { NavLink } from 'react-router-dom'
-import { FaHome, FaSearch, FaClipboardList, FaUser } from 'react-icons/fa'
+import { FaHome, FaSearch, FaClipboardList, FaWallet, FaUser } from 'react-icons/fa'
 
 const navItems = [
-  { to: '/home',   label: 'หน้าหลัก', Icon: FaHome },
-  { to: '/search', label: 'ค้นหา',    Icon: FaSearch },
-  { to: '/bookings', label: 'การจอง',    Icon: FaClipboardList },
+  { to: '/home',     label: 'หน้าหลัก', Icon: FaHome },
+  { to: '/search',   label: 'ค้นหา',    Icon: FaSearch },
+  { to: '/bookings', label: 'การจอง',   Icon: FaClipboardList },
+  { to: '/wallet',   label: 'กระเป๋า',  Icon: FaWallet },
   { to: '/profile',  label: 'โปรไฟล์',  Icon: FaUser },
 ]
 

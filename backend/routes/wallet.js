@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
+const generatePayload = require('promptpay-qr');
+const QRCode = require('qrcode');
 
 /**
  * @swagger
@@ -102,6 +104,15 @@ router.post('/topup', auth, async (req, res) => {
     return res.status(400).json({ message: 'Omise token is required for credit card.' });
   }
 
+  // เช็ค wallet_frozen
+  const [frozenCheck] = await pool.query(
+    'SELECT wallet_frozen FROM users WHERE user_id = ?',
+    [req.user.user_id]
+  );
+  if (frozenCheck[0]?.wallet_frozen) {
+    return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
+  }
+
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -198,15 +209,20 @@ router.post('/deduct', auth, async (req, res) => {
   try {
     await conn.beginTransaction();
 
-    // เช็คยอดคงเหลือ
+    // เช็คยอดคงเหลือ + wallet_frozen
     const [userRows] = await conn.query(
-      'SELECT wallet_balance FROM users WHERE user_id = ? FOR UPDATE',
+      'SELECT wallet_balance, wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
       [req.user.user_id]
     );
 
     if (userRows.length === 0) {
       await conn.rollback();
       return res.status(404).json({ message: 'User not found.' });
+    }
+
+    if (userRows[0].wallet_frozen) {
+      await conn.rollback();
+      return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
     }
 
     if (userRows[0].wallet_balance < amount) {
@@ -259,6 +275,52 @@ router.post('/deduct', auth, async (req, res) => {
     return res.status(500).json({ message: 'Server error processing deduction.' });
   } finally {
     conn.release();
+  }
+});
+
+/**
+ * @swagger
+ * /api/wallet/qr:
+ *   post:
+ *     summary: Generate PromptPay QR for wallet top up (no balance change yet)
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [amount]
+ *             properties:
+ *               amount:
+ *                 type: number
+ *     responses:
+ *       200:
+ *         description: QR image returned
+ *       400:
+ *         description: Invalid amount
+ *       500:
+ *         description: Server error
+ */
+router.post('/qr', auth, async (req, res) => {
+  const { amount } = req.body;
+
+  if (!amount || amount < 20) {
+    return res.status(400).json({ message: 'Minimum amount is 20 baht.' });
+  }
+
+  try {
+    const promptpayId = process.env.PROMPTPAY_ID || '0812345678';
+    const roundedAmount = Math.round(Number(amount) * 100) / 100;
+    const qr_payload = generatePayload(promptpayId, { amount: roundedAmount });
+    const qr_image = await QRCode.toDataURL(qr_payload, { width: 300, margin: 2 });
+
+    return res.status(200).json({ qr_image, qr_payload, amount: roundedAmount });
+  } catch (error) {
+    console.error('Generate wallet QR error:', error);
+    return res.status(500).json({ message: 'Server error generating QR.' });
   }
 });
 
