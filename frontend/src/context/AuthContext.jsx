@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useEffect } from 'react'
+import { createContext, useContext, useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 
 const AuthContext = createContext(null)
@@ -25,27 +25,29 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
-  const login = (userData, jwtToken) => {
+  const login = useCallback((userData, jwtToken) => {
     setUser(userData)
     setToken(jwtToken)
     localStorage.setItem('ev_user', JSON.stringify(userData))
     localStorage.setItem('ev_token', jwtToken)
-  }
-  
+  }, [])
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setUser(null)
     setToken(null)
     localStorage.removeItem('ev_user')
     localStorage.removeItem('ev_token')
     navigate('/login')
-  }
-  
+  }, [navigate])
 
   const isAuthenticated = !!user && !!token
 
+  const value = useMemo(() => ({
+    user, token, login, logout, isAuthenticated, loading
+  }), [user, token, login, logout, isAuthenticated, loading])
+
   return (
-    <AuthContext.Provider value={{ user, token, login, logout, isAuthenticated, loading }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   )

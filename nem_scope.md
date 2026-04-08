@@ -3,6 +3,29 @@
 ## สถานะปัจจุบัน
 - Backend routes — **เทสผ่านหมดแล้ว ✅** (ทุก endpoint เทสผ่าน Swagger แล้ว)
 - Frontend (UI) — **เชื่อม Backend แล้วครบทุกหน้า ✅**
+- Wallet API — **เสร็จแล้ว ✅** (3 endpoints: balance, topup, deduct)
+- Omise Credit Card — **เสร็จแล้ว ✅** (frontend ใช้ Omise.js tokenize จริง)
+- Code Splitting — **เสร็จแล้ว ✅** (lazy loading ทุกหน้า)
+
+### งานที่ยังต้องทำ (nem)
+| # | งาน | ไฟล์ | สถานะ |
+|---|------|------|-------|
+| 1 | sessions/start เช็ค wallet balance + unpaid payment + wallet_frozen | `routes/sessions.js` | ⏳ |
+| 2 | sessions/stop auto deduct จาก wallet | `routes/sessions.js` | ⏳ |
+| 3 | payments refund คืนเงินเข้า wallet (ถ้า method='wallet') | `routes/payments.js` | ⏳ |
+| 4 | wallet/topup + deduct เช็ค wallet_frozen | `routes/wallet.js` | ⏳ |
+| 5 | Wallet UI — WalletPage (ดูยอด + เติมเงิน QR/บัตร) | `pages/user/WalletPage.jsx` | ⏳ |
+| 6 | เพิ่ม Wallet เข้า BottomNav/Profile | Frontend | ⏳ |
+| 7 | ChargingPage แสดง wallet balance + block ถ้าไม่พอ | `pages/user/ChargingPage.jsx` | ⏳ |
+| 8 | Google Maps ไม่เสถียร | `pages/user/SearchPage.jsx` | ⏳ |
+
+### 🔧 Performance Optimization (nem) — ต้องแก้
+| # | ไฟล์ | ปัญหา | วิธีแก้ | ประหยัดได้ |
+|---|------|-------|---------|-----------|
+| 1 | `routes/sessions.js` (stop) | N+1 query — UPDATE charger, UPDATE booking, INSERT payment ทำทีละอัน sequential | ใช้ `Promise.all()` ยิง 3 queries พร้อมกัน (ไม่ depend กัน) | ~15ms ต่อ request |
+| 2 | `routes/chargers.js` (GET /:id) | query charger แล้ว query station แยก = 2 round-trips ไป DB | ใช้ `JOIN stations ON chargers.station_id = stations.station_id` รวมเป็น query เดียว | ~200ms (ตัด network round-trip ไป DB 1 รอบ) |
+| 3 | `routes/notifications.js` (GET) | ดึง notification ทั้งหมดไม่มี LIMIT — ถ้า user มี 500+ แจ้งเตือนก็ส่งหมด | เพิ่ม `LIMIT 20` + `SELECT COUNT(*) WHERE is_read = 0` แยก query นับ unread | ลด payload จาก 500 rows → 20 rows + unread count |
+| 4 | `routes/bookings.js` (GET) | ดึง booking ทั้งหมดของ user ไม่มี LIMIT | เพิ่ม `LIMIT 20 OFFSET ?` + รับ `?page=1` จาก query string | ลด payload, หน้า FE โหลดเร็วขึ้น |
 
 ---
 
@@ -163,8 +186,16 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 | ไฟล์ | หน้าที่ | รายละเอียด |
 |------|---------|-----------|
 | `jobs/expireBookings.js` | หมดอายุ booking อัตโนมัติ | ทุก 1 นาที ตรวจ booking ที่ confirmed > 30 นาที → set status = 'expired' + คืนตู้ชาร์จเป็น available |
+| `jobs/expirePayments.js` | หมดอายุ payment อัตโนมัติ ✅ | ทุก 1 นาที ตรวจ payment pending > 15 นาที → set status = 'failed' |
 
-> รวม nem ใน code จริง = **48 endpoints** (34 เดิม + 14 payment ใหม่)
+> รวม nem ใน code จริง = **54 endpoints** (51 เดิม + 3 wallet ใหม่)
+
+### Wallet API — เพิ่ม 3 (nem รับผิดชอบทั้งหมด)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 52 | GET | `/api/wallet/balance` | ดูยอด wallet + 10 รายการล่าสุด | ✅ |
+| 53 | POST | `/api/wallet/topup` | เติมเงิน wallet (promptpay/credit_card) ขั้นต่ำ 20 บาท | ✅ |
+| 54 | POST | `/api/wallet/deduct` | ตัดเงินจาก wallet ตอนชาร์จเสร็จ | ✅ |
 
 ---
 
@@ -227,8 +258,8 @@ nem ดูแล API ฝั่ง user ทั้งหมด ตั้งแต�
 | SearchPage: Google Maps แสดงแผนที่ | `pages/user/SearchPage.jsx` | ใช้ `@react-google-maps/api` + pin สถานี | ⏳ |
 | ChargingPage: real-time kW/kWh/ค่าไฟ | `pages/user/ChargingPage.jsx` | polling 10s + tick timer 1s คำนวณ kWh/cost live | ✅ |
 | BookingPage: ปุ่ม 🔧 แจ้งปัญหา | `pages/user/BookingPage.jsx` | navigate `/report` พร้อม pre-fill chargerId + stationId | ✅ |
-| PaymentPage: PromptPay QR จริง | `pages/user/PaymentPage.jsx` | เรียก `POST /api/payments/qr` → แสดง QR ให้ user สแกน (backend เสร็จแล้ว ✅ เหลือ frontend) | ⏳ |
-| PaymentPage: บัตรเครดิต/เดบิต | `pages/user/PaymentPage.jsx` | ใช้ Omise.js tokenize บัตร → ส่ง token ไป `POST /api/payments/charge` (backend เสร็จแล้ว ✅ เหลือ frontend) | ⏳ |
+| PaymentPage: PromptPay QR จริง | `pages/user/PaymentPage.jsx` | เรียก `POST /api/payments/qr` → แสดง QR ให้ user สแกน | ✅ |
+| PaymentPage: บัตรเครดิต/เดบิต | `pages/user/PaymentPage.jsx` | ใช้ Omise.js tokenize บัตร → ส่ง token ไป `POST /api/payments/charge` | ✅ |
 | ดูรีวิวโดยไม่ต้อง login | `routes/reviews.js` | `GET /station/:stationId` ไม่มี auth middleware แล้ว | ✅ |
 
 ---
