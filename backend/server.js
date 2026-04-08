@@ -24,6 +24,7 @@ const paymentRoutes = require('./routes/payments');
 const reviewRoutes = require('./routes/reviews');
 const ticketRoutes = require('./routes/tickets');
 const notificationRoutes = require('./routes/notifications');
+const walletRoutes = require('./routes/wallet');
 
 const app = express();
 
@@ -75,6 +76,7 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/wallet', walletRoutes);
 
 /**
  * @swagger
