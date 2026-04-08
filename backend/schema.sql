@@ -253,6 +253,21 @@ CREATE TABLE messages (
   CONSTRAINT fk_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- ─── Performance Indexes ─────────────────────────────────────────────────────
+-- เปรียบเหมือนสารบัญหนังสือ: ไม่มี index = เปิดทุกหน้าหาข้อมูล → ช้ามาก
+CREATE INDEX idx_chargers_station     ON chargers(station_id, status);
+CREATE INDEX idx_bookings_user        ON bookings(user_id, status);
+CREATE INDEX idx_bookings_charger     ON bookings(charger_id, status);
+CREATE INDEX idx_sessions_user        ON charging_sessions(user_id, status);
+CREATE INDEX idx_payments_user        ON payments(user_id, status);
+CREATE INDEX idx_payments_session     ON payments(session_id);
+CREATE INDEX idx_notifications_user   ON notifications(user_id, is_read);
+CREATE INDEX idx_reviews_station      ON reviews(station_id);
+CREATE INDEX idx_vehicles_user        ON vehicles(user_id);
+CREATE INDEX idx_stations_location    ON stations(latitude, longitude);
+CREATE INDEX idx_tickets_user         ON maintenance_tickets(user_id);
+CREATE INDEX idx_wallet_txn_user      ON wallet_transactions(user_id);
+
 -- =============================================================
 -- Sample Data
 -- Password for all users: "password123"

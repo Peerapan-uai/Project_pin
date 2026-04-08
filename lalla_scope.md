@@ -1,13 +1,36 @@
 # lalla_scope — งานของ lalla (22 endpoints + Database)
 
-## สถานะปัจจุบัน
-- Database MySQL schema — **เสร็จแล้ว ✅** (import ลง MySQL แล้ว มี sample data พร้อมเทส)
-- Database MongoDB (Logs) — **ยังไม่ได้ทำฝั่ง lalla ⏳** (setup มีแล้ว แต่ยังไม่มี API ดึง log / TTL index)
-- Backend routes admin/tech — **เสร็จแล้ว ✅** (ทุก endpoint เขียนครบ แก้ bug หมดแล้ว)
-- Frontend admin/tech — **เสร็จแล้ว ✅** (AdminLoginPage ใช้งานได้แล้ว, DashboardPage แก้ bug แล้ว)
-- เทส Swagger — **เสร็จแล้ว ✅** (เทสครบทุก 15 endpoint ผ่านหมด)
+## 🚨 ด่วนมาก — อ่านก่อนทำอย่างอื่น
 
-> อัปเดตล่าสุด: 2026-04-07
+> **lalla — พอ DB เสร็จแล้ว ให้เคลียร์ 43 endpoints ให้หมดโดยเร็วที่สุด**
+> ตอนนี้ทำเสร็จแล้ว 25 endpoints ยังเหลือ 18 endpoints ที่ต้องทำ
+> (ตัด 6 endpoints ซ้ำซ้อนออกแล้ว — ดูเหตุผลทางเทคนิคใน section Google Maps)
+> nem รอ schema wallet และ admin wallet API ก่อนถึงจะ integrate frontend ได้ครบ
+
+## สถานะปัจจุบัน (อัปเดต 2026-04-09)
+- Database MySQL schema — **เสร็จแล้ว ✅**
+- Database MongoDB (Logs) — **เสร็จแล้ว ✅** (TTL index 90 วัน, logger middleware, logs API)
+- Backend routes admin/tech (22 endpoints) — **เสร็จแล้ว ✅**
+- Admin Logs (2 endpoints) — **เสร็จแล้ว ✅** (แก้ bug import auth/roleCheck แล้ว)
+- Frontend admin/tech — **เสร็จแล้ว ✅**
+- เทส Swagger — **เสร็จแล้ว ✅**
+- **Admin Wallet (6 endpoints) — ยังไม่ได้ทำ ⏳ ด่วนมาก**
+- **Admin Reports (5 endpoints) — ยังไม่ได้ทำ ⏳**
+- **Notification Admin (5 endpoints) — ยังไม่ได้ทำ ⏳**
+- Google Maps API — ตัดจาก 7 → 2 endpoints (nearby ✅ + stats ⏳) เหตุผล: 5 อันซ้ำกับ frontend
+
+## สรุป endpoints ทั้งหมดของ lalla
+| กลุ่ม | จำนวน | สถานะ |
+|-------|-------|-------|
+| Users, Stations, Chargers, Tickets, Bookings, Payments, Sessions, Dashboard | 22 | ✅ |
+| Nearby stations | 1 | ✅ |
+| Admin Logs | 2 | ✅ |
+| **Admin Wallet** | **6** | ⏳ ด่วนมาก |
+| Stations stats | 1 | ⏳ |
+| Admin Reports | 5 | ⏳ |
+| PDF Invoice | 1 | ⏳ |
+| Notification Admin | 5 | ⏳ |
+| **รวมทั้งหมด** | **43** | 25✅ / 18⏳ |
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
@@ -252,30 +275,33 @@ ALTER TABLE chargers
 4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
 5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
 
-## แผนงานอนาคต — เพิ่ม lalla จาก 22 → 40 endpoints
+## แผนงานที่เหลือ 23 endpoints — เรียงตามความด่วน
 
-> ยังไม่ได้ทำ รอหลังจากอาจารย์ database ดูงานก่อน
-> อัปเดตล่าสุด: 2026-04-07
+> อัปเดตล่าสุด: 2026-04-09
 
-### Google Maps — เพิ่ม 8
-> lalla เป็นคนเขียน API ทั้งหมด, nem เรียกใช้จาก frontend
+### 🔴 ลำดับ 1 — Admin Wallet (6 endpoints) ด่วนมาก
+> nem รอ lalla ทำส่วนนี้ก่อนถึงจะ integrate frontend wallet ได้ครบ
+> ดูรายละเอียดใน section "งานที่ต้องทำเพิ่ม — Wallet Admin" ด้านบน
+
+### 🟡 ลำดับ 2 — Google Maps / Stations API (2 endpoints — ตัด 5 ที่ซ้ำซ้อนออกแล้ว)
+> วิเคราะห์แล้ว: 5 จาก 7 endpoints เดิมซ้ำซ้อนกับสิ่งที่ frontend ทำได้แล้ว
+> เหลือเฉพาะ 2 ที่มีเหตุผลทางเทคนิคจริง
 
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 23 | GET | `/api/stations/nearby` | หาสถานีใกล้เคียงจาก lat/lng + radius (ใช้ Haversine Formula) | ✅ |
-| 24 | GET | `/api/stations/filter` | filter สถานีตาม charger type (DC Fast / AC Slow) + status | ⏳ |
-| 25 | GET | `/api/stations/:id/availability` | check ตู้ว่างทั้งหมดในสถานี real-time | ⏳ |
-| 26 | POST | `/api/distances/calculate` | คำนวณระยะห่างจาก user → สถานี (lat/lng → km) | ⏳ |
-| 27 | POST | `/api/users/:id/location` | บันทึก location ปัจจุบันของ user | ⏳ |
-| 28 | POST | `/api/locations/search` | search box autocomplete ชื่อสถานี/ที่อยู่ | ⏳ |
-| 29 | GET | `/api/stations/:id/chargers` | ดูตู้ชาร์จทั้งหมดในสถานี (สำหรับ map info window) | ⏳ |
-| 30 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, availability) | ⏳ |
+| 23 | GET | `/api/stations/nearby` | หาสถานีใกล้เคียงจาก lat/lng + radius (ใช้ Haversine ใน SQL + spatial index) | ✅ |
+| 24 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, charger availability %) — ต้อง aggregate หลาย table | ⏳ |
 
-ต้องสมัครก่อน:
-- Google Maps API key: สมัครที่ Google Cloud Console (มี free tier $200/เดือน)
-- npm: `@react-google-maps/api` (frontend), ไม่ต้อง package พิเศษ backend
+#### ❌ ตัดออก 5 endpoints — เหตุผลทางเทคนิค
+| endpoint เดิม | ทำไมตัด |
+|--------------|---------|
+| `GET /api/stations/filter` | frontend filter เร็วกว่า — สถานี ~100 แห่งโหลดมาหมดแล้ว, filter ฝั่ง client = 0ms vs API call = 200ms+ network round-trip |
+| `GET /api/stations/:id/availability` | ซ้ำกับ `GET /api/chargers/station/:id` ที่ nem มีแล้ว — return chargers พร้อม status อยู่แล้ว |
+| `POST /api/distances/calculate` | Haversine formula เป็นสูตรคณิตศาสตร์ล้วน (0.001ms) — frontend คำนวณเองได้ไม่ต้องเรียก API (200ms+ round-trip) |
+| `POST /api/users/:id/location` | ไม่มี table เก็บ location, ไม่มี use case จริงที่ต้อง persist user location ใน DB |
+| `POST /api/locations/search` | frontend ใช้ Google Places Autocomplete SDK โดยตรง — ผ่าน backend = เพิ่ม latency ไม่มีประโยชน์ |
 
-### Admin Reports — เพิ่ม 5
+### 🟡 ลำดับ 3 — Admin Reports (5 endpoints)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
 | 31 | GET | `/api/admin/reports/revenue` | รายได้รายวัน/เดือน/ปี (filter by date range, station) | ⏳ |
@@ -284,7 +310,14 @@ ALTER TABLE chargers
 | 34 | GET | `/api/admin/reports/comparison` | เปรียบเทียบ vs เดือนที่แล้ว/ปีที่แล้ว (revenue%, sessions%) | ⏳ |
 | 35 | POST | `/api/admin/reports/export` | export report เป็น CSV หรือ PDF | ⏳ |
 
-### Notification Admin — เพิ่ม 5
+### 🟡 ลำดับ 4 — PDF Invoice (1 endpoint)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 36 | GET | `/api/admin/payments/:id/invoice` | export ใบเสร็จ PDF (ใช้ Puppeteer, รองรับภาษาไทย) | ⏳ |
+
+> ดูวิธีทำใน STUDY_GUIDE.md section 2.2
+
+### 🟢 ลำดับ 5 — Notification Admin (5 endpoints)
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
 | 36 | POST | `/api/notifications/broadcast` | admin ส่ง notification ถึงทุกคน | ⏳ |
@@ -293,13 +326,13 @@ ALTER TABLE chargers
 | 39 | GET | `/api/notifications/analytics` | ดูสถิติ delivery rate / read rate | ⏳ |
 | 40 | GET | `/api/users/:id` | admin ดู user รายคน + ประวัติทั้งหมด | ⏳ |
 
-### Admin Logs — เพิ่ม 2
+### Admin Logs — เสร็จแล้ว ✅
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 41 | GET | `/api/admin/logs` | ดู log ทั้งหมด (webhook/error/activity) | ⏳ |
-| 42 | GET | `/api/admin/logs/:type` | filter log ตาม type | ⏳ |
+| 41 | GET | `/api/admin/logs` | ดู log ทั้งหมด | ✅ |
+| 42 | GET | `/api/admin/logs/:type` | filter log ตาม type | ✅ |
 
-> รวมถ้าทำครบ = **42 endpoints** ✅
+> รวมทั้งหมด = **43 endpoints** (25✅ + 18⏳)
 
 ---
 
@@ -395,6 +428,76 @@ CREATE TABLE notification_logs (
 - รู้ว่า bug เกิดจากไหน ไม่ใช่แค่แก้ตามที่บอก
 - พอถึงตอนอาจารย์ถาม จะตอบได้ครับ
 
+## ⚠️ งานที่ต้องทำเพิ่ม — Wallet Admin (เพิ่มใหม่ 2026-04-08)
+
+### Schema ที่ต้องแก้ก่อน (บอก nem ด้วย)
+```sql
+-- เพิ่ม type ใหม่สำหรับ admin action
+ALTER TABLE wallet_transactions
+  MODIFY COLUMN type ENUM('topup','deduct','refund','adjust') NOT NULL,
+  ADD COLUMN reason VARCHAR(255) DEFAULT NULL,
+  ADD COLUMN adjusted_by INT UNSIGNED DEFAULT NULL;
+
+-- freeze wallet user
+ALTER TABLE users
+  ADD COLUMN wallet_frozen TINYINT(1) NOT NULL DEFAULT 0;
+```
+
+### Admin Wallet Endpoints (6 endpoints — lalla ทำ)
+| # | Method | Path | หน้าที่ | สถานะ |
+|---|--------|------|---------|-------|
+| 1 | GET | `/api/admin/users/:id/wallet` | ดูยอด + ประวัติ wallet ของ user | ⏳ |
+| 2 | GET | `/api/admin/wallet/transactions` | ดู transactions ทั้งหมดทุก user + filter | ⏳ |
+| 3 | GET | `/api/admin/wallet/transactions/:txnId` | ดู transaction เดียวละเอียด | ⏳ |
+| 4 | POST | `/api/admin/users/:id/wallet/adjust` | คืนเงิน/ปรับยอด + reason + บันทึก adjusted_by | ⏳ |
+| 5 | PATCH | `/api/admin/users/:id/wallet/freeze` | freeze/unfreeze wallet user | ⏳ |
+| 6 | GET | `/api/admin/wallet/summary` | dashboard: topup/deduct/refund รวมทั้งระบบ | ⏳ |
+
+### ทำไมต้องมี
+| กรณี | admin ต้องทำอะไร |
+|------|----------------|
+| ตู้ดับกลางคัน ตัดเงินแล้วแต่ชาร์จไม่ครบ | adjust wallet คืนเงินบางส่วน |
+| topup สำเร็จแต่ยอดไม่ขึ้น | adjust wallet เพิ่มยอดให้ |
+| deduct ซ้ำ (double charge) | adjust wallet คืนเต็มจำนวน |
+| สงสัย fraud | freeze wallet ระหว่างสืบสวน |
+
+### Admin UI ที่ต้องทำ
+- หน้าจัดการ wallet ใน Admin panel (ดูยอด/ประวัติ/ปรับยอด/freeze)
+- แสดงยอด wallet ของ user ในหน้า UserManagePage ด้วย
+
+---
+
+## 🔧 Performance Optimization (lalla) — ต้องทำ
+
+### 1. Re-import schema.sql เพื่อเพิ่ม Performance Indexes
+nem เพิ่ม 12 indexes ใน `schema.sql` แล้ว — ถ้า DB ของ lalla ยังไม่มี ให้รันใน phpMyAdmin:
+```sql
+CREATE INDEX idx_chargers_station     ON chargers(station_id, status);
+CREATE INDEX idx_bookings_user        ON bookings(user_id, status);
+CREATE INDEX idx_bookings_charger     ON bookings(charger_id, status);
+CREATE INDEX idx_sessions_user        ON charging_sessions(user_id, status);
+CREATE INDEX idx_payments_user        ON payments(user_id, status);
+CREATE INDEX idx_payments_session     ON payments(session_id);
+CREATE INDEX idx_notifications_user   ON notifications(user_id, is_read);
+CREATE INDEX idx_reviews_station      ON reviews(station_id);
+CREATE INDEX idx_vehicles_user        ON vehicles(user_id);
+CREATE INDEX idx_stations_location    ON stations(latitude, longitude);
+CREATE INDEX idx_tickets_user         ON maintenance_tickets(user_id);
+CREATE INDEX idx_wallet_txn_user      ON wallet_transactions(user_id);
+```
+**ทำไมต้องมี:** ไม่มี index = MySQL full table scan ทุก query (O(n)) → มี index = B-tree lookup (O(log n))
+เช่น `WHERE user_id = 3 AND status = 'pending'` ถ้าไม่มี index ต้องอ่านทุก row ใน bookings
+
+### 2. Pagination สำหรับ Admin List Endpoints
+admin endpoints ที่ return list (GET /api/users, GET /api/bookings/all, GET /api/sessions/all) ควรเพิ่ม `LIMIT 20 OFFSET ?` + รับ `?page=1`
+**ทำไม:** ถ้ามี users 1000 คน ส่ง JSON 1000 rows กลับมาทั้ง response size ใหญ่ + browser render ช้า
+
+### 3. Logger เปลี่ยนเป็น fire-and-forget แล้ว ✅
+`middleware/logger.js` เปลี่ยนจาก `await Log.create()` เป็น `Log.create().catch()` แล้ว
+**ทำไม:** log ไม่ใช่ business logic — ถ้า MongoDB ช้า 50ms ไม่ควรทำให้ user รอ response ช้าไปด้วย
+
+---
+
 ## ✅ MongoDB Setup — เสร็จแล้ว (2026-04-08)
 
 ### สิ่งที่เสร็จแล้ว:
@@ -407,9 +510,10 @@ CREATE TABLE notification_logs (
 - ✅ config/mongodb.js — connect to MongoDB
 - ✅ models/Log.js — define log schema with fields: method, url, statusCode, userId, userRole, ip, userAgent, responseTime, body, createdAt
 
-### สิ่งที่ยังต้องทำ:
-- ⏳ middleware/logger.js — capture every request and save to MongoDB
-- ⏳ routes/admin/logs.js — 2 endpoints: GET /api/admin/logs, GET /api/admin/logs/:type
+### สิ่งที่เสร็จแล้วเพิ่มเติม:
+- ✅ middleware/logger.js — capture every request and save to MongoDB
+- ✅ routes/admin/logs.js — 2 endpoints: GET /api/admin/logs, GET /api/admin/logs/:type
+- ✅ bug fix: import auth + roleCheck ผิด → แก้แล้ว (2026-04-08)
 
 ## ✅ middleware/logger.js — เสร็จแล้ว (2026-04-08)
 

@@ -8,17 +8,25 @@
 ### เนม
 | งาน | สถานะ |
 |-----|-------|
-| Payment — PromptPay QR | ⏳ |
-| Payment — บัตรเครดิต Omise | ⏳ |
-| Auto-notify ช่างตอนสร้าง ticket | ⏳ |
-| ChargingPage polling real-time | ⏳ |
+| Payment — PromptPay QR | ✅ |
+| Payment — บัตรเครดิต Omise | ✅ |
+| Auto-notify ช่างตอนสร้าง ticket | ✅ |
+| ChargingPage polling real-time | ✅ |
+| Wallet API (balance/topup/deduct) | ✅ |
+| Code Splitting (lazy loading) | ✅ |
+| sessions/start เช็ค wallet | ⏳ |
+| sessions/stop auto deduct wallet | ⏳ |
+| Wallet UI (WalletPage) | ⏳ |
+| ChargingPage block ถ้า wallet ไม่พอ | ⏳ |
 
 ### ลัลลา
 | งาน | สถานะ |
 |-----|-------|
-| Admin report export (CSV) | ⏳ อยากทำ |
-| PDF invoice | ⏳ อยากทำ |
-| Notification broadcast/targeted | ⏳ อยากทำ |
+| Admin Wallet (6 endpoints) | ⏳ ด่วนมาก |
+| Admin Reports (5 endpoints รวม CSV) | ⏳ |
+| PDF invoice | ⏳ |
+| Notification broadcast/targeted (5 endpoints) | ⏳ |
+| Admin Logs | ✅ |
 
 ---
 

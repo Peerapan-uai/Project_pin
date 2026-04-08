@@ -18,12 +18,7 @@ const logger = (req, res, next) => {
       body: req.method !== 'GET' ? req.body : {},
       createdAt: new Date()
     };
-    try {
-      await Log.create(logData);
-      console.log('✅ Log saved to MongoDB!');
-    } catch (error) {
-      console.error('Log error:', error);
-    }
+    Log.create(logData).catch(err => console.error('Log error:', err));
   });
 
   next();
