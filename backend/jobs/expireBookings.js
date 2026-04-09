@@ -5,9 +5,13 @@ async function expireStaleBookings() {
   try {
     // หา booking ที่ confirmed + เลย start_time ไปเกิน 30 นาทีแล้ว
     const [stale] = await pool.query(
-      `SELECT booking_id, charger_id FROM bookings
-       WHERE status = 'confirmed'
-       AND start_time < DATE_SUB(NOW(), INTERVAL 30 MINUTE)`
+      `SELECT b.booking_id, b.charger_id FROM bookings b
+       WHERE b.status = 'confirmed'
+       AND b.start_time < DATE_SUB(NOW(), INTERVAL 30 MINUTE)
+       AND NOT EXISTS (
+         SELECT 1 FROM charging_sessions s
+         WHERE s.booking_id = b.booking_id AND s.status = 'charging'
+       )`
     );
 
     if (stale.length === 0) return;

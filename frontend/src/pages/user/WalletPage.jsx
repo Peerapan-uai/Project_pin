@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle } from 'react-icons/fa'
+import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash } from 'react-icons/fa'
 import api from '../../utils/api'
 
 const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
@@ -29,6 +29,11 @@ export default function WalletPage() {
   const [cardName, setCardName] = useState('')
   const omiseLoadedRef = useRef(false)
 
+  // saved cards
+  const [savedCards, setSavedCards] = useState([])
+  const [useNewCard, setUseNewCard] = useState(false)
+  const [selectedCardId, setSelectedCardId] = useState(null)
+
   const fetchWallet = () => {
     api.get('/api/wallet/balance')
       .then(res => {
@@ -39,8 +44,19 @@ export default function WalletPage() {
       .finally(() => setLoading(false))
   }
 
+  const fetchCards = () => {
+    api.get('/api/wallet/cards')
+      .then(res => {
+        const cards = res.data.cards || []
+        setSavedCards(cards)
+        if (cards.length > 0) setSelectedCardId(cards[0].id)
+      })
+      .catch(() => {})
+  }
+
   useEffect(() => {
     fetchWallet()
+    fetchCards()
   }, [])
 
   // โหลด Omise.js เมื่อเปิด modal บัตร
@@ -95,7 +111,6 @@ export default function WalletPage() {
     }
   }
 
-  // PromptPay: ยืนยันโอนแล้ว → topup ทันที
   const handleConfirmQR = async () => {
     setProcessing(true)
     setError(null)
@@ -137,6 +152,7 @@ export default function WalletPage() {
         await api.post('/api/wallet/topup', { amount: amt, method: 'credit_card', token: response.id })
         setStep('done')
         fetchWallet()
+        fetchCards()
       } catch (e) {
         setError(e.response?.data?.message || 'ชาร์จบัตรไม่สำเร็จ')
       } finally {
@@ -151,7 +167,7 @@ export default function WalletPage() {
   if (loading) return <div className="flex justify-center p-10"><div className="text-gray-500">กำลังโหลด...</div></div>
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-50 pb-20">
+    <div className="flex flex-col min-h-screen bg-gray-50 pb-20 relative overflow-hidden">
       <Navbar title="กระเป๋าเงิน" showBack onBack={() => navigate(-1)} />
 
       {/* Balance card */}
@@ -221,7 +237,7 @@ export default function WalletPage() {
 
       {/* PromptPay Modal */}
       {showModal === 'promptpay' && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end">
+        <div className="absolute inset-0 bg-black/50 z-[60] flex items-end">
           <div className="bg-white w-full rounded-t-3xl p-6 space-y-4">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">เติมเงินผ่าน PromptPay</h2>
@@ -292,7 +308,7 @@ export default function WalletPage() {
 
       {/* Credit Card Modal */}
       {showModal === 'card' && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-end">
+        <div className="absolute inset-0 bg-black/50 z-[60] flex items-end">
           <div className="bg-white w-full rounded-t-3xl p-6 space-y-4 max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-bold text-gray-900">เติมเงินผ่านบัตร</h2>
@@ -316,43 +332,95 @@ export default function WalletPage() {
                   <input type="number" placeholder="ขั้นต่ำ 20 บาท" value={amount} onChange={e => setAmount(e.target.value)}
                     className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                 </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">ชื่อบนบัตร</label>
-                  <input type="text" placeholder="FIRSTNAME LASTNAME" value={cardName} onChange={e => setCardName(e.target.value)}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-                </div>
-                <div>
-                  <label className="text-xs text-gray-500 mb-1 block">เลขบัตร</label>
-                  <input type="text" placeholder="4242 4242 4242 4242" maxLength={19} value={cardNumber}
-                    onChange={e => setCardNumber(e.target.value.replace(/[^\d]/g, '').replace(/(.{4})/g, '$1 ').trim())}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">วันหมดอายุ</label>
-                    <input type="text" placeholder="MM/YY" maxLength={5} value={expiry}
-                      onChange={e => {
-                        let v = e.target.value.replace(/[^\d]/g, '')
-                        if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2)
-                        setExpiry(v)
+
+                {/* Saved cards */}
+                {savedCards.length > 0 && !useNewCard ? (
+                  <>
+                    <p className="text-xs text-gray-500 font-semibold">บัตรที่บันทึกไว้</p>
+                    {savedCards.map(card => (
+                      <div
+                        key={card.id}
+                        onClick={() => setSelectedCardId(card.id)}
+                        className={`flex items-center gap-3 rounded-xl p-3 border cursor-pointer transition-all ${selectedCardId === card.id ? 'border-primary bg-green-50' : 'border-gray-200 bg-gray-50'}`}
+                      >
+                        <FaCreditCard size={20} className={selectedCardId === card.id ? 'text-primary shrink-0' : 'text-purple-500 shrink-0'} />
+                        <div className="flex-1">
+                          <p className="text-sm font-medium text-gray-800">{card.brand} •••• {card.last_digits}</p>
+                          <p className="text-xs text-gray-400">{card.name} | หมดอายุ {String(card.exp_month).padStart(2,'0')}/{card.exp_year}</p>
+                        </div>
+                        {selectedCardId === card.id && <div className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                        <button onClick={async (e) => {
+                          e.stopPropagation()
+                          await api.delete(`/api/wallet/cards/${card.id}`)
+                          fetchCards()
+                        }} className="p-1.5 text-gray-300 hover:text-red-500"><FaTrash size={12} /></button>
+                      </div>
+                    ))}
+                    <button
+                      onClick={async () => {
+                        const amt = parseFloat(amount)
+                        if (!amt || amt < 20) { setError('กรอกจำนวนเงินขั้นต่ำ 20 บาท'); return }
+                        setProcessing(true); setError(null)
+                        try {
+                          const res = await api.post('/api/wallet/topup', { amount: amt, method: 'credit_card', use_saved_card: true, card_id: selectedCardId })
+                          setBalance(res.data.new_balance)
+                          setStep('done')
+                          fetchWallet()
+                        } catch (e) { setError(e.response?.data?.message || 'ชาร์จบัตรไม่สำเร็จ') }
+                        finally { setProcessing(false) }
                       }}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
-                  </div>
-                  <div>
-                    <label className="text-xs text-gray-500 mb-1 block">CVV</label>
-                    <input type="text" placeholder="123" maxLength={4} value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, ''))}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 text-center">ทดสอบใช้เลขบัตร 4242 4242 4242 4242</p>
-                <button
-                  onClick={handleCardTopup}
-                  disabled={processing}
-                  className="w-full py-3 bg-primary disabled:opacity-50 text-white font-semibold rounded-2xl hover:bg-green-600 flex items-center justify-center gap-2"
-                >
-                  <FaPlus size={14} />
-                  {processing ? 'กำลังดำเนินการ...' : `เติมเงิน ฿${parseFloat(amount || 0).toLocaleString()}`}
-                </button>
+                      disabled={processing}
+                      className="w-full py-3 bg-primary disabled:opacity-50 text-white font-semibold rounded-2xl hover:bg-green-600 flex items-center justify-center gap-2"
+                    >
+                      <FaCreditCard size={14} />
+                      {processing ? 'กำลังดำเนินการ...' : `เติมเงิน ฿${parseFloat(amount || 0).toLocaleString()}`}
+                    </button>
+                    <button onClick={() => setUseNewCard(true)} className="w-full py-2 text-sm text-primary">+ ใช้บัตรใหม่</button>
+                  </>
+                ) : (
+                  <>
+                    {savedCards.length > 0 && (
+                      <button onClick={() => setUseNewCard(false)} className="text-xs text-primary">← กลับไปใช้บัตรที่บันทึกไว้</button>
+                    )}
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">ชื่อบนบัตร</label>
+                      <input type="text" placeholder="FIRSTNAME LASTNAME" value={cardName} onChange={e => setCardName(e.target.value)}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                    </div>
+                    <div>
+                      <label className="text-xs text-gray-500 mb-1 block">เลขบัตร</label>
+                      <input type="text" placeholder="4242 4242 4242 4242" maxLength={19} value={cardNumber}
+                        onChange={e => setCardNumber(e.target.value.replace(/[^\d]/g, '').replace(/(.{4})/g, '$1 ').trim())}
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">วันหมดอายุ</label>
+                        <input type="text" placeholder="MM/YY" maxLength={5} value={expiry}
+                          onChange={e => {
+                            let v = e.target.value.replace(/[^\d]/g, '')
+                            if (v.length > 2) v = v.slice(0, 2) + '/' + v.slice(2)
+                            setExpiry(v)
+                          }}
+                          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
+                      </div>
+                      <div>
+                        <label className="text-xs text-gray-500 mb-1 block">CVV</label>
+                        <input type="text" placeholder="123" maxLength={4} value={cvv} onChange={e => setCvv(e.target.value.replace(/\D/g, ''))}
+                          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 text-center">ทดสอบใช้เลขบัตร 4242 4242 4242 4242</p>
+                    <button
+                      onClick={handleCardTopup}
+                      disabled={processing}
+                      className="w-full py-3 bg-primary disabled:opacity-50 text-white font-semibold rounded-2xl hover:bg-green-600 flex items-center justify-center gap-2"
+                    >
+                      <FaPlus size={14} />
+                      {processing ? 'กำลังดำเนินการ...' : `เติมเงิน ฿${parseFloat(amount || 0).toLocaleString()}`}
+                    </button>
+                  </>
+                )}
               </>
             )}
           </div>

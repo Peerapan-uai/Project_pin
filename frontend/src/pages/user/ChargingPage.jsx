@@ -13,6 +13,7 @@ export default function ChargingPage() {
   const [stopping, setStopping] = useState(false)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [walletBalance, setWalletBalance] = useState(null)
+  const [stopResult, setStopResult] = useState(null)  // ผลลัพธ์หลังหยุดชาร์จ
   const baseDurationRef = useRef(0)
   const fetchedAtRef = useRef(0)
   const intervalRef = useRef(null)
@@ -62,16 +63,58 @@ export default function ChargingPage() {
     setStopping(true)
     const energy_kwh = estimatedKwh > 0 ? estimatedKwh : 1
     api.patch(`/api/sessions/${sessionId}/stop`, { energy_kwh })
-      .then(res => navigate(`/payment/${sessionId}`, {
-        state: {
-          total_cost: res.data.total_cost,
-          energy_kwh: res.data.energy_kwh
+      .then(res => {
+        const pm = res.data.payment_method
+        if (pm === 'wallet' || pm === 'credit_card') {
+          // จ่ายอัตโนมัติสำเร็จแล้ว → แสดงสรุป
+          setStopResult(res.data)
+        } else {
+          // ยังไม่จ่าย (pending) → ไปหน้าชำระเงินเอง
+          navigate(`/payment/${sessionId}`, {
+            state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh }
+          })
         }
-      }))
+      })
       .catch(() => {
         setStopping(false)
         navigate(`/payment/${sessionId}`)
       })
+  }
+
+  // ชาร์จเสร็จ + จ่ายอัตโนมัติสำเร็จ
+  if (stopResult) {
+    const methodLabel = stopResult.payment_method === 'wallet' ? 'Wallet' : 'บัตรเครดิต'
+    return (
+      <div className="flex flex-col min-h-screen bg-gray-50 items-center justify-center px-6">
+        <div className="bg-white rounded-2xl p-8 shadow-lg text-center w-full max-w-sm">
+          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <FaBolt size={40} className="text-green-500" />
+          </div>
+          <h2 className="text-xl font-bold text-gray-900">ชาร์จเสร็จสิ้น!</h2>
+          <p className="text-gray-500 text-sm mt-1">ชำระเงินอัตโนมัติเรียบร้อย</p>
+          <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">พลังงาน</span>
+              <span className="font-medium">{stopResult.energy_kwh} kWh</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ยอดชำระ</span>
+              <span className="font-bold text-primary">{stopResult.total_cost} บาท</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">ชำระผ่าน</span>
+              <span className="font-medium">{methodLabel}</span>
+            </div>
+          </div>
+          <button
+            onClick={() => navigate('/bookings')}
+            className="mt-6 w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"
+          >
+            ไปยังประวัติการจอง
+          </button>
+        </div>
+      </div>
+    )
   }
 
   if (loading) return (

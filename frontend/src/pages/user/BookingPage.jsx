@@ -62,7 +62,10 @@ export default function BookingPage() {
     setSubmitting(true)
     const now = new Date()
     const end = new Date(now.getTime() + duration * 60 * 1000)
-    const toMysqlDatetime = (d) => d.toISOString().slice(0, 19).replace('T', ' ')
+    const toMysqlDatetime = (d) => {
+      const pad = n => String(n).padStart(2, '0')
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
+    }
     api.post('/api/bookings', {
       charger_id: Number(chargerId),
       start_time: toMysqlDatetime(now),

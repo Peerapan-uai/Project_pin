@@ -8,16 +8,19 @@
 ### เนม
 | งาน | สถานะ |
 |-----|-------|
-| Payment — PromptPay QR | ✅ |
-| Payment — บัตรเครดิต Omise | ✅ |
+| Payment — PromptPay QR (สแกนได้จริง) | ✅ |
+| Payment — บัตรเครดิต Omise + Saved Card | ✅ |
 | Auto-notify ช่างตอนสร้าง ticket | ✅ |
 | ChargingPage polling real-time | ✅ |
-| Wallet API (balance/topup/deduct) | ✅ |
+| Wallet API (balance/topup/deduct/qr/cards) | ✅ |
 | Code Splitting (lazy loading) | ✅ |
-| sessions/start เช็ค wallet | ⏳ |
-| sessions/stop auto deduct wallet | ⏳ |
-| Wallet UI (WalletPage) | ⏳ |
+| sessions/start เช็ค wallet_frozen + unpaid | ✅ |
+| sessions/stop auto payment (wallet → card) | ✅ |
+| Wallet UI (WalletPage) — saved card เลือกได้ | ✅ |
+| 403 auto logout → redirect login | ✅ |
 | ChargingPage block ถ้า wallet ไม่พอ | ⏳ |
+| payments refund คืนเงิน wallet | ⏳ |
+| Google Maps ไม่เสถียร | ⏳ |
 
 ### ลัลลา
 | งาน | สถานะ |

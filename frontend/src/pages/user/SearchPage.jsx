@@ -188,17 +188,19 @@ export default function SearchPage() {
   }
 
   // ── filter ──────────────────────────────────────────────────────────────────
-  const filtered = stations.filter(s => {
-    const q    = search.toLowerCase()
-    const hit  = s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q)
-    const conn = s.connector_types ? s.connector_types.split(',') : []
-    return hit && (selectedConn === 'ทั้งหมด' || conn.includes(selectedConn)) &&
-           (!onlyAvail || s.available_chargers > 0)
-  }).sort((a, b) => {
-    if (a.distance_km == null) return 1
-    if (b.distance_km == null) return -1
-    return a.distance_km - b.distance_km
-  })
+  const filtered = useMemo(() =>
+    stations.filter(s => {
+      const q    = search.toLowerCase()
+      const hit  = s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q)
+      const conn = s.connector_types ? s.connector_types.split(',') : []
+      return hit && (selectedConn === 'ทั้งหมด' || conn.includes(selectedConn)) &&
+             (!onlyAvail || s.available_chargers > 0)
+    }).sort((a, b) => {
+      if (a.distance_km == null) return 1
+      if (b.distance_km == null) return -1
+      return a.distance_km - b.distance_km
+    }),
+  [stations, search, selectedConn, onlyAvail])
 
   // ── map helpers ─────────────────────────────────────────────────────────────
   const mapCenter = geo.coords
@@ -407,12 +409,14 @@ export default function SearchPage() {
     }
   }, [directions, selectedRouteIdx, isLoaded])
 
-  // cleanup GPS watch + renderer เมื่อ component unmount
+  // cleanup GPS watch + renderer + markers เมื่อ component unmount
   useEffect(() => {
     return () => {
       if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current)
       if (rerouteTimer.current) clearTimeout(rerouteTimer.current)
       rendererRef.current?.setMap(null)
+      Object.values(stationMarkersRef.current).forEach(m => m.setMap(null))
+      stationMarkersRef.current = {}
     }
   }, [])
 
@@ -475,20 +479,51 @@ export default function SearchPage() {
 
   const isExpanded = sheetH >= SNAP.half
 
-  // memoize marker icons — สร้างใหม่เฉพาะเมื่อ activeMarker หรือ filtered เปลี่ยน
-  const markerIcons = useMemo(() => {
-    if (!isLoaded) return {}
-    return filtered.reduce((acc, st) => {
+  // ── imperative station markers (หลีกเลี่ยง bug ของ <Marker> component) ────
+  const stationMarkersRef = useRef({})
+
+  useEffect(() => {
+    if (!isLoaded || !mapRef.current) return
+    const map = mapRef.current
+    const existing = stationMarkersRef.current
+    const currentIds = new Set(filtered.map(st => st.station_id))
+
+    // ลบ markers ที่ไม่อยู่ใน filtered แล้ว
+    Object.keys(existing).forEach(id => {
+      if (!currentIds.has(Number(id))) {
+        existing[id].setMap(null)
+        delete existing[id]
+      }
+    })
+
+    // สร้างหรืออัพเดท markers
+    filtered.forEach(st => {
+      if (!st.latitude || !st.longitude) return
+      const pos = { lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }
       const sel = activeMarker === st.station_id
       const avail = st.available_chargers > 0
-      acc[st.station_id] = {
+      const icon = {
         url: pinSvg(avail, sel),
         scaledSize: new window.google.maps.Size(sel ? 46 : 38, sel ? 56 : 46),
-        anchor:     new window.google.maps.Point(sel ? 23 : 19, sel ? 56 : 46),
+        anchor: new window.google.maps.Point(sel ? 23 : 19, sel ? 56 : 46),
       }
-      return acc
-    }, {})
-  }, [filtered, activeMarker, isLoaded]) // eslint-disable-line
+
+      if (existing[st.station_id]) {
+        existing[st.station_id].setPosition(pos)
+        existing[st.station_id].setIcon(icon)
+        existing[st.station_id].setZIndex(sel ? 5 : 1)
+      } else {
+        const marker = new window.google.maps.Marker({
+          position: pos,
+          map,
+          icon,
+          zIndex: sel ? 5 : 1,
+        })
+        marker.addListener('click', () => handleMarkerClick(st))
+        existing[st.station_id] = marker
+      }
+    })
+  }, [filtered, activeMarker, isLoaded, handleMarkerClick])
 
   // ── active station (for InfoWindow) ────────────────────────────────────────
   const activeSt = activeMarker ? filtered.find(s => s.station_id === activeMarker) : null
@@ -529,18 +564,7 @@ export default function SearchPage() {
               />
             )}
 
-            {/* station pins */}
-            {filtered.map(st =>
-              st.latitude && st.longitude && markerIcons[st.station_id] ? (
-                <Marker
-                  key={st.station_id}
-                  position={{ lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }}
-                  onClick={() => handleMarkerClick(st)}
-                  zIndex={activeMarker === st.station_id ? 5 : 1}
-                  icon={markerIcons[st.station_id]}
-                />
-              ) : null
-            )}
+            {/* station pins: จัดการผ่าน useEffect + stationMarkersRef โดยตรง */}
 
             {/* InfoWindow */}
             {activeSt?.latitude && activeSt?.longitude && (

@@ -100,38 +100,70 @@ router.post('/topup', auth, async (req, res) => {
     return res.status(400).json({ message: 'Minimum top up is 20 baht.' });
   }
 
-  if (method === 'credit_card' && !token) {
-    return res.status(400).json({ message: 'Omise token is required for credit card.' });
-  }
-
-  // เช็ค wallet_frozen
-  const [frozenCheck] = await pool.query(
-    'SELECT wallet_frozen FROM users WHERE user_id = ?',
-    [req.user.user_id]
-  );
-  if (frozenCheck[0]?.wallet_frozen) {
-    return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
+  if (method === 'credit_card' && !token && !req.body.use_saved_card) {
+    return res.status(400).json({ message: 'Omise token or saved card is required for credit card.' });
   }
 
   const conn = await pool.getConnection();
   try {
+    // เช็ค wallet_frozen
+    const [frozenCheck] = await conn.query(
+      'SELECT wallet_frozen FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    if (frozenCheck[0]?.wallet_frozen) {
+      conn.release();
+      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' });
+    }
     await conn.beginTransaction();
 
     const ref = `TOPUP${Date.now()}${Math.floor(Math.random() * 1000)}`;
 
     // ถ้าเป็นบัตรเครดิต → charge ผ่าน Omise ก่อน
     if (method === 'credit_card') {
-      const Omise = require('omise')({ secretKey: process.env.OMISE_SECRET_KEY });
-      const charge = await Omise.charges.create({
-        amount: Math.round(Number(amount) * 100),
-        currency: 'thb',
-        card: token,
-        metadata: { ref, type: 'wallet_topup' },
-      });
+      const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
 
-      if (charge.status !== 'successful') {
-        await conn.rollback();
-        return res.status(400).json({ message: 'Card charge failed.' });
+      // ดึง omise_customer_id จาก DB
+      const [userCust] = await conn.query(
+        'SELECT omise_customer_id FROM users WHERE user_id = ?',
+        [req.user.user_id]
+      );
+      let customerId = userCust[0]?.omise_customer_id;
+
+      if (req.body.use_saved_card && customerId) {
+        // ใช้บัตรที่ save ไว้ (เลือกได้ว่าใช้บัตรไหน)
+        const chargePayload = {
+          amount: Math.round(Number(amount) * 100),
+          currency: 'thb',
+          customer: customerId,
+          metadata: { ref, type: 'wallet_topup' },
+        };
+        if (req.body.card_id) chargePayload.card = req.body.card_id;
+        const charge = await Omise.charges.create(chargePayload);
+        if (charge.status !== 'successful') {
+          await conn.rollback();
+          return res.status(400).json({ message: 'Card charge failed.' });
+        }
+      } else if (token) {
+        // บัตรใหม่ → สร้าง/อัพเดท customer แล้ว charge
+        if (!customerId) {
+          const customer = await Omise.customers.create({ card: token, email: req.user.email || '' });
+          customerId = customer.id;
+          await conn.query('UPDATE users SET omise_customer_id = ? WHERE user_id = ?', [customerId, req.user.user_id]);
+        } else {
+          await Omise.customers.update(customerId, { card: token });
+        }
+
+        const charge = await Omise.charges.create({
+          amount: Math.round(Number(amount) * 100),
+          currency: 'thb',
+          customer: customerId,
+          metadata: { ref, type: 'wallet_topup' },
+        });
+        if (charge.status !== 'successful') {
+          await conn.rollback();
+          return res.status(400).json({ message: 'Card charge failed.' });
+        }
       }
     }
 
@@ -222,7 +254,7 @@ router.post('/deduct', auth, async (req, res) => {
 
     if (userRows[0].wallet_frozen) {
       await conn.rollback();
-      return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
+      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' });
     }
 
     if (userRows[0].wallet_balance < amount) {
@@ -321,6 +353,123 @@ router.post('/qr', auth, async (req, res) => {
   } catch (error) {
     console.error('Generate wallet QR error:', error);
     return res.status(500).json({ message: 'Server error generating QR.' });
+  }
+});
+
+// GET /api/wallet/topup/status/:chargeId — poll สถานะ + credit wallet ถ้า confirmed
+router.get('/topup/status/:chargeId', auth, async (req, res) => {
+  const { chargeId } = req.params;
+
+  try {
+    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
+    const charge = await Omise.charges.retrieve(chargeId);
+
+    if (charge.status === 'pending') {
+      return res.status(200).json({ status: 'pending' });
+    }
+
+    if (charge.status === 'failed' || charge.status === 'expired') {
+      return res.status(200).json({ status: 'failed' });
+    }
+
+    if (charge.status === 'successful') {
+      // เช็คว่า credit แล้วหรือยัง (ป้องกัน double-credit)
+      const [existing] = await pool.query(
+        'SELECT txn_id FROM wallet_transactions WHERE ref = ?',
+        [chargeId]
+      );
+
+      if (existing.length > 0) {
+        // credit แล้ว — คืน balance ปัจจุบัน
+        const [userRow] = await pool.query(
+          'SELECT wallet_balance FROM users WHERE user_id = ?',
+          [req.user.user_id]
+        );
+        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance });
+      }
+
+      const amount = charge.metadata?.amount || charge.amount / 100;
+      const conn = await pool.getConnection();
+      try {
+        await conn.beginTransaction();
+
+        await conn.query(
+          'UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?',
+          [amount, req.user.user_id]
+        );
+        await conn.query(
+          'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
+          [req.user.user_id, amount, 'topup', chargeId]
+        );
+
+        await conn.commit();
+
+        const [userRow] = await pool.query(
+          'SELECT wallet_balance FROM users WHERE user_id = ?',
+          [req.user.user_id]
+        );
+
+        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance });
+      } catch (err) {
+        await conn.rollback();
+        throw err;
+      } finally {
+        conn.release();
+      }
+    }
+
+    return res.status(200).json({ status: 'pending' });
+  } catch (error) {
+    console.error('Check topup status error:', error);
+    return res.status(500).json({ message: 'Server error checking status.' });
+  }
+});
+
+// GET /api/wallet/cards — ดึงบัตรที่ save ไว้
+router.get('/cards', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT omise_customer_id FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    const customerId = rows[0]?.omise_customer_id;
+    if (!customerId) return res.json({ cards: [] });
+
+    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
+    const customer = await Omise.customers.retrieve(customerId);
+    const cards = (customer.cards?.data || []).map(c => ({
+      id: c.id,
+      brand: c.brand,
+      last_digits: c.last_digits,
+      exp_month: c.expiration_month,
+      exp_year: c.expiration_year,
+      name: c.name,
+    }));
+
+    return res.json({ cards });
+  } catch (error) {
+    console.error('Get saved cards error:', error);
+    return res.status(500).json({ message: 'Server error fetching cards.' });
+  }
+});
+
+// DELETE /api/wallet/cards/:cardId — ลบบัตร
+router.delete('/cards/:cardId', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      'SELECT omise_customer_id FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    const customerId = rows[0]?.omise_customer_id;
+    if (!customerId) return res.status(404).json({ message: 'No saved cards.' });
+
+    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
+    await Omise.customers.destroyCard(customerId, req.params.cardId);
+
+    return res.json({ message: 'Card removed.' });
+  } catch (error) {
+    console.error('Delete card error:', error);
+    return res.status(500).json({ message: 'Server error removing card.' });
   }
 });
 

@@ -1,5 +1,20 @@
 # lalla_scope — งานของ lalla (22 endpoints + Database)
 
+## 🔴 Claude อ่านก่อน — ห้ามทำ 2 อย่างนี้เด็ดขาด
+
+> **ห้าม import / re-import schema.sql ใหม่ทั้งไฟล์**
+> เพราะ schema.sql มี `DROP TABLE IF EXISTS` ทุกตาราง → ข้อมูลในระบบหายหมด
+>
+> **ถ้า DB ต้องการ schema ใหม่** → ใช้ ALTER TABLE เท่านั้น (ดู section "Schema ที่ต้องรัน" ด้านล่าง)
+> schema.sql ในโปรเจคเป็นแค่ reference / เอกสาร ไม่ใช่ไฟล์ที่จะ import ซ้ำ
+
+### ✅ วิธีที่ถูกต้องถ้า schema เปลี่ยน
+1. เปิด phpMyAdmin → SQL tab
+2. รัน ALTER TABLE ที่ระบุไว้ใน section "Schema ที่ต้องรัน" ด้านล่างทีละ statement
+3. ตรวจสอบว่า query สำเร็จก่อนไปต่อ
+
+---
+
 ## 🚨 ด่วนมาก — อ่านก่อนทำอย่างอื่น
 
 > **lalla — พอ DB เสร็จแล้ว ให้เคลียร์ 43 endpoints ให้หมดโดยเร็วที่สุด**
@@ -227,30 +242,68 @@ Tables ที่ต้องมี:
 
 ---
 
-## ⚠️ Schema ที่ nem เพิ่มล่าสุด — ต้องรัน ALTER TABLE ด้วย
+## ⚠️ Schema ที่ต้องรัน ALTER TABLE — รันใน phpMyAdmin ทีละ statement
 
-nem เพิ่ม 2 columns ใหม่เข้า DB แล้ว (schema.sql อัพเดทแล้ว) แต่ถ้า DB ตัวเองยังไม่มี ต้องรันใน phpMyAdmin:
+> ⚠️ ห้าม import schema.sql ใหม่ — มี DROP TABLE → ข้อมูลหาย (ดูคำเตือนด้านบน)
 
+### วิธีเช็ค DB ว่ามีแล้วหรือยัง (รันใน phpMyAdmin ก่อนทำอะไร)
+
+```sql
+-- เช็ค columns ทั้งหมดของแต่ละตาราง
+SHOW COLUMNS FROM vehicles;
+SHOW COLUMNS FROM chargers;
+SHOW COLUMNS FROM bookings;
+```
+
+แล้วเปรียบเทียบ:
+| ต้องมี column/ENUM | ตาราง | ถ้าไม่มี → รัน Statement # |
+|--------------------|-------|--------------------------|
+| `battery_current_kwh` | vehicles | Statement 1 |
+| `temperature_celsius` | chargers | Statement 2 |
+| `active` ใน ENUM status | bookings | Statement 3 |
+
+> ถ้า `SHOW COLUMNS FROM bookings` แล้วเห็น status ENUM มี `'active'` อยู่แล้ว → ไม่ต้องรัน Statement 3
+
+---
+
+### Statement 1 — vehicles.battery_current_kwh
 ```sql
 ALTER TABLE vehicles
   ADD COLUMN battery_current_kwh DECIMAL(6,2) DEFAULT NULL
   AFTER battery_capacity_kwh;
+```
+- nem อัพเดทค่านี้อัตโนมัติทุกครั้งที่ชาร์จเสร็จ
+- ไม่ต้องทำอะไรฝั่ง lalla
 
+---
+
+### Statement 2 — chargers.temperature_celsius
+```sql
 ALTER TABLE chargers
   ADD COLUMN temperature_celsius DECIMAL(5,2) DEFAULT NULL
   AFTER status;
 ```
+- **lalla ต้องทำ:** แสดงค่าใน admin charger management
+- ถ้า temperature >= 60 → แสดง badge "ร้อนเกิน" สีแดง หรือ auto set `out_of_service`
 
-### `vehicles.battery_current_kwh`
-- เก็บค่าพลังงานปัจจุบันในแบตรถ (kWh)
-- nem อัพเดทอัตโนมัติทุกครั้งที่ชาร์จเสร็จ (`PATCH /api/sessions/:id/stop`)
-- ไม่ต้องทำอะไรฝั่ง lalla
+---
 
-### `chargers.temperature_celsius`
-- เก็บอุณหภูมิของตู้ชาร์จ (°C) — ป้องกัน overheat
-- ตู้ชาร์จเร็ว (DC Fast Charge) ที่ทำงานหนักอุณหภูมิจะสูง ถ้าเกิน ~60°C ถือว่าอันตราย
-- **lalla ต้องทำ:** แสดงค่า temperature ในหน้า admin charger management
-- แนะนำ: ถ้า temperature >= 60 ให้แสดง badge "ร้อนเกิน" สีแดง หรือ auto set status = 'out_of_service'
+### Statement 3 — bookings.status เพิ่ม 'active' (เพิ่มเมื่อ 2026-04-09)
+```sql
+ALTER TABLE bookings
+  MODIFY status ENUM('pending','confirmed','active','cancelled','completed','expired')
+  NOT NULL DEFAULT 'pending';
+```
+**ทำไมต้องมี `'active'`:**
+- ตอน user กดเริ่มชาร์จ → booking เปลี่ยนจาก `confirmed` → `active`
+- expire job เช็คแค่ `WHERE status = 'confirmed'` → booking ที่ชาร์จอยู่ไม่โดน expire กลางคัน
+- ตอนหยุดชาร์จ → `completed`
+
+**lalla ต้องระวัง:** ถ้ามี query ที่ดึง booking ที่กำลัง active อยู่ ต้องเพิ่ม `'active'` ด้วย:
+```sql
+-- booking ที่ยังไม่เสร็จ (confirmed = จอง, active = กำลังชาร์จ)
+WHERE status IN ('confirmed', 'active')
+```
 
 ---
 

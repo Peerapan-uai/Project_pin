@@ -54,7 +54,7 @@ router.post('/start', auth, async (req, res) => {
       [req.user.user_id]
     );
     if (userRows.length > 0 && userRows[0].wallet_frozen) {
-      return res.status(403).json({ message: 'Wallet is frozen. Please contact support.' });
+      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' });
     }
 
     const [unpaidRows] = await pool.query(
@@ -72,6 +72,10 @@ router.post('/start', auth, async (req, res) => {
 
     if (bookingRows.length === 0) {
       return res.status(400).json({ message: 'No valid confirmed booking found.' });
+    }
+
+    if (bookingRows[0].charger_id !== Number(charger_id)) {
+      return res.status(400).json({ message: 'Charger does not match booking.' });
     }
 
     // ยอมรับทั้ง available และ reserved (reserved = มีคนจองและเป็นคนนั้นที่กำลังจะใช้)
@@ -96,7 +100,7 @@ router.post('/start', auth, async (req, res) => {
     );
 
     await pool.query(
-      `UPDATE bookings SET status = 'confirmed' WHERE booking_id = ?`,
+      `UPDATE bookings SET status = 'active' WHERE booking_id = ?`,
       [booking_id]
     );
 
@@ -192,44 +196,74 @@ router.patch('/:id/stop', auth, async (req, res) => {
       ),
     ]);
 
-    // auto deduct wallet (best effort — ถ้าพลาดไม่กระทบ response หลัก)
+    // auto payment: wallet ก่อน → ถ้าไม่พอ ตัดบัตร Omise (best effort)
+    let paymentMethod = null;
     let walletDeducted = false;
     let walletPaymentId = null;
+
     if (totalCost != null && totalCost > 0) {
       const conn = await pool.getConnection();
       try {
         await conn.beginTransaction();
-        const [walletRows] = await conn.query(
-          'SELECT wallet_balance, wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
+
+        const [userRows] = await conn.query(
+          'SELECT wallet_balance, wallet_frozen, omise_customer_id FROM users WHERE user_id = ? FOR UPDATE',
           [req.user.user_id]
         );
-        if (walletRows.length > 0 && !walletRows[0].wallet_frozen && walletRows[0].wallet_balance >= totalCost) {
-          const ref = `DEDUCT${Date.now()}${Math.floor(Math.random() * 1000)}`;
-          await conn.query(
-            'UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?',
-            [totalCost, req.user.user_id]
-          );
-          await conn.query(
-            'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
-            [req.user.user_id, totalCost, 'deduct', `session_${req.params.id}`]
-          );
+        const user = userRows[0];
+        const ref = `DEDUCT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+
+        if (user && !user.wallet_frozen && user.wallet_balance >= totalCost) {
+          // จ่ายด้วย wallet
+          await conn.query('UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?', [totalCost, req.user.user_id]);
+          await conn.query('INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)', [req.user.user_id, totalCost, 'deduct', `session_${req.params.id}`]);
           const [payResult] = await conn.query(
-            `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at)
-             VALUES (?, ?, ?, 'wallet', 'completed', ?, NOW())`,
+            `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at) VALUES (?, ?, ?, 'wallet', 'completed', ?, NOW())`,
             [req.user.user_id, req.params.id, totalCost, ref]
           );
           await conn.commit();
           walletDeducted = true;
           walletPaymentId = payResult.insertId;
-        } else {
+          paymentMethod = 'wallet';
+
+        } else if (user?.omise_customer_id) {
+          // wallet ไม่พอ → ตัดบัตร Omise
           await conn.rollback();
+          conn.release();
+
+          const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
+          const charge = await Omise.charges.create({
+            amount: Math.round(totalCost * 100),
+            currency: 'thb',
+            customer: user.omise_customer_id,
+            metadata: { session_id: req.params.id, type: 'charging_fee' },
+          });
+
+          if (charge.status === 'successful') {
+            const conn2 = await pool.getConnection();
+            try {
+              const [payResult] = await conn2.query(
+                `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at) VALUES (?, ?, ?, 'credit_card', 'completed', ?, NOW())`,
+                [req.user.user_id, req.params.id, totalCost, charge.id]
+              );
+              walletPaymentId = payResult.insertId;
+              paymentMethod = 'credit_card';
+            } finally {
+              conn2.release();
+            }
+          }
+        } else {
+          // ไม่มีทั้ง wallet และบัตร → pending
+          await conn.rollback();
+          paymentMethod = 'pending';
         }
-      } catch (walletErr) {
-        await conn.rollback();
-        console.warn('Wallet auto-deduct skipped:', walletErr.message);
+      } catch (payErr) {
+        try { await conn.rollback(); } catch (_) {}
+        console.warn('Auto-payment skipped:', payErr.message);
       } finally {
-        conn.release();
+        try { conn.release(); } catch (_) {}
       }
+      walletDeducted = paymentMethod === 'wallet';
     }
 
     // อัพเดท battery (best effort)
@@ -260,7 +294,9 @@ router.patch('/:id/stop', auth, async (req, res) => {
 
     try {
       const costText = totalCost != null ? ` คิดเป็นเงิน ${totalCost} บาท` : ''
-      const payNote = walletDeducted ? ' ตัดเงินจาก wallet แล้ว' : ' กรุณาชำระเงินเพื่อสิ้นสุดการใช้งาน'
+      const payNote = paymentMethod === 'wallet' ? ' ตัดเงินจาก wallet แล้ว'
+        : paymentMethod === 'credit_card' ? ' ตัดเงินผ่านบัตรเครดิตแล้ว'
+        : ' กรุณาชำระเงินเพื่อสิ้นสุดการใช้งาน'
       await pool.query(
         `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'charging')`,
         [req.user.user_id, 'ชาร์จเสร็จสิ้น', `ชาร์จไป ${energy_kwh} kWh${costText}${payNote}`]
@@ -272,6 +308,7 @@ router.patch('/:id/stop', auth, async (req, res) => {
       energy_kwh: energy_kwh,
       total_cost: totalCost,
       wallet_deducted: walletDeducted,
+      payment_method: paymentMethod,
       payment_id: walletPaymentId,
     });
   } catch (error) {

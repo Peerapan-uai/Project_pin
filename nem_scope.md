@@ -1,23 +1,47 @@
 # nem_scope — งานของ nem (33 endpoints + 1 พบใน code)
 
 ## สถานะปัจจุบัน
-- Backend routes — **เทสผ่านหมดแล้ว ✅** (ทุก endpoint เทสผ่าน Swagger แล้ว)
+- Backend routes — **เทสผ่านหมดแล้ว ✅**
 - Frontend (UI) — **เชื่อม Backend แล้วครบทุกหน้า ✅**
-- Wallet API — **เสร็จแล้ว ✅** (3 endpoints: balance, topup, deduct)
-- Omise Credit Card — **เสร็จแล้ว ✅** (frontend ใช้ Omise.js tokenize จริง)
-- Code Splitting — **เสร็จแล้ว ✅** (lazy loading ทุกหน้า)
+- Wallet API — **เสร็จแล้ว ✅** (balance, topup, deduct, qr, cards)
+- Omise Credit Card + Saved Card — **เสร็จแล้ว ✅** (บันทึกบัตร, เลือกบัตร, ลบบัตร)
+- PromptPay QR — **เสร็จแล้ว ✅** (สแกนได้จริง เข้าเบอร์ผู้ใช้)
+- sessions/start เช็ค wallet_frozen + unpaid — **เสร็จแล้ว ✅**
+- sessions/stop auto payment — **เสร็จแล้ว ✅** (wallet ก่อน → บัตร Omise ถ้าไม่พอ)
+- WalletPage UI — **เสร็จแล้ว ✅** (modal อยู่ในขอบ, saved card เลือกได้)
+- 403 auto logout — **เสร็จแล้ว ✅** (`utils/api.js`)
+- Code Splitting — **เสร็จแล้ว ✅**
+- ChargingPage แสดง wallet balance + warning ถ้าไม่พอ — **เสร็จแล้ว ✅**
+- ChargingPage หลังหยุดชาร์จ auto-pay แล้วไม่ไป PaymentPage — **เสร็จแล้ว ✅**
+- Google Maps markers (imperative) — **เสร็จแล้ว ✅** (เปลี่ยนจาก React `<Marker>` เป็น imperative)
 
 ### งานที่ยังต้องทำ (nem)
 | # | งาน | ไฟล์ | สถานะ |
 |---|------|------|-------|
-| 1 | sessions/start เช็ค wallet balance + unpaid payment + wallet_frozen | `routes/sessions.js` | ⏳ |
-| 2 | sessions/stop auto deduct จาก wallet | `routes/sessions.js` | ⏳ |
-| 3 | payments refund คืนเงินเข้า wallet (ถ้า method='wallet') | `routes/payments.js` | ⏳ |
-| 4 | wallet/topup + deduct เช็ค wallet_frozen | `routes/wallet.js` | ⏳ |
-| 5 | Wallet UI — WalletPage (ดูยอด + เติมเงิน QR/บัตร) | `pages/user/WalletPage.jsx` | ⏳ |
-| 6 | เพิ่ม Wallet เข้า BottomNav/Profile | Frontend | ⏳ |
-| 7 | ChargingPage แสดง wallet balance + block ถ้าไม่พอ | `pages/user/ChargingPage.jsx` | ⏳ |
-| 8 | Google Maps ไม่เสถียร | `pages/user/SearchPage.jsx` | ⏳ |
+| 1 | payments refund คืนเงินเข้า wallet (ถ้า method='wallet') | `routes/payments.js` | ⏳ |
+| 2 | เปลี่ยน PromptPay QR → Omise webhook (ต้องสมัคร ngrok) | `routes/wallet.js` | 🔜 ทำทีหลัง |
+
+### Bug ที่แก้แล้ว (2026-04-09)
+| Bug | ไฟล์ | รายละเอียด |
+|-----|------|-----------|
+| Booking expire ทันที | `BookingPage.jsx` | `toISOString()` ส่ง UTC แต่ MySQL ใช้ local time → เปลี่ยนเป็น local datetime |
+| wallet frozen → auto logout | `sessions.js`, `wallet.js` | เปลี่ยน 403 → 402 ไม่ trigger interceptor |
+| charger_id ไม่ตรวจกับ booking | `sessions.js` | เพิ่มเช็ค `bookingRows[0].charger_id !== charger_id` |
+| api timeout สั้นเกิน | `utils/api.js` | 5000ms → 15000ms |
+| booking expire ระหว่างชาร์จ | `sessions.js`, `schema.sql` | เพิ่ม status `'active'` + UPDATE booking เป็น active ตอน start |
+| wallet topup frozen check นอก try-catch | `wallet.js` | ย้าย query เข้าใน try block |
+| หยุดชาร์จแล้วไป PaymentPage ทุกครั้ง | `ChargingPage.jsx` | เช็ค `payment_method` จาก response — ถ้า wallet/card → แสดงสรุปเลย |
+| Google Maps markers โผล่ไม่ครบ | `SearchPage.jsx` | เปลี่ยนเป็น imperative `google.maps.Marker` |
+
+### สิ่งที่เพิ่มใหม่วันนี้ (2026-04-09)
+| สิ่ง | รายละเอียด |
+|------|-----------|
+| `GET /api/wallet/cards` | ดึงบัตรที่ save ไว้จาก Omise customer |
+| `DELETE /api/wallet/cards/:cardId` | ลบบัตร |
+| `users.omise_customer_id` | column ใหม่ใน DB เก็บ Omise customer ID |
+| sessions/stop payment priority | wallet → Omise card → pending |
+| WalletPage saved card UI | เลือกบัตรได้, highlight, ลบได้ |
+| `bookings.status` เพิ่ม `'active'` | ต้องรัน ALTER TABLE (ดู section schema ด้านล่าง) |
 
 ### 🔧 Performance Optimization (nem) — ต้องแก้
 | # | ไฟล์ | ปัญหา | วิธีแก้ | ประหยัดได้ |
