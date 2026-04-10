@@ -356,7 +356,38 @@ router.post('/qr', auth, async (req, res) => {
   }
 });
 
-// GET /api/wallet/topup/status/:chargeId — poll สถานะ + credit wallet ถ้า confirmed
+/**
+ * @swagger
+ * /api/wallet/topup/status/{chargeId}:
+ *   get:
+ *     summary: Poll Omise charge status and credit wallet if confirmed
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: chargeId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Omise charge ID (e.g. chrg_test_xxx)
+ *     responses:
+ *       200:
+ *         description: Charge status (pending / confirmed / failed)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   enum: [pending, confirmed, failed]
+ *                 new_balance:
+ *                   type: number
+ *                   description: Updated wallet balance (only when status = confirmed)
+ *       500:
+ *         description: Server error
+ */
 router.get('/topup/status/:chargeId', auth, async (req, res) => {
   const { chargeId } = req.params;
 
@@ -425,7 +456,42 @@ router.get('/topup/status/:chargeId', auth, async (req, res) => {
   }
 });
 
-// GET /api/wallet/cards — ดึงบัตรที่ save ไว้
+/**
+ * @swagger
+ * /api/wallet/cards:
+ *   get:
+ *     summary: Get saved credit/debit cards from Omise customer
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of saved cards
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 cards:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       id:
+ *                         type: string
+ *                       brand:
+ *                         type: string
+ *                       last_digits:
+ *                         type: string
+ *                       exp_month:
+ *                         type: integer
+ *                       exp_year:
+ *                         type: integer
+ *                       name:
+ *                         type: string
+ *       500:
+ *         description: Server error
+ */
 router.get('/cards', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -453,7 +519,29 @@ router.get('/cards', auth, async (req, res) => {
   }
 });
 
-// DELETE /api/wallet/cards/:cardId — ลบบัตร
+/**
+ * @swagger
+ * /api/wallet/cards/{cardId}:
+ *   delete:
+ *     summary: Remove a saved card from Omise customer
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: cardId
+ *         required: true
+ *         schema:
+ *           type: string
+ *         description: Omise card ID (e.g. card_test_xxx)
+ *     responses:
+ *       200:
+ *         description: Card removed successfully
+ *       404:
+ *         description: No saved cards found
+ *       500:
+ *         description: Server error
+ */
 router.delete('/cards/:cardId', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
