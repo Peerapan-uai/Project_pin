@@ -25,6 +25,9 @@ const reviewRoutes = require('./routes/reviews');
 const ticketRoutes = require('./routes/tickets');
 const notificationRoutes = require('./routes/notifications');
 const walletRoutes = require('./routes/wallet');
+const adminWalletRoutes = require('./routes/admin/wallet');
+const adminReportsRoutes = require('./routes/admin/reports');
+const adminNotificationsRoutes = require('./routes/admin/notifications');
 const logsRoutes = require('./routes/admin/logs');
 
 const app = express();
@@ -59,7 +62,7 @@ const swaggerOptions = {
     },
     security: [{ bearerAuth: [] }],
   },
-  apis: ['./routes/*.js', './server.js'], // JSDoc comments in route files are picked up here
+    apis: ['./routes/*.js', './routes/admin/*.js', './server.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
@@ -77,6 +80,9 @@ app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
 app.use('/api/tickets', ticketRoutes);
 app.use('/api/admin/logs', logsRoutes);
+app.use('/api/admin/wallet', adminWalletRoutes);
+app.use('/api/admin/reports', adminReportsRoutes);
+app.use('/api/admin/notifications', adminNotificationsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wallet', walletRoutes);
 
@@ -157,5 +163,5 @@ const startServer = async () => {
     startExpirePaymentsJob();
   });
 };
-
+// module.exports = router;
 startServer();

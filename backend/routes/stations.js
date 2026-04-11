@@ -368,4 +368,100 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/stations/{id}/stats:
+ *   get:
+ *     summary: Get station statistics (Admin only)
+ *     tags: [Stations]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: Station ID
+ *     responses:
+ *       200:
+ *         description: Station statistics
+ *       403:
+ *         description: Access denied
+ *       404:
+ *         description: Station not found
+ *       500:
+ *         description: Server error
+ */
+// lalla GET /api/stations/{id}/stats Get station statistics
+router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const { id: stationId } = req.params;
+
+    // 🔴 TODO A: Check station exists
+    const [stations] = await pool.query(
+      'SELECT station_id, name FROM stations WHERE station_id = ?',
+      [stationId]
+    );
+    if (stations.length === 0) { return res.status(404).json({message: 'Failed'}); }
+
+    // 🔴 TODO B: Count total bookings for this station
+    
+
+    const [[{total_bookings}]] = await pool.query(
+      `SELECT COUNT(b.booking_id) as total_bookings
+      FROM bookings b
+      JOIN chargers c ON b.charger_id = c.charger_id
+      WHERE c.station_id = ?`,
+      [stationId]
+    );
+
+    // 🔴 TODO C: Sum total revenue for this station
+    
+
+    const [[{ total_revenue }]] = await pool.query(
+      `SELECT SUM(p.amount) as total_revenue
+        FROM payments p
+        JOIN charging_sessions cs ON p.session_id = cs.session_id
+        JOIN chargers c ON cs.charger_id = c.charger_id
+        WHERE c.station_id = ? AND p.status = 'completed'`,
+        [stationId]
+    )
+
+
+    // 🔴 TODO D: Calculate charger availability percentage
+    
+    const [[{ total_chargers, available_chargers }]] = await pool.query(
+      `SELECT
+        COUNT(*) as total_chargers,
+        SUM(CASE WHEN status = 'available' THEN 1 ELSE 0 END) as available_chargers
+        FROM chargers WHERE station_id = ?`,
+        [stationId]
+    )
+
+    return res.status(200).json({
+      success: true,
+      station: stations[0],
+      statistics: {
+        total_bookings: bookingStats?.total_bookings || 0,
+        total_revenue: revenueStats?.total_revenue || 0,
+        total_chargers: chargerStats?.total_chargers || 0,
+        available_chargers: chargerStats?.available_chargers || 0,
+        availability_percentage: chargerStats ?
+          (chargerStats.available_chargers / chargerStats.total_chargers * 100).toFixed(2) : 0
+      }
+    });
+
+  } catch (error) {
+    console.error('Get station stats error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Failed to fetch station statistics',
+      error: error.message
+    });
+  }
+});
+
+module.exports = router;
+
 module.exports = router;

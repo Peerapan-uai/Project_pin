@@ -5,32 +5,32 @@ const roleCheck = require('../../middleware/roleCheck');
 
 const router = express.Router();
 
-/** 
- * @swagger 
+/**
+ * @swagger
  * /api/admin/logs:
- *  get:
- *    summary: Get all logs (Admin only)
- *    tags: [Admin]
- *    security:
- *      - bearerAuth: []
- *    responses:
- *      200:
- *        description: List of logs
- *        content:
- *          application/json:
- *            schema:
- *              type: object
- *              properties:
- *                success:
- *                  type: boolean
- *                count:
- *                  type: integer
- *                data:
- *                  type: array
- *         403:
- *           description: Access denied
- *         500:
- *           description: Server error
+ *   get:
+ *     summary: Get all logs (Admin only)
+ *     tags: [Admin]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of logs
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                 count:
+ *                   type: integer
+ *                 data:
+ *                   type: array
+ *       403:
+ *         description: Access denied
+ *       500:
+ *         description: Server error
  */
 
 

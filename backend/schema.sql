@@ -237,8 +237,11 @@ CREATE TABLE wallet_transactions (
   type       ENUM('topup','deduct','refund','adjust') NOT NULL,
   ref        VARCHAR(100)    DEFAULT NULL,
   created_at TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  reason     VARCHAR(255)    DEFAULT NULL,
+  adjusted_by INT UNSIGNED   DEFAULT NULL,
   PRIMARY KEY (txn_id),
-  CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+  CONSTRAINT fk_wallet_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE,
+  CONSTRAINT fk_wallet_adjusted_by FOREIGN KEY (adjusted_by) REFERENCES users (user_id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- messages
