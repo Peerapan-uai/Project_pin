@@ -321,15 +321,40 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
 
     const password_hash = await bcrypt.hash(password, 10);
 
-    const [result] = await pool.query(
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+    
+
+    const [result] = await conn.query(
       'INSERT INTO users (first_name, last_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
       [first_name, last_name, email, password_hash, phone || null, 'technician']
     );
 
+    await conn.query(
+      'insert into tech_profiles (user_id) values (?)',
+      [result.insertId]
+    );
+
+    await conn.commit();
     return res.status(201).json({
-      message: 'Technician account created successfully.',
-      user_id: result.insertId,
+      success: true,
+      message: "เพิ่มข้อมูลช่างเข้าสู่ระบบเรียบร้อยแล้ว",
+      data: {
+        user_id: result.insertId
+      }
     });
+
+    } catch (error) {
+      await conn.rollback();
+      return res.status(500).json({
+        success: false,
+        message: "เกิดข้อผิดพลาดในการบันทึกข้อมูล กรุณาลองใหม่อีกครั้ง",
+        error: error.message
+      });
+    } finally {
+      conn.release();
+    }
   } catch (error) {
     console.error('Create technician error:', error);
     return res.status(500).json({ message: 'Server error creating technician.' });

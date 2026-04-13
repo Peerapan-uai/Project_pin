@@ -22,13 +22,14 @@
 > (ตัด 6 endpoints ซ้ำซ้อนออกแล้ว — ดูเหตุผลทางเทคนิคใน section Google Maps)
 > nem รอ schema wallet และ admin wallet API ก่อนถึงจะ integrate frontend ได้ครบ
 
-## สถานะปัจจุบัน (อัปเดต 2026-04-09)
+## สถานะปัจจุบัน (อัปเดต 2026-04-13)
 - Database MySQL schema — **เสร็จแล้ว ✅**
 - Database MongoDB (Logs) — **เสร็จแล้ว ✅** (TTL index 90 วัน, logger middleware, logs API)
 - Backend routes admin/tech (22 endpoints) — **เสร็จแล้ว ✅**
 - Admin Logs (2 endpoints) — **เสร็จแล้ว ✅** (แก้ bug import auth/roleCheck แล้ว)
 - Frontend admin/tech — **เสร็จแล้ว ✅**
 - เทส Swagger — **เสร็จแล้ว ✅**
+- `POST /api/users/technician` — **แก้ bug ✅** เพิ่ม INSERT tech_profiles + transaction (2026-04-13)
 - **Admin Wallet (6 endpoints) — ยังไม่ได้ทำ ⏳ ด่วนมาก**
 - **Admin Reports (5 endpoints) — ยังไม่ได้ทำ ⏳**
 - **Notification Admin (5 endpoints) — ยังไม่ได้ทำ ⏳**

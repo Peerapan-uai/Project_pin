@@ -18,6 +18,8 @@ DROP TABLE IF EXISTS bookings;
 DROP TABLE IF EXISTS chargers;
 DROP TABLE IF EXISTS stations;
 DROP TABLE IF EXISTS vehicles;
+DROP TABLE IF EXISTS tech_profiles;
+DROP TABLE IF EXISTS admin_profiles;
 DROP TABLE IF EXISTS users;
 
 SET FOREIGN_KEY_CHECKS = 1;
@@ -42,6 +44,29 @@ CREATE TABLE users (
   created_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
   updated_at    TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (user_id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -------------------------------------------------------------
+-- admin_profiles  (extension สำหรับ role='admin' เท่านั้น)
+-- -------------------------------------------------------------
+CREATE TABLE admin_profiles (
+  admin_id         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id          INT UNSIGNED NOT NULL UNIQUE,
+  permission_level ENUM('full','limited') NOT NULL DEFAULT 'full',
+  PRIMARY KEY (admin_id),
+  CONSTRAINT fk_admin_profiles_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- -------------------------------------------------------------
+-- tech_profiles  (extension สำหรับ role='technician' เท่านั้น)
+-- -------------------------------------------------------------
+CREATE TABLE tech_profiles (
+  tech_id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  user_id        INT UNSIGNED NOT NULL UNIQUE,
+  can_field_work TINYINT(1)   NOT NULL DEFAULT 0,
+  specialty      VARCHAR(100) DEFAULT NULL,
+  PRIMARY KEY (tech_id),
+  CONSTRAINT fk_tech_profiles_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 -- -------------------------------------------------------------
