@@ -264,7 +264,7 @@ router.patch('/:id/admin-cancel', auth, roleCheck('admin'), async (req, res) => 
 router.get('/:id', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT b.*, c.connector_type, c.power_kw, s.name AS station_name, s.address
+      `SELECT b.*, c.station_id, c.connector_type, c.power_kw, s.name AS station_name, s.address
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id

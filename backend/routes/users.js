@@ -76,19 +76,31 @@ router.get('/profile', auth, async (req, res) => {
  */
 /// nem
 router.put('/profile', auth, async (req, res) => {
-  const { first_name, last_name,phone, password } = req.body;
+  const { first_name, last_name, phone, current_password, new_password } = req.body;
 
   try {
-    let query = 'UPDATE users SET first_name = ?, last_name =? ,phone = ? WHERE user_id = ?';
-    let params = [first_name, last_name,phone,req.user.user_id];
-
-    if (password) {
-      const password_hash = await bcrypt.hash(password, 10);
-      query = 'UPDATE users SET first_name = ?, last_name =? ,phone = ?, password_hash = ? WHERE user_id = ?';
-      params = [first_name, last_name ,phone, password_hash ,req.user.user_id];
+    // ถ้าจะเปลี่ยนรหัสผ่าน ต้องตรวจรหัสเก่าก่อน
+    if (new_password) {
+      if (!current_password) {
+        return res.status(400).json({ message: 'กรุณากรอกรหัสผ่านปัจจุบัน' });
+      }
+      const [rows] = await pool.query('SELECT password_hash FROM users WHERE user_id = ?', [req.user.user_id]);
+      const valid = await bcrypt.compare(current_password, rows[0].password_hash);
+      if (!valid) {
+        return res.status(400).json({ message: 'รหัสผ่านปัจจุบันไม่ถูกต้อง' });
+      }
+      const password_hash = await bcrypt.hash(new_password, 10);
+      await pool.query(
+        'UPDATE users SET first_name = ?, last_name = ?, phone = ?, password_hash = ? WHERE user_id = ?',
+        [first_name, last_name, phone, password_hash, req.user.user_id]
+      );
+    } else {
+      await pool.query(
+        'UPDATE users SET first_name = ?, last_name = ?, phone = ? WHERE user_id = ?',
+        [first_name, last_name, phone, req.user.user_id]
+      );
     }
 
-    await pool.query(query, params);
     return res.status(200).json({ message: 'Profile updated successfully.' });
   } catch (error) {
     console.error('Update profile error:', error);

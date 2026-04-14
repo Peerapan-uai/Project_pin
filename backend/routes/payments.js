@@ -5,6 +5,8 @@ const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
 const generatePayload = require('promptpay-qr');
 const QRCode = require('qrcode');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * @swagger
@@ -383,11 +385,13 @@ router.get('/history', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT p.*, s.start_time AS session_start, s.end_time AS session_end,
-              s.energy_kwh, st.name AS station_name
+              s.energy_kwh, st.name AS station_name,
+              rr.status AS refund_status, rr.request_id AS refund_request_id
        FROM payments p
        JOIN charging_sessions s ON p.session_id = s.session_id
        JOIN chargers c ON s.charger_id = c.charger_id
        JOIN stations st ON c.station_id = st.station_id
+       LEFT JOIN refund_requests rr ON rr.payment_id = p.payment_id AND rr.user_id = p.user_id
        WHERE p.user_id = ?
        ORDER BY p.paid_at DESC`,
       [req.user.user_id]
@@ -683,6 +687,14 @@ router.post('/:id/refund', auth, roleCheck('admin'), async (req, res) => {
       }
     }
 
+    // แจ้ง user ว่าคืนเงินแล้ว
+    try {
+      await pool.query(
+        `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'payment')`,
+        [rows[0].user_id, 'คำขอคืนเงินอนุมัติแล้ว', `คำขอคืนเงินจำนวน ${refundAmount} บาท ได้รับการอนุมัติแล้ว`]
+      );
+    } catch (_) {}
+
     return res.status(200).json({
       message: 'Refund processed successfully.',
       refund_id: refundResult.insertId,
@@ -757,6 +769,126 @@ router.get('/:id/refunds', auth, async (req, res) => {
   } catch (error) {
     console.error('Get refunds error:', error);
     return res.status(500).json({ message: 'Server error fetching refunds.' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/payments/{id}/refund-request:
+ *   post:
+ *     summary: User requests a refund for a completed payment
+ *     tags: [Payments]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [reason]
+ *             properties:
+ *               reason:
+ *                 type: string
+ *                 description: เหตุผลที่ขอคืนเงิน
+ *     responses:
+ *       201:
+ *         description: Refund request submitted
+ *       400:
+ *         description: Payment not eligible or already requested
+ *       404:
+ *         description: Payment not found
+ *       500:
+ *         description: Server error
+ */
+// #48  POST /:id/refund-request  — nem
+router.post('/:id/refund-request', auth, async (req, res) => {
+  const { reason, images } = req.body;
+  const paymentId = req.params.id;
+  const userId = req.user.user_id;
+
+  if (!reason) {
+    return res.status(400).json({ success: false, message: 'reason is required' });
+  }
+
+  try {
+    // เช็คว่า payment นี้เป็นของ user จริง + status = 'completed'
+    const [payments] = await pool.query(
+      `SELECT payment_id, status, amount FROM payments WHERE payment_id = ? AND user_id = ?`,
+      [paymentId, userId]
+    );
+
+    if (payments.length === 0) {
+      return res.status(404).json({ success: false, message: 'Payment not found.' });
+    }
+
+    if (payments[0].status !== 'completed') {
+      return res.status(400).json({ success: false, message: 'Only completed payments can be refunded.' });
+    }
+
+    // เช็คว่าเคยขอไปแล้วหรือยัง
+    const [existing] = await pool.query(
+      `SELECT request_id FROM refund_requests WHERE payment_id = ? AND status = 'pending'`,
+      [paymentId]
+    );
+
+    if (existing.length > 0) {
+      return res.status(400).json({ success: false, message: 'Refund request already submitted and pending.' });
+    }
+
+    // บันทึกรูปภาพ (ถ้ามี) — รองรับหลายรูป
+    let imageUrl = null;
+    if (Array.isArray(images) && images.length > 0) {
+      const uploadDir = path.join(__dirname, '..', 'uploads', 'refunds');
+      const savedPaths = [];
+      for (const img of images.slice(0, 5)) {
+        const matches = img.match(/^data:image\/(\w+);base64,(.+)$/);
+        if (matches) {
+          const ext = matches[1];
+          const base64Data = matches[2];
+          const filename = `refund_${userId}_${Date.now()}_${savedPaths.length}.${ext}`;
+          fs.writeFileSync(path.join(uploadDir, filename), base64Data, 'base64');
+          savedPaths.push(`/uploads/refunds/${filename}`);
+        }
+      }
+      if (savedPaths.length > 0) imageUrl = JSON.stringify(savedPaths);
+    }
+
+    // สร้าง refund request
+    const [result] = await pool.query(
+      `INSERT INTO refund_requests (payment_id, user_id, reason, image_url) VALUES (?, ?, ?, ?)`,
+      [paymentId, userId, reason, imageUrl]
+    );
+
+    // แจ้ง notification ให้ admin
+    await pool.query(
+      `INSERT INTO notifications (user_id, title, message, type)
+       SELECT user_id, 'มีคำขอคืนเงิน', CONCAT('ผู้ใช้ขอคืนเงิน payment #', ?, ': ', ?), 'payment'
+       FROM users WHERE role = 'admin'`,
+      [paymentId, reason]
+    );
+
+    // แจ้ง user ว่าส่งคำขอสำเร็จ รอ 24-48 ชม.
+    await pool.query(
+      `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'payment')`,
+      [userId, 'ส่งคำขอคืนเงินแล้ว', `คำขอคืนเงิน #${result.insertId} ได้รับแล้ว ทีมงานจะตรวจสอบภายใน 24-48 ชั่วโมง`]
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'Refund request submitted successfully.',
+      request_id: result.insertId,
+    });
+
+  } catch (error) {
+    console.error('Refund request error:', error);
+    return res.status(500).json({ success: false, message: 'Server error submitting refund request.' });
   }
 });
 
