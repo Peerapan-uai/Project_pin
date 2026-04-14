@@ -8,6 +8,7 @@ const connectMongoDB = require('./config/mongodb');
 const logger = require('./middleware/logger');
 const auth = require('./middleware/auth');
 const roleCheck = require('./middleware/roleCheck');
+const cron = require('node-cron')
 
 const { startExpireJob } = require('./jobs/expireBookings');
 const { startExpirePaymentsJob } = require('./jobs/expirePayments');
@@ -159,11 +160,51 @@ const startServer = async () => {
   // Connect to MongoDB
   await connectMongoDB();
 
+  const startScheduleNotificationsJob = () => {
+    cron.schedule('* * * * *', async () => {
+      try {
+        const [pending] = await pool.query(
+          `select * from scheduled_notifications
+          where scheduled_at <= NOW() AND is_sent = 0`
+        )
+        for (const notif of pending) {
+            let userIds = []
+            if (notif.target_type === 'all') {
+              const [users] = await pool.query(`select user_id from users`)
+              userIds = users.map(u => u.user_id)
+
+            } else if (notif.target_type === 'role') {
+              const [users] = await pool.query('select user_id from users where role = ?', [notif.target_value])
+              userIds = users.map(u => u.user_id)
+
+            } else if (notif.target_type === 'user_ids') {
+              userIds = notif.target_value.split(',').map(id => parseInt(id.trim()))
+            }
+            if (userIds.length > 0) {
+              const insertValues = userIds.map(id => [
+                id,
+                notif.title,
+                notif.message,
+                notif.type
+              ])
+              await pool.query(
+                'insert into notifications (user_id, title, message, type) values ?', [insertValues]
+              )
+              await pool.query(
+                'update scheduled_notifications set is_sent = 1 where id = ?',
+                [notif.id]
+              )
+            } 
+        } 
+      } catch (err) {console.error('Scheduled notification error:', err.message)}
+    })
+  }
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     startExpireJob();
-    startExpirePaymentsJob();
+    startExpirePaymentsJob()
+    startScheduleNotificationsJob()
   });
 };
 // module.exports = router;

@@ -238,10 +238,11 @@ router.post('/schedule', auth, roleCheck('admin'), async (req, res) => {
     if (scheduledDate <= new Date()) {
       return res.status(400).json({ message: 'scheduled_at must be in the future' });
     }
+    const scheduledDateStr = scheduledDate.toISOString().slice(0, 19).replace('T', ' ')
 
         // 🔴 TODO G: Create scheduled notification record (store in DB for later processing)
         const [result] = await pool.query('INSERT INTO scheduled_notifications (title, message, scheduled_at, target_type, target_value, type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [title, message, scheduled_at, target_type, target_value || null, type, req.user.user_id]
+      [title, message, scheduledDateStr, target_type, target_value || null, type, req.user.user_id]
     );
 
 
