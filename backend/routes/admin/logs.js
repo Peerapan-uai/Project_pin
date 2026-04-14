@@ -74,25 +74,6 @@ const router = express.Router();
  *       500:
  *         description: Server error
  */
-router.get('/:type', auth, roleCheck('admin'), async (req, res) => {
-  // ...
-});
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 /// GET /api/admin/logs. lalla

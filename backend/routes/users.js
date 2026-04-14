@@ -153,7 +153,7 @@ router.delete('/profile', auth, async (req, res) => {
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, first_name, last_name, email, phone, role, is_banned, created_at FROM users ORDER BY created_at DESC'
+      'SELECT u.*, tp.primary_skill, tp.status as tech_status FROM users u left join tech_profiles tp on u.user_id = tp.user_id'
     );
     return res.status(200).json({ users: rows });
   } catch (error) {
@@ -233,6 +233,106 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+
+
+/**
+ * @swagger
+ * /api/users/{id}:
+ *   get:
+ *     summary: Get user detail + full history (Admin only)
+ *     tags: [Users]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *         description: User ID
+ *     responses:
+ *       200:
+ *         description: User detail with history
+ *       404:
+ *         description: User not found
+ *       500:
+ *         description: Server error
+ */
+router.get('/:id', auth, roleCheck('admin'), async (req,res) => {
+  const { id } = req.params;
+
+  try {
+    const [user] = await pool.query (
+      `select user_id, email, first_name, last_name, phone, role,
+        wallet_balance, wallet_frozen, is_banned, ban_reason, created_at  
+      from users where user_id  = ?`, [id]
+    );
+    if (user.length === 0) {
+      return res.status(404).json({
+       success: false ,
+       message: "User not found" 
+      });
+    } 
+    const [bookings] = await pool.query (
+      `select booking_id , b.charger_id , b.start_time , 
+      b.booking_time, b.status, s.name AS station_name
+      from bookings b
+      join chargers c on b.charger_id = c.charger_id
+      join stations s on c.station_id = s.station_id
+      where b.user_id = ? 
+      order by b.booking_time DESC
+      LIMIT 20 `, [id]
+    )
+    const [payments] = await pool.query(
+      `select payment_id, amount, method, status, transaction_ref, paid_at
+      from payments where user_id = ?
+      order by paid_at DESC limit 20`, [id]
+    )
+    const [sessions] = await pool.query(
+      `select cs.session_id, cs.charger_id, cs.start_time, cs.end_time, 
+        cs.energy_kwh, cs.charge_percentage, cs.status, s.name as station_name
+        from charging_sessions cs
+        join chargers c on cs.charger_id = c.charger_id
+        join stations s on c.station_id = s.station_id
+        where cs.user_id = ?
+        order by cs.start_time DESC limit 20`, [id]
+    )
+    const [review] = await pool.query(
+      `select r.review_id, r.station_id, r.rating, r.comment, r.created_at, s.name as station_name
+      from reviews r
+      join stations s on r.station_id = s.station_id
+      where r.user_id = ?
+      order by r.created_at DESC limit 20`, [id]
+    )
+    const [wallet_transactions] = await pool.query(
+      `select txn_id, amount, type, reason, ref , created_at
+      from wallet_transactions where user_id = ?
+      order by created_at DESC limit 20`, [id]
+    )
+    return res.json({
+      success: true,
+      user : user[0],
+      bookings,
+      payments,
+      sessions,
+      wallet_transactions: wallet_transactions,
+      review
+    })
+  } catch (error) {
+    console.error('Get user detail error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'เกิดข้อผิดพลาดในการดึงข้อมูล',
+      error: error.message
+    });
+  }
+})
+  
+
+
+
+
+
 ///lalla  PUT /api/users/:id  (admin edit any user)
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
@@ -319,7 +419,7 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  */
 ///lalla  POST /api/users/technician
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
-  const { first_name, last_name, email, password, phone } = req.body;
+  const { first_name, last_name, email, password, phone , primary_skill } = req.body;
 
   if (!first_name || !last_name || !email || !password) {
     return res.status(400).json({ message: 'first_name, last_name, email, and password are required.' });
@@ -344,8 +444,8 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
     );
 
     await conn.query(
-      'insert into tech_profiles (user_id) values (?)',
-      [result.insertId]
+      'insert into tech_profiles (user_id, primary_skill) values (?,?)',
+      [result.insertId, primary_skill]
     );
 
     await conn.commit();

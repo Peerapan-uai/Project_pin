@@ -22,31 +22,44 @@
 > (ตัด 6 endpoints ซ้ำซ้อนออกแล้ว — ดูเหตุผลทางเทคนิคใน section Google Maps)
 > nem รอ schema wallet และ admin wallet API ก่อนถึงจะ integrate frontend ได้ครบ
 
-## สถานะปัจจุบัน (อัปเดต 2026-04-13)
+## สถานะปัจจุบัน (อัปเดต 2026-04-14)
 - Database MySQL schema — **เสร็จแล้ว ✅**
 - Database MongoDB (Logs) — **เสร็จแล้ว ✅** (TTL index 90 วัน, logger middleware, logs API)
 - Backend routes admin/tech (22 endpoints) — **เสร็จแล้ว ✅**
 - Admin Logs (2 endpoints) — **เสร็จแล้ว ✅** (แก้ bug import auth/roleCheck แล้ว)
 - Frontend admin/tech — **เสร็จแล้ว ✅**
 - เทส Swagger — **เสร็จแล้ว ✅**
-- `POST /api/users/technician` — **แก้ bug ✅** เพิ่ม INSERT tech_profiles + transaction (2026-04-13)
-- **Admin Wallet (6 endpoints) — ยังไม่ได้ทำ ⏳ ด่วนมาก**
-- **Admin Reports (5 endpoints) — ยังไม่ได้ทำ ⏳**
-- **Notification Admin (5 endpoints) — ยังไม่ได้ทำ ⏳**
-- Google Maps API — ตัดจาก 7 → 2 endpoints (nearby ✅ + stats ⏳) เหตุผล: 5 อันซ้ำกับ frontend
+- `POST /api/users/technician` — **แก้ bug ✅** เพิ่ม INSERT tech_profiles + primary_skill (2026-04-14)
+- `GET /api/users/:id` — **เพิ่มใหม่ ✅** admin ดู user รายคน + ประวัติทั้งหมด (2026-04-14)
+- `GET /api/users` — **แก้แล้ว ✅** เพิ่ม LEFT JOIN tech_profiles ดึง primary_skill (2026-04-14)
+- Admin Wallet (6 endpoints) — **เสร็จแล้ว ✅** (โค้ดมาจาก commit 1ddaddb, เช็ค DB ตรงแล้ว)
+- Admin Reports (6 endpoints) — **เสร็จแล้ว ✅** (โค้ดมาจาก commit 1ddaddb, ยังไม่ได้เทส Swagger)
+- Admin Notifications (4 endpoints) — **เสร็จแล้ว ✅** (โค้ดมาจาก commit 1ddaddb, ยังไม่ได้เทส Swagger)
+- Stations stats (1 endpoint) — **เสร็จแล้ว ✅** (โค้ดมาจาก commit 1ddaddb)
+- Google Maps API — ตัดจาก 7 → 2 endpoints (nearby ✅ + stats ✅)
 
 ## สรุป endpoints ทั้งหมดของ lalla
 | กลุ่ม | จำนวน | สถานะ |
 |-------|-------|-------|
 | Users, Stations, Chargers, Tickets, Bookings, Payments, Sessions, Dashboard | 22 | ✅ |
-| Nearby stations | 1 | ✅ |
+| User detail (GET /:id) | 1 | ✅ ใหม่ |
+| Nearby stations + stats | 2 | ✅ |
 | Admin Logs | 2 | ✅ |
-| **Admin Wallet** | **6** | ⏳ ด่วนมาก |
-| Stations stats | 1 | ⏳ |
-| Admin Reports | 5 | ⏳ |
-| PDF Invoice | 1 | ⏳ |
-| Notification Admin | 5 | ⏳ |
-| **รวมทั้งหมด** | **43** | 25✅ / 18⏳ |
+| Admin Wallet | 6 | ✅ |
+| Admin Reports + PDF Invoice | 6 | ✅ (ยังไม่ได้เทส) |
+| Admin Notifications | 4 | ✅ (ยังไม่ได้เทส) |
+| **รวมทั้งหมด** | **43** | 43✅ |
+
+## งานที่ต้องทำต่อ (FE + เทส)
+| # | งาน | สถานะ |
+|---|------|-------|
+| 1 | FE: เพิ่ม dropdown เลือก primary_skill ในฟอร์ม "เพิ่มช่าง" (ELECTRICAL/SOFTWARE/MECHANICAL) | ⏳ |
+| 2 | FE: แสดง primary_skill ในรายชื่อช่าง/user | ⏳ |
+| 3 | เทส Admin Wallet 6 endpoints ผ่าน Swagger | ⏳ |
+| 4 | เทส Admin Reports 6 endpoints ผ่าน Swagger | ⏳ |
+| 5 | เทส Admin Notifications 4 endpoints ผ่าน Swagger | ⏳ |
+| 6 | เทส GET /api/users/:id ผ่าน Swagger | ⏳ |
+| 7 | อัปเดต schema.sql ให้ตรง DB จริง (tech_profiles columns) | ⏳ |
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician

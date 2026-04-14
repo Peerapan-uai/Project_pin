@@ -77,7 +77,7 @@ router.get('/revenue', auth, roleCheck('admin'), async (req, res) => {
                    ELSE '%Y'
                 END
               ) AS period_date,
-              SUM(P.amount) AS revenue,
+              SUM(p.amount) AS revenue,
               count(p.payment_id) AS transaction_count
               FROM payments p
               WHERE p.status = 'completed'
@@ -335,8 +335,11 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
       query = `SELECT payment_id, amount, method, paid_at FROM payments WHERE paid_at >= ? AND paid_at <= ?`
       params = [fromDate, toDate];  
     } else if (report_type === 'usage') {
-      query = `SELECT charger_id, charger_name, total_sessions, energy_kwh FROM charging_sessions WHERE start_time >= ? AND start_time <= ?`
-      params = [fromDate, toDate];  
+      query = `SELECT cs.session_id, cs.charger_id, c.charger_name, cs.energy_kwh, cs.start_time, cs.end_time, cs.status
+               FROM charging_sessions cs
+               JOIN chargers c ON cs.charger_id = c.charger_id
+               WHERE cs.start_time >= ? AND cs.start_time <= ?`
+      params = [fromDate, toDate];
     } else if (report_type === 'stations') {
       query = `SELECT station_id, name, address FROM stations`
       params = [];  
@@ -360,7 +363,7 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
 
 /**
  * @swagger
- * /api/admin/payments/{paymentId}/invoice:
+ * /api/admin/reports/payments/{paymentId}/invoice:
  *   get:
  *     summary: Export payment invoice as PDF (Admin only)
  *     tags: [Admin Reports]

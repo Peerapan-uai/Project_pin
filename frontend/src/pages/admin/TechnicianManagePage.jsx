@@ -2,7 +2,20 @@ import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch } from 'react-icons/fa'
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '' }
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '', primary_skill: '' }
+
+const SKILL_OPTIONS = [
+  { value: '',            label: '-- เลือกความเชี่ยวชาญ --' },
+  { value: 'ELECTRICAL',  label: 'ELECTRICAL — ระบบไฟฟ้า' },
+  { value: 'SOFTWARE',    label: 'SOFTWARE — ซอฟต์แวร์' },
+  { value: 'MECHANICAL',  label: 'MECHANICAL — เครื่องกล' },
+]
+
+const SKILL_BADGE = {
+  ELECTRICAL: 'bg-yellow-100 text-yellow-700',
+  SOFTWARE:   'bg-blue-100 text-blue-700',
+  MECHANICAL: 'bg-orange-100 text-orange-700',
+}
 
 export default function TechnicianManagePage() {
   const [technicians, setTechnicians] = useState([])
@@ -114,6 +127,11 @@ export default function TechnicianManagePage() {
                   <p className="font-bold text-gray-900">{t.first_name} {t.last_name}</p>
                   <p className="text-xs text-gray-500">{t.email}</p>
                   <p className="text-xs text-gray-400">{t.phone}</p>
+                  {t.primary_skill && (
+                    <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_BADGE[t.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
+                      {t.primary_skill}
+                    </span>
+                  )}
                 </div>
                 <button
                   onClick={() => openEdit(t)}
@@ -262,6 +280,18 @@ export default function TechnicianManagePage() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="0812345678"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
+                <select
+                  value={form.primary_skill}
+                  onChange={(e) => setForm({ ...form, primary_skill: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  {SKILL_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
