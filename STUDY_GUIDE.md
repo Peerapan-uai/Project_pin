@@ -375,11 +375,16 @@ Google ประกาศจะหยุด release Maps SDK สำหรับ 
 ## แพ็คเกจที่ต้อง install ก่อนเริ่ม
 
 ```bash
-# Backend
-npm install omise promptpay-qr qrcode @json2csv/node puppeteer
+# Backend — ของ nem
+npm install omise promptpay-qr qrcode
+
+# Backend — ของ lalla
+npm install @json2csv/node puppeteer node-cron
 
 # Frontend ไม่ต้องเพิ่ม (Omise ใช้ CDN)
 ```
+
+> `node-cron` — ใช้สำหรับ scheduled notifications cron job ใน server.js (lalla)
 
 ---
 
