@@ -21,7 +21,8 @@ const isWithin = (dateStr, period) => {
 export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [users, setUsers]                 = useState([])
-  const [filterUser, setFilterUser]       = useState('all')
+  const [filterUser, setFilterUser]       = useState('')
+  const [filterRole, setFilterRole]       = useState('all')
   const [filterPeriod, setFilterPeriod]   = useState('all')
   const [loading, setLoading]             = useState(true)
 
@@ -58,9 +59,13 @@ export default function AdminNotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
   const filtered = notifications.filter((n) => {
-    const matchUser   = filterUser === 'all' || n.user_id === Number(filterUser)
+    const user = users.find((u) => u.user_id === n.user_id)
+    const matchUser   = !filterUser.trim() ||
+      `${user?.first_name ?? ''} ${user?.last_name ?? ''}`.toLowerCase().includes(filterUser.toLowerCase()) ||
+      String(n.user_id).includes(filterUser.trim())
+    const matchRole   = filterRole === 'all' || user?.role === filterRole
     const matchPeriod = isWithin(n.created_at, filterPeriod)
-    return matchUser && matchPeriod
+    return matchUser && matchRole && matchPeriod
   })
 
   return (
@@ -81,15 +86,21 @@ export default function AdminNotificationsPage() {
       </div>
 
       <div className="flex gap-3 mb-4 flex-wrap">
-        <select
+        <input
+          type="text"
           value={filterUser}
           onChange={(e) => setFilterUser(e.target.value)}
+          placeholder="ค้นหาชื่อหรือ ID ผู้ใช้..."
+          className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-[200px]"
+        />
+        <select
+          value={filterRole}
+          onChange={(e) => setFilterRole(e.target.value)}
           className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
         >
-          <option value="all">ผู้ใช้ทั้งหมด</option>
-          {users.map((u) => (
-            <option key={u.user_id} value={u.user_id}>{u.first_name} {u.last_name}</option>
-          ))}
+          <option value="all">ทุก role</option>
+          <option value="user">User</option>
+          <option value="technician">ช่าง</option>
         </select>
         <select
           value={filterPeriod}

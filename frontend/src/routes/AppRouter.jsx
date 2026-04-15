@@ -40,6 +40,8 @@ const BookingManagePage = lazy(() => import('../pages/admin/BookingManagePage'))
 const TicketManagePage = lazy(() => import('../pages/admin/TicketManagePage'))
 const AdminNotificationsPage = lazy(() => import('../pages/admin/AdminNotificationsPage'))
 const PaymentsPage = lazy(() => import('../pages/admin/PaymentsPage'))
+const RefundManagePage = lazy(() => import('../pages/admin/RefundManagePage'))
+
 
 // Tech pages
 const TechDashboardPage = lazy(() => import('../pages/tech/TechDashboardPage'))
@@ -108,6 +110,10 @@ export default function AppRouter() {
       <Route path="/admin/tickets" element={<RoleRoute roles={['admin']}><DesktopLayout><TicketManagePage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/notifications" element={<RoleRoute roles={['admin']}><DesktopLayout><AdminNotificationsPage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/payments" element={<RoleRoute roles={['admin']}><DesktopLayout><PaymentsPage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/refunds" element={<RoleRoute roles={['admin']}><DesktopLayout><RefundManagePage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/refunds" element={<RoleRoute roles={['admin']}><DesktopLayout><RefundManagePage /></DesktopLayout></RoleRoute>} />
+
+
 
       {/* Tech pages */}
       <Route path="/tech/dashboard" element={<RoleRoute roles={['technician']}><ResponsiveLayout><TechDashboardPage /></ResponsiveLayout></RoleRoute>} />

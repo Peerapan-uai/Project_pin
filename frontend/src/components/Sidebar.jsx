@@ -11,6 +11,7 @@ import {
   FaBell,
   FaSignOutAlt,
   FaMoneyBillWave,
+  FaUndo,
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
 import api from '../utils/api'
@@ -22,8 +23,9 @@ const navItems = [
   { to: '/admin/users',         label: 'จัดการผู้ใช้',       Icon: FaUsers },
   { to: '/admin/technicians',   label: 'จัดการช่าง',         Icon: FaUserCog },
   { to: '/admin/bookings',      label: 'การจอง',             Icon: FaClipboardList },
-  { to: '/admin/tickets',       label: 'ตั๋วแจ้งปัญหา',     Icon: FaTicketAlt },
+  { to: '/admin/tickets',       label: 'แจ้งซ่อม',           Icon: FaTicketAlt },
   { to: '/admin/payments',      label: 'การเงิน',            Icon: FaMoneyBillWave },
+  { to: '/admin/refunds',        label: 'คืนเงิน',             Icon: FaUndo },
   { to: '/admin/notifications', label: 'แจ้งเตือน',          Icon: FaBell },
 ]
 

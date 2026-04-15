@@ -47,8 +47,8 @@ export default function TicketManagePage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการตั๋วซ่อม</h1>
-        <p className="text-gray-500 text-sm mt-0.5">ตั๋วทั้งหมด {tickets.length} รายการ · รอมอบหมาย {tickets.filter((t) => t.status === 'reported').length} รายการ</p>
+        <h1 className="text-2xl font-bold text-gray-900">จัดการแจ้งซ่อม</h1>
+        <p className="text-gray-500 text-sm mt-0.5">แจ้งซ่อมทั้งหมด {tickets.length} รายการ · รอมอบหมาย {tickets.filter((t) => t.status === 'reported').length} รายการ</p>
       </div>
 
       <div className="flex gap-2 mb-3 flex-wrap">
@@ -78,7 +78,18 @@ export default function TicketManagePage() {
         >
           <option value="all">ช่างทั้งหมด</option>
           <option value="null">ยังไม่มอบหมาย</option>
-          {technicians.map((tech) => (
+          {['ELECTRICAL', 'SOFTWARE', 'MECHANICAL'].map((skill) => {
+            const group = technicians.filter((t) => t.primary_skill === skill)
+            if (group.length === 0) return null
+            return (
+              <optgroup key={skill} label={skill}>
+                {group.map((tech) => (
+                  <option key={tech.user_id} value={tech.user_id}>{tech.first_name} {tech.last_name}</option>
+                ))}
+              </optgroup>
+            )
+          })}
+          {technicians.filter((t) => !t.primary_skill).map((tech) => (
             <option key={tech.user_id} value={tech.user_id}>{tech.first_name} {tech.last_name}</option>
           ))}
         </select>

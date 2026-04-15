@@ -17,7 +17,7 @@ export default function ChargerManagePage() {
     ])
       .then(([stationsRes, chargersRes]) => {
         setStations(stationsRes.data.stations ?? [])
-        setChargers(chargersRes.data.chargers ?? [])
+        setChargers(Array.isArray(chargersRes.data) ? chargersRes.data : chargersRes.data.chargers ?? [])
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))

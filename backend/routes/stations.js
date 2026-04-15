@@ -463,5 +463,3 @@ router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
 });
 
 module.exports = router;
-
-module.exports = router;

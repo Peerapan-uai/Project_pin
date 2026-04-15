@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { FaBolt, FaBuilding, FaUsers, FaTicketAlt, FaClipboardList, FaExclamationTriangle, FaMoneyBillWave } from 'react-icons/fa'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
 
 export default function DashboardPage() {
+  const navigate = useNavigate()
   const [users, setUsers]           = useState([])
   const [stations, setStations]     = useState([])
   const [bookings, setBookings]     = useState([])
@@ -58,7 +60,7 @@ export default function DashboardPage() {
     { label: 'สถานีทั้งหมด', value: stations.length, Icon: FaBuilding, light: 'bg-blue-50 text-blue-600' },
     { label: 'ผู้ใช้งาน', value: users.filter((u) => u.role === 'user').length, Icon: FaUsers, light: 'bg-purple-50 text-purple-600' },
     { label: filterDate || filterStation !== 'all' ? 'การจอง (ที่กรอง)' : 'การจองทั้งหมด', value: filteredBookings.length, Icon: FaClipboardList, light: 'bg-amber-50 text-amber-600' },
-    { label: 'ตั๋วซ่อม (เปิด)', value: tickets.filter((t) => t.status !== 'completed').length, Icon: FaTicketAlt, light: 'bg-red-50 text-red-600' },
+    { label: 'แจ้งซ่อม (เปิด)', value: tickets.filter((t) => t.status !== 'completed').length, Icon: FaTicketAlt, light: 'bg-red-50 text-red-600' },
     {
       label: filterDate || filterStation !== 'all' ? `รายได้ (ที่กรอง)` : 'รายได้วันนี้',
       value: `${(filterDate || filterStation !== 'all' ? filteredRevenue : todayRevenue).toFixed(2)} ฿`,
@@ -121,11 +123,11 @@ export default function DashboardPage() {
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
         <div className="flex items-center gap-2 mb-4">
           <FaExclamationTriangle className="text-amber-500" />
-          <h2 className="font-bold text-gray-900">ตั๋วซ่อมล่าสุด</h2>
+          <h2 className="font-bold text-gray-900">แจ้งซ่อมล่าสุด</h2>
         </div>
         <div className="space-y-3">
-          {tickets.slice(0, 10).map((t) => (
-            <div key={t.ticket_id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
+          {tickets.filter((t) => t.status !== 'completed').slice(0, 10).map((t) => (
+            <div key={t.ticket_id} onClick={() => navigate('/admin/tickets')} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0 cursor-pointer hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors">
               <div>
                 <p className="text-sm font-medium text-gray-900">{t.title}</p>
                 <p className="text-xs text-gray-500">{t.charger_name} · {t.station_name}</p>
@@ -136,7 +138,7 @@ export default function DashboardPage() {
               </div>
             </div>
           ))}
-          {tickets.length === 0 && <p className="text-sm text-gray-400 text-center py-4">ไม่มีตั๋วซ่อม</p>}
+          {tickets.filter((t) => t.status !== 'completed').length === 0 && <p className="text-sm text-gray-400 text-center py-4">ไม่มีแจ้งซ่อม</p>}
         </div>
       </div>
     </div>
