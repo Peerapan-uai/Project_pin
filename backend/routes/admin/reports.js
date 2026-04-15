@@ -321,9 +321,6 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid report_type' });
     }
 
-
-
-
     // 🔴 TODO E: Query data based on report_type
 
     let query;

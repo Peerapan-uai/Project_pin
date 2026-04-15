@@ -5,10 +5,17 @@ import { useAuth } from '../../context/AuthContext'
 import StatusBadge from '../../components/StatusBadge'
 import { FaTicketAlt, FaCheckCircle, FaClock, FaWrench, FaChevronRight, FaCalendarAlt } from 'react-icons/fa'
 
+const SKILL_BADGE = {
+  ELECTRICAL: 'bg-yellow-100 text-yellow-700',
+  SOFTWARE:   'bg-blue-100 text-blue-700',
+  MECHANICAL: 'bg-orange-100 text-orange-700',
+}
+
 export default function TechDashboardPage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [tickets, setTickets] = useState([])
+  const [primarySkill, setPrimarySkill] = useState(null)
   const [loading, setLoading] = useState(true)
 
   const fetchTickets = () => {
@@ -18,7 +25,14 @@ export default function TechDashboardPage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchTickets() }, [])
+  useEffect(() => {
+    fetchTickets()
+    if (user?.user_id) {
+      api.get(`/api/users/${user.user_id}`)
+        .then((res) => setPrimarySkill(res.data.user?.primary_skill ?? null))
+        .catch(() => {})
+    }
+  }, [])
 
   const handleAccept = (e, ticketId) => {
     e.stopPropagation()
@@ -37,7 +51,14 @@ export default function TechDashboardPage() {
     <div className="min-h-screen bg-gray-50 p-4 md:p-6">
       <div className="max-w-2xl mx-auto">
         <h1 className="text-xl font-bold text-gray-900 mb-1">แดชบอร์ดช่าง</h1>
-        <p className="text-gray-500 text-sm mb-5">สวัสดี, {user?.first_name} {user?.last_name}</p>
+        <div className="flex items-center gap-2 mb-5">
+          <p className="text-gray-500 text-sm">สวัสดี, {user?.first_name} {user?.last_name}</p>
+          {primarySkill && (
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_BADGE[primarySkill] ?? 'bg-gray-100 text-gray-600'}`}>
+              {primarySkill}
+            </span>
+          )}
+        </div>
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">

@@ -258,14 +258,17 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
-router.get('/:id', auth, roleCheck('admin'), async (req,res) => {
+router.get('/:id', auth, roleCheck('admin', 'technician'), async (req,res) => {
   const { id } = req.params;
 
   try {
     const [user] = await pool.query (
-      `select user_id, email, first_name, last_name, phone, role,
-        wallet_balance, wallet_frozen, is_banned, ban_reason, created_at  
-      from users where user_id  = ?`, [id]
+      `select u.user_id, u.email, u.first_name, u.last_name, u.phone, u.role,
+        u.wallet_balance, u.wallet_frozen, u.is_banned, u.ban_reason, u.created_at,
+        tp.primary_skill
+      from users u
+      left join tech_profiles tp on u.user_id = tp.user_id
+      where u.user_id = ?`, [id]
     );
     if (user.length === 0) {
       return res.status(404).json({
@@ -333,10 +336,25 @@ router.get('/:id', auth, roleCheck('admin'), async (req,res) => {
 
 
 
+/// lalla DELETE /api/users/:id (admin ลบ user/technician)
+router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
+  const { id } = req.params
+  try {
+    const [result] = await pool.query('DELETE FROM users WHERE user_id = ?', [id])
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'User not found.' })
+    }
+    return res.status(200).json({ message: 'User deleted successfully.' })
+  } catch (error) {
+    console.error('Delete user error:', error)
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการลบ user' })
+  }
+})
+
 ///lalla  PUT /api/users/:id  (admin edit any user)
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
-  const { first_name, last_name, phone, password } = req.body;
+  const { first_name, last_name, phone, password, primary_skill } = req.body;
 
   try {
     let query = 'UPDATE users SET first_name = ?, last_name = ?, phone = ? WHERE user_id = ?';
@@ -352,6 +370,14 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'User not found.' });
     }
+
+    if (primary_skill !== undefined) {
+      await pool.query(
+        'UPDATE tech_profiles SET primary_skill = ? WHERE user_id = ?',
+        [primary_skill || null, id]
+      )
+    }
+
     return res.status(200).json({ message: 'User updated successfully.' });
   } catch (error) {
     console.error('Update user error:', error);

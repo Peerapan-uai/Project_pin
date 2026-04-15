@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch } from 'react-icons/fa'
+import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch, FaTrash } from 'react-icons/fa'
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '', primary_skill: '' }
 
@@ -51,8 +51,15 @@ export default function TechnicianManagePage() {
 
   const openEdit = (tech) => {
     setEditTech(tech)
-    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '' })
+    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '', primary_skill: tech.primary_skill ?? '' })
     setEditError('')
+  }
+
+  const handleDelete = (tech) => {
+    if (!window.confirm(`ลบช่าง ${tech.first_name} ${tech.last_name} ออกจากระบบ?`)) return
+    api.delete(`/api/users/${tech.user_id}`)
+      .then(() => fetchData())
+      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
   }
   const closeEdit = () => setEditTech(null)
 
@@ -133,13 +140,14 @@ export default function TechnicianManagePage() {
                     </span>
                   )}
                 </div>
-                <button
-                  onClick={() => openEdit(t)}
-                  className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg flex-shrink-0"
-                  title="แก้ไขข้อมูล"
-                >
-                  <FaEdit size={15} />
-                </button>
+                <div className="flex gap-1 flex-shrink-0">
+                  <button onClick={() => openEdit(t)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg" title="แก้ไขข้อมูล">
+                    <FaEdit size={15} />
+                  </button>
+                  <button onClick={() => handleDelete(t)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg" title="ลบช่าง">
+                    <FaTrash size={14} />
+                  </button>
+                </div>
               </div>
               <div className="bg-gray-50 rounded-xl p-3">
                 <p className="text-xs font-semibold text-gray-600 mb-2 flex items-center gap-1.5">
@@ -208,6 +216,21 @@ export default function TechnicianManagePage() {
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                   placeholder="รหัสผ่านใหม่"
                 />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
+                <select
+                  value={editForm.primary_skill}
+                  onChange={(e) => setEditForm({ ...editForm, primary_skill: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  {SKILL_OPTIONS.map((o) => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                {!editForm.primary_skill && (
+                  <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeEdit} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
@@ -292,6 +315,9 @@ export default function TechnicianManagePage() {
                     <option key={o.value} value={o.value}>{o.label}</option>
                   ))}
                 </select>
+                {!form.primary_skill && (
+                  <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
+                )}
               </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
