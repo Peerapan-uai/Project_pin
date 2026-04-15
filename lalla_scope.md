@@ -15,12 +15,10 @@
 
 ---
 
-## 🚨 ด่วนมาก — อ่านก่อนทำอย่างอื่น
+## ✅ Backend เสร็จหมดแล้ว — เหลือแค่ Bug + Frontend UI
 
-> **lalla — พอ DB เสร็จแล้ว ให้เคลียร์ 43 endpoints ให้หมดโดยเร็วที่สุด**
-> ตอนนี้ทำเสร็จแล้ว 25 endpoints ยังเหลือ 18 endpoints ที่ต้องทำ
-> (ตัด 6 endpoints ซ้ำซ้อนออกแล้ว — ดูเหตุผลทางเทคนิคใน section Google Maps)
-> nem รอ schema wallet และ admin wallet API ก่อนถึงจะ integrate frontend ได้ครบ
+> **43 endpoints เสร็จหมดแล้ว** (อัปเดต 2026-04-12)
+> สิ่งที่เหลือ: แก้ bug 3 ตัว + ทำ Frontend Admin UI 4 หน้า (ดู section "งานที่ต้องทำต่อ")
 
 ## สถานะปัจจุบัน (อัปเดต 2026-04-15)
 - Database MySQL schema — **เสร็จแล้ว ✅**
@@ -52,10 +50,34 @@
 | **รวมทั้งหมด** | **43** | 43✅ |
 
 ## งานที่ต้องทำต่อ
+
+### 🔴 Bug ต้องแก้ (จาก Code Review 2026-04-12)
+| # | ปัญหา | ไฟล์ | วิธีแก้ |
+|---|-------|------|---------|
+| 1 | **Admin cancel booking ไม่คืน charger เป็น available** | `routes/bookings.js:246-261` | เพิ่ม `UPDATE chargers SET status='available' WHERE charger_id = ?` หลัง UPDATE bookings |
+| 2 | **`GET /sessions/all` route ordering bug — Express จับ "all" เป็น `:id`** | `routes/sessions.js:402` | ย้าย `router.get('/all', ...)` ไว้ **ก่อน** `router.get('/:id/status', ...)` |
+| 3 | **Mongo Express เปิดไม่มี auth — ใครก็เข้า port 8082 แก้ข้อมูลได้** | `docker-compose.yml:50` | เปลี่ยน `ME_CONFIG_BASICAUTH: "false"` → `"true"` + ตั้ง username/password |
+
+### 🟡 Frontend Admin ที่ยังไม่มี (Backend เสร็จหมดแล้ว แต่ยังไม่มี UI)
+| # | หน้าที่ต้องทำ | API ที่พร้อมแล้ว | หมายเหตุ |
+|---|--------------|-----------------|---------|
+| 1 | **Wallet Management UI** — ดูยอด/ประวัติ/ปรับยอด/freeze wallet ของ user | 6 endpoints ใน `routes/admin/wallet.js` | ยังไม่มีหน้า admin เลย |
+| 2 | **Refund Approval UI** — admin เห็นรายการขอ refund แล้วกดอนุมัติ/ปฏิเสธ | `POST /payments/:id/refund` + `GET /:id/refunds` (nem ทำ backend ให้แล้ว) | ยังไม่มีหน้า admin |
+| 3 | **Reports / CSV Export UI** — แสดงกราฟรายได้ สถิติ + ปุ่ม export CSV/PDF | 6 endpoints ใน `routes/admin/reports.js` | ยังไม่มีหน้า admin |
+| 4 | **PDF Invoice ปุ่มดาวน์โหลด** — เพิ่มปุ่มใน PaymentsPage ให้ admin กดดาวน์โหลด invoice | `GET /admin/payments/:id/invoice` | ยังไม่มีปุ่มใน UI |
+
+### ⏳ งานจิปาถะ
 | # | งาน | สถานะ |
 |---|------|-------|
 | 1 | commit + push ไฟล์ที่ค้าง (server.js, notifications.js, package.json) | ⏳ |
 | 2 | อัปเดต schema.sql ให้ตรง DB จริง (tech_profiles columns + scheduled_notifications) | ⏳ |
+
+## 🔴 Bug จาก Code Review (2026-04-12) — lalla ต้องแก้
+| # | ปัญหา | ไฟล์ | ความร้ายแรง |
+|---|-------|------|------------|
+| 1 | **Admin cancel booking ไม่คืน charger เป็น available** — แค่ UPDATE bookings ไม่มี UPDATE chargers SET status='available' | `routes/bookings.js:246-261` | 🔴 ต้องแก้ |
+| 2 | **`GET /sessions/all` route ordering bug** — อยู่หลัง `GET /:id/status` ทำให้ Express จับ "all" เป็น `:id` → route ไม่ทำงาน | `routes/sessions.js:402` (ย้ายไว้ก่อน `:id/status`) | 🔴 ต้องแก้ |
+| 3 | **Mongo Express ไม่มี auth** — `ME_CONFIG_BASICAUTH: "false"` ใครก็เข้า port 8082 แก้ข้อมูลได้ | `docker-compose.yml:50` | 🟡 ควรแก้ |
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
@@ -74,27 +96,9 @@
 
 ---
 
-## ต้องทำก่อนเพื่อน (สำคัญมาก!)
+## ~~ต้องทำก่อนเพื่อน~~ ✅ เสร็จหมดแล้ว
 
-### Database Schema
-เพื่อนต้องสร้าง tables ให้ครบก่อน เพราะฉันรอ tables พวกนี้อยู่
-
-Tables ที่ต้องมี:
-- `users` — เก็บ user/admin/technician
-- `vehicles` — รถของ user
-- `stations` — สถานีชาร์จ
-- `chargers` — ตู้ชาร์จในสถานี
-- `bookings` — การจอง
-- `charging_sessions` — session การชาร์จ
-- `payments` — การจ่ายเงิน
-- `reviews` — รีวิว
-- `maintenance_tickets` — ticket แจ้งปัญหา
-- `notifications` — การแจ้งเตือน
-
-**Column สำคัญที่ต้องตกลงกันก่อนเขียน:**
-- ชื่อ column ต้องตรงกับที่ฉันใช้ใน query
-- role ENUM ต้องเป็น `'user'`, `'admin'`, `'technician'` เท่านั้น
-- primary key ใช้ชื่อแบบ `user_id`, `station_id`, `charger_id` ฯลฯ
+> Database schema + tables ทั้งหมดเสร็จเรียบร้อยแล้ว ไม่ต้องทำอะไรเพิ่ม
 
 ---
 
@@ -233,12 +237,12 @@ Tables ที่ต้องมี:
 | `middleware/logger.js` | บันทึกทุก request อัตโนมัติ (ทุก role) |
 | `docker-compose.yml` | MongoDB container + Mongo Express (GUI: `localhost:8082`) |
 
-### งานที่ lalla ต้องทำ (MongoDB)
+### งานที่ lalla ต้องทำ (MongoDB) — เสร็จหมดแล้ว ✅
 | # | งาน | สถานะ |
 |---|------|-------|
-| 1 | `GET /api/admin/logs` — admin ดู log ทั้งหมด | ⏳ |
-| 2 | `GET /api/admin/logs/:type` — filter log (เช่น error 4xx/5xx) | ⏳ |
-| 3 | TTL index — ลบ log เก่าอัตโนมัติ (เช่น เกิน 90 วัน) | ⏳ |
+| 1 | `GET /api/admin/logs` — admin ดู log ทั้งหมด | ✅ |
+| 2 | `GET /api/admin/logs/:type` — filter log (เช่น error 4xx/5xx) | ✅ |
+| 3 | TTL index — ลบ log เก่าอัตโนมัติ (เช่น เกิน 90 วัน) | ✅ |
 
 ---
 
@@ -317,16 +321,7 @@ WHERE status IN ('confirmed', 'active')
 
 ---
 
-## ลำดับการทำงาน (แนะนำ)
-
-```
-1. ดู schema.sql ที่มีอยู่ → ตัดสินใจว่าจะใช้หรือแก้
-2. ตกลงชื่อ column กับฉันก่อน
-3. Import schema ลง MySQL
-4. ใส่ข้อมูลตัวอย่าง (stations, chargers) เพื่อให้ฉันเทสได้
-5. เริ่มเขียน API admin/tech ทีละ route
-6. เทสด้วย Postman + Swagger
-```
+## ~~ลำดับการทำงาน~~ ✅ ผ่านขั้นตอนนี้หมดแล้ว
 
 ---
 
@@ -338,13 +333,9 @@ WHERE status IN ('confirmed', 'active')
 4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
 5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
 
-## แผนงานที่เหลือ 23 endpoints — เรียงตามความด่วน
+## ~~แผนงานที่เหลือ 23 endpoints~~ ✅ Backend เสร็จหมดแล้ว (อัปเดต 2026-04-12)
 
-> อัปเดตล่าสุด: 2026-04-09
-
-### 🔴 ลำดับ 1 — Admin Wallet (6 endpoints) ด่วนมาก
-> nem รอ lalla ทำส่วนนี้ก่อนถึงจะ integrate frontend wallet ได้ครบ
-> ดูรายละเอียดใน section "งานที่ต้องทำเพิ่ม — Wallet Admin" ด้านบน
+### ~~🔴 ลำดับ 1 — Admin Wallet (6 endpoints)~~ ✅ เสร็จแล้ว
 
 ### 🟡 ลำดับ 2 — Google Maps / Stations API (2 endpoints — ตัด 5 ที่ซ้ำซ้อนออกแล้ว)
 > วิเคราะห์แล้ว: 5 จาก 7 endpoints เดิมซ้ำซ้อนกับสิ่งที่ frontend ทำได้แล้ว
@@ -353,7 +344,7 @@ WHERE status IN ('confirmed', 'active')
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
 | 23 | GET | `/api/stations/nearby` | หาสถานีใกล้เคียงจาก lat/lng + radius (ใช้ Haversine ใน SQL + spatial index) | ✅ |
-| 24 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, charger availability %) — ต้อง aggregate หลาย table | ⏳ |
+| 24 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, charger availability %) — ต้อง aggregate หลาย table | ✅ |
 
 #### ❌ ตัดออก 5 endpoints — เหตุผลทางเทคนิค
 | endpoint เดิม | ทำไมตัด |
@@ -364,30 +355,11 @@ WHERE status IN ('confirmed', 'active')
 | `POST /api/users/:id/location` | ไม่มี table เก็บ location, ไม่มี use case จริงที่ต้อง persist user location ใน DB |
 | `POST /api/locations/search` | frontend ใช้ Google Places Autocomplete SDK โดยตรง — ผ่าน backend = เพิ่ม latency ไม่มีประโยชน์ |
 
-### 🟡 ลำดับ 3 — Admin Reports (5 endpoints)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 31 | GET | `/api/admin/reports/revenue` | รายได้รายวัน/เดือน/ปี (filter by date range, station) | ⏳ |
-| 32 | GET | `/api/admin/reports/usage` | สถิติการใช้งาน charger (utilization%, peak hours, downtime) | ⏳ |
-| 33 | GET | `/api/admin/reports/stations` | สถิติแยกตามสถานี (revenue, session count, charger status) | ⏳ |
-| 34 | GET | `/api/admin/reports/comparison` | เปรียบเทียบ vs เดือนที่แล้ว/ปีที่แล้ว (revenue%, sessions%) | ⏳ |
-| 35 | POST | `/api/admin/reports/export` | export report เป็น CSV หรือ PDF | ⏳ |
+### ~~🟡 ลำดับ 3 — Admin Reports (6 endpoints)~~ ✅ เสร็จแล้ว
 
-### 🟡 ลำดับ 4 — PDF Invoice (1 endpoint)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 36 | GET | `/api/admin/payments/:id/invoice` | export ใบเสร็จ PDF (ใช้ Puppeteer, รองรับภาษาไทย) | ⏳ |
+### ~~🟡 ลำดับ 4 — PDF Invoice~~ ✅ รวมอยู่ใน Reports แล้ว
 
-> ดูวิธีทำใน STUDY_GUIDE.md section 2.2
-
-### 🟢 ลำดับ 5 — Notification Admin (5 endpoints)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 36 | POST | `/api/notifications/broadcast` | admin ส่ง notification ถึงทุกคน | ⏳ |
-| 37 | POST | `/api/notifications/targeted` | admin ส่งเฉพาะกลุ่ม (by role/location/status) | ⏳ |
-| 38 | POST | `/api/notifications/schedule` | admin ตั้งเวลาส่ง notification | ⏳ |
-| 39 | GET | `/api/notifications/analytics` | ดูสถิติ delivery rate / read rate | ⏳ |
-| 40 | GET | `/api/users/:id` | admin ดู user รายคน + ประวัติทั้งหมด | ⏳ |
+### ~~🟢 ลำดับ 5 — Notification Admin (4 endpoints)~~ ✅ เสร็จแล้ว
 
 ### Admin Logs — เสร็จแล้ว ✅
 | # | Method | Path | หน้าที่ | สถานะ |
@@ -395,7 +367,7 @@ WHERE status IN ('confirmed', 'active')
 | 41 | GET | `/api/admin/logs` | ดู log ทั้งหมด | ✅ |
 | 42 | GET | `/api/admin/logs/:type` | filter log ตาม type | ✅ |
 
-> รวมทั้งหมด = **43 endpoints** (25✅ + 18⏳)
+> รวมทั้งหมด = **43 endpoints** (43✅ — เสร็จหมดแล้ว)
 
 ---
 
@@ -506,15 +478,15 @@ ALTER TABLE users
   ADD COLUMN wallet_frozen TINYINT(1) NOT NULL DEFAULT 0;
 ```
 
-### Admin Wallet Endpoints (6 endpoints — lalla ทำ)
+### Admin Wallet Endpoints (6 endpoints — lalla ทำ) — เสร็จแล้ว ✅
 | # | Method | Path | หน้าที่ | สถานะ |
 |---|--------|------|---------|-------|
-| 1 | GET | `/api/admin/users/:id/wallet` | ดูยอด + ประวัติ wallet ของ user | ⏳ |
-| 2 | GET | `/api/admin/wallet/transactions` | ดู transactions ทั้งหมดทุก user + filter | ⏳ |
-| 3 | GET | `/api/admin/wallet/transactions/:txnId` | ดู transaction เดียวละเอียด | ⏳ |
-| 4 | POST | `/api/admin/users/:id/wallet/adjust` | คืนเงิน/ปรับยอด + reason + บันทึก adjusted_by | ⏳ |
-| 5 | PATCH | `/api/admin/users/:id/wallet/freeze` | freeze/unfreeze wallet user | ⏳ |
-| 6 | GET | `/api/admin/wallet/summary` | dashboard: topup/deduct/refund รวมทั้งระบบ | ⏳ |
+| 1 | GET | `/api/admin/users/:id/wallet` | ดูยอด + ประวัติ wallet ของ user | ✅ |
+| 2 | GET | `/api/admin/wallet/transactions` | ดู transactions ทั้งหมดทุก user + filter | ✅ |
+| 3 | GET | `/api/admin/wallet/transactions/:txnId` | ดู transaction เดียวละเอียด | ✅ |
+| 4 | POST | `/api/admin/users/:id/wallet/adjust` | คืนเงิน/ปรับยอด + reason + บันทึก adjusted_by | ✅ |
+| 5 | PATCH | `/api/admin/users/:id/wallet/freeze` | freeze/unfreeze wallet user | ✅ (backend only — ยังไม่มี UI) |
+| 6 | GET | `/api/admin/wallet/summary` | dashboard: topup/deduct/refund รวมทั้งระบบ | ✅ |
 
 ### ทำไมต้องมี
 | กรณี | admin ต้องทำอะไร |

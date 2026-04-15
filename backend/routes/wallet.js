@@ -108,7 +108,7 @@ router.post('/topup', auth, async (req, res) => {
   try {
     // เช็ค wallet_frozen
     const [frozenCheck] = await conn.query(
-      'SELECT wallet_frozen FROM users WHERE user_id = ?',
+      'SELECT wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
       [req.user.user_id]
     );
     if (frozenCheck[0]?.wallet_frozen) {

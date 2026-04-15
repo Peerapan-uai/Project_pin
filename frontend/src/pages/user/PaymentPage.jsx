@@ -93,7 +93,7 @@ export default function PaymentPage() {
       return
     }
 
-    Omise.setPublicKey('pkey_test_67a5dva6jod9vdg9u6k')
+    Omise.setPublicKey(import.meta.env.VITE_OMISE_PUBLIC_KEY)
     Omise.createToken('card', {
       name,
       number: number.replace(/\s/g, ''),

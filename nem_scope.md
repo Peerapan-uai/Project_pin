@@ -18,8 +18,16 @@
 ### งานที่ยังต้องทำ (nem)
 | # | งาน | ไฟล์ | สถานะ |
 |---|------|------|-------|
-| 1 | payments refund คืนเงินเข้า wallet (ถ้า method='wallet') | `routes/payments.js` | ⏳ |
+| 1 | ~~payments refund คืนเงินเข้า wallet~~ | `routes/payments.js` | ✅ ทำเสร็จแล้ว (มี refund + refund-request + คืน wallet ครบ) |
 | 2 | เปลี่ยน PromptPay QR → Omise webhook (ต้องสมัคร ngrok) | `routes/wallet.js` | 🔜 ทำทีหลัง |
+| 3 | Performance optimization (4 จุด — ดูตารางด้านล่าง) | หลายไฟล์ | ⏳ ไม่เร่ง |
+
+### แก้ไขจาก Code Review (2026-04-12)
+| # | ปัญหา | ไฟล์ | สถานะ |
+|---|-------|------|-------|
+| 1 | Hardcoded Omise public key → เปลี่ยนเป็น env | `PaymentPage.jsx:96` | ✅ แก้แล้ว |
+| 2 | Wallet topup ไม่มี FOR UPDATE → race condition | `routes/wallet.js:110` | ✅ แก้แล้ว |
+| 3 | Webhook ไม่มี signature verification | `routes/payments.js:33-89` | ⏭️ ข้ามได้ (dev only, มี TODO ไว้แล้ว) |
 
 ### Bug ที่แก้แล้ว (2026-04-09)
 | Bug | ไฟล์ | รายละเอียด |
