@@ -64,7 +64,7 @@ export default function BookingPage() {
     const end = new Date(now.getTime() + duration * 60 * 1000)
     const toMysqlDatetime = (d) => {
       const pad = n => String(n).padStart(2, '0')
-      return `${d.getUTCFullYear()}-${pad(d.getUTCMonth()+1)}-${pad(d.getUTCDate())} ${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
     }
     api.post('/api/bookings', {
       charger_id: Number(chargerId),

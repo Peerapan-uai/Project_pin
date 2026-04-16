@@ -41,6 +41,11 @@ export default function PaymentHistoryPage() {
                 <p className="font-semibold text-gray-900 text-sm">{p.station_name}</p>
                 <p className="text-xs text-gray-500 mt-0.5">{methodLabel[p.method] || p.method}</p>
                 <p className="text-xs text-gray-400 mt-0.5">Ref: {p.transaction_ref}</p>
+                {p.paid_at && (
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {new Date(p.paid_at).toLocaleString('th-TH')}
+                  </p>
+                )}
               </div>
               <div className="text-right">
                 <p className="font-bold text-primary text-base">{p.amount} บาท</p>

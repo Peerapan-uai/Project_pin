@@ -37,7 +37,7 @@ function BookingCard({ b, starting, onStart, navigate }) {
           <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.connector_type}</p>
           <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
             <FaCalendarAlt size={10} />
-            <span>{new Date(b.start_time).toLocaleDateString('th-TH')}</span>
+            <span>{new Date(b.start_time).toLocaleString('th-TH')}</span>
           </div>
           {b.status === 'confirmed' && (
             expired ? (
