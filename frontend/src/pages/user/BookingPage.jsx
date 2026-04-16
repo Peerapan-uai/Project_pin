@@ -2,14 +2,12 @@ import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { useAuth } from '../../context/AuthContext'
-import { FaBolt, FaCheckCircle, FaWrench } from 'react-icons/fa'
+import { FaBolt, FaCheckCircle, FaWrench, FaClock } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function BookingPage() {
   const { chargerId } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
 
   const [charger, setCharger] = useState(null)
   const [station, setStation] = useState(null)
@@ -17,9 +15,7 @@ export default function BookingPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [submitting, setSubmitting] = useState(false)
-
   const [vehicleId, setVehicleId] = useState('')
-  const [duration, setDuration] = useState(30)
   const [success, setSuccess] = useState(false)
 
   useEffect(() => {
@@ -54,28 +50,24 @@ export default function BookingPage() {
     </div>
   )
 
-  const estKwh = ((charger.power_kw * duration) / 60).toFixed(2)
-  const estCost = (estKwh * charger.price_per_kwh).toFixed(2)
-
   const handleBooking = () => {
     if (!vehicleId) return
     setSubmitting(true)
-    const now = new Date()
-    const end = new Date(now.getTime() + duration * 60 * 1000)
-    const toMysqlDatetime = (d) => {
-      const pad = n => String(n).padStart(2, '0')
-      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
-    }
     api.post('/api/bookings', {
-      charger_id: Number(chargerId),
-      start_time: toMysqlDatetime(now),
-      end_time: toMysqlDatetime(end)
+      charger_id: Number(chargerId)
     })
       .then(() => {
         setSuccess(true)
         setTimeout(() => navigate('/bookings'), 2000)
       })
-      .catch(() => setError('การจองไม่สำเร็จ กรุณาลองใหม่'))
+      .catch(err => {
+        const msg = err.response?.data?.message
+        if (msg === 'Charger is not available.') {
+          setError('ตู้ชาร์จนี้ไม่ว่างในขณะนี้')
+        } else {
+          setError('การจองไม่สำเร็จ กรุณาลองใหม่')
+        }
+      })
       .finally(() => setSubmitting(false))
   }
 
@@ -108,6 +100,13 @@ export default function BookingPage() {
           </div>
         </div>
 
+        {/* Price info */}
+        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
+          <p className="text-sm font-semibold text-gray-700 mb-1">ราคา</p>
+          <p className="text-2xl font-bold text-primary">{charger.price_per_kwh} <span className="text-sm font-normal text-gray-500">บาท/kWh</span></p>
+          <p className="text-xs text-gray-400 mt-1">คิดตามพลังงานที่ใช้จริง</p>
+        </div>
+
         {/* Vehicle select */}
         <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
           <label className="block text-sm font-semibold text-gray-700 mb-2">เลือกยานพาหนะ</label>
@@ -122,33 +121,10 @@ export default function BookingPage() {
           </select>
         </div>
 
-        {/* Duration */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <label className="block text-sm font-semibold text-gray-700 mb-3">ระยะเวลาชาร์จ</label>
-          <div className="flex gap-2 flex-wrap">
-            {[15, 30, 45, 60, 90, 120].map((m) => (
-              <button
-                key={m}
-                onClick={() => setDuration(m)}
-                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                  duration === m
-                    ? 'bg-primary text-white shadow-md shadow-green-200'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                {m} นาที
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Summary */}
-        <div className="bg-primary/5 rounded-2xl p-4 border border-primary/20">
-          <h3 className="font-semibold text-gray-800 mb-3">สรุปการจอง</h3>
-          <div className="space-y-1.5 text-sm">
-            <div className="flex justify-between"><span className="text-gray-500">พลังงานโดยประมาณ</span><span className="font-medium">{estKwh} kWh</span></div>
-            <div className="flex justify-between"><span className="text-gray-500">ราคาโดยประมาณ</span><span className="font-semibold text-primary">{estCost} บาท</span></div>
-          </div>
+        {/* Notice */}
+        <div className="bg-amber-50 rounded-2xl p-4 border border-amber-200 flex items-start gap-3">
+          <FaClock size={14} className="text-amber-500 mt-0.5 shrink-0" />
+          <p className="text-xs text-amber-700">มีเวลา 30 นาทีหลังจองเพื่อเริ่มชาร์จ หากไม่เริ่มภายในเวลาที่กำหนด การจองจะถูกยกเลิกอัตโนมัติ</p>
         </div>
 
         <button

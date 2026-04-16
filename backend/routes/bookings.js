@@ -44,28 +44,31 @@ const roleCheck = require('../middleware/roleCheck');
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { charger_id, start_time, end_time } = req.body;
+  const { charger_id } = req.body;
 
-  if (!charger_id || !start_time || !end_time) {
-    return res.status(400).json({ message: 'charger_id, start_time, and end_time are required.' });
+  if (!charger_id) {
+    return res.status(400).json({ message: 'charger_id is required.' });
   }
 
   try {
-    const [conflicts] = await pool.query(
-      `SELECT booking_id FROM bookings
-       WHERE charger_id = ? AND status NOT IN ('cancelled', 'expired', 'completed')
-       AND NOT (end_time <= ? OR start_time >= ?)`,
-      [charger_id, start_time, end_time]
+    // เช็คว่า charger ว่างไหม
+    const [chargerRows] = await pool.query(
+      `SELECT status FROM chargers WHERE charger_id = ?`,
+      [charger_id]
     );
 
-    if (conflicts.length > 0) {
-      return res.status(400).json({ message: 'Time slot conflicts with an existing booking.' });
+    if (chargerRows.length === 0) {
+      return res.status(404).json({ message: 'Charger not found.' });
+    }
+
+    if (chargerRows[0].status !== 'available') {
+      return res.status(400).json({ message: 'Charger is not available.' });
     }
 
     const [result] = await pool.query(
-      `INSERT INTO bookings (user_id, charger_id, start_time, end_time, status)
-       VALUES (?, ?, ?, ?, 'confirmed')`,
-      [req.user.user_id, charger_id, start_time, end_time]
+      `INSERT INTO bookings (user_id, charger_id, start_time, status)
+       VALUES (?, ?, NOW(), 'confirmed')`,
+      [req.user.user_id, charger_id]
     );
 
     // ล็อคตู้ชาร์จทันที → คนอื่นจองไม่ได้
