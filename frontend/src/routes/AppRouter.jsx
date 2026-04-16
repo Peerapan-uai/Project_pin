@@ -41,7 +41,8 @@ const TicketManagePage = lazy(() => import('../pages/admin/TicketManagePage'))
 const AdminNotificationsPage = lazy(() => import('../pages/admin/AdminNotificationsPage'))
 const PaymentsPage = lazy(() => import('../pages/admin/PaymentsPage'))
 const RefundManagePage = lazy(() => import('../pages/admin/RefundManagePage'))
-
+const WalletManagePage = lazy(() => import('../pages/admin/WalletManagePage'))
+const ReportsPage      = lazy(() => import('../pages/admin/ReportsPage'))
 
 // Tech pages
 const TechDashboardPage = lazy(() => import('../pages/tech/TechDashboardPage'))
@@ -111,7 +112,8 @@ export default function AppRouter() {
       <Route path="/admin/notifications" element={<RoleRoute roles={['admin']}><DesktopLayout><AdminNotificationsPage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/payments" element={<RoleRoute roles={['admin']}><DesktopLayout><PaymentsPage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/refunds" element={<RoleRoute roles={['admin']}><DesktopLayout><RefundManagePage /></DesktopLayout></RoleRoute>} />
-      <Route path="/admin/refunds" element={<RoleRoute roles={['admin']}><DesktopLayout><RefundManagePage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/wallet" element={<RoleRoute roles={['admin']}><DesktopLayout><WalletManagePage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/reports" element={<RoleRoute roles={['admin']}><DesktopLayout><ReportsPage /></DesktopLayout></RoleRoute>} />
 
 
 

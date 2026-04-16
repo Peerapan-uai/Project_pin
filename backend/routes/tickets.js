@@ -264,6 +264,23 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
+// PATCH /api/tickets/:id/unassign — ยกเลิกมอบหมายช่าง
+router.patch('/:id/unassign', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      `UPDATE maintenance_tickets SET assigned_to = NULL, status = 'reported' WHERE ticket_id = ?`,
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Ticket not found.' });
+    }
+    return res.status(200).json({ message: 'Ticket unassigned successfully.' });
+  } catch (error) {
+    console.error('Unassign ticket error:', error);
+    return res.status(500).json({ message: 'Server error unassigning ticket.' });
+  }
+});
+
 /**
  * @swagger
  * /api/tickets/{id}/status:
@@ -320,6 +337,28 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ticket not found.' });
+    }
+
+    // แจ้ง admin ทุกคนเมื่อช่างซ่อมเสร็จ
+    if (status === 'completed') {
+      const [ticketRows] = await pool.query(
+        `SELECT mt.title, mt.ticket_id, CONCAT(u.first_name, ' ', u.last_name) AS tech_name
+         FROM maintenance_tickets mt
+         LEFT JOIN users u ON mt.assigned_to = u.user_id
+         WHERE mt.ticket_id = ?`, [req.params.id]
+      );
+      const ticket = ticketRows[0];
+      if (ticket) {
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type)
+           SELECT user_id,
+             'ซ่อมเสร็จแล้ว',
+             CONCAT(?, ' ซ่อมเสร็จโดย ', ?),
+             'maintenance'
+           FROM users WHERE role = 'admin'`,
+          [ticket.title, ticket.tech_name || 'ช่าง']
+        );
+      }
     }
 
     return res.status(200).json({ message: 'Ticket status updated successfully.' });

@@ -87,22 +87,36 @@ router.post('/start', auth, async (req, res) => {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
 
-    // บรรทึกว่าเริ่มชาร์จแล้ว NOW()=เวลาปัจจุบัน
-    const [result] = await pool.query(
-      `INSERT INTO charging_sessions (booking_id, user_id, charger_id, start_time, status)
-       VALUES (?, ?, ?, NOW(), 'charging')`,
-      [booking_id, req.user.user_id, charger_id]
-    );
+    // ใช้ transaction ป้องกัน partial update (session created แต่ booking ไม่ update)
+    const conn = await pool.getConnection();
+    let sessionId;
+    try {
+      await conn.beginTransaction();
 
-    await pool.query(
-      `UPDATE chargers SET status = 'charging' WHERE charger_id = ?`,
-      [charger_id]
-    );
+      const [result] = await conn.query(
+        `INSERT INTO charging_sessions (booking_id, user_id, charger_id, start_time, status)
+         VALUES (?, ?, ?, NOW(), 'charging')`,
+        [booking_id, req.user.user_id, charger_id]
+      );
+      sessionId = result.insertId;
 
-    await pool.query(
-      `UPDATE bookings SET status = 'active' WHERE booking_id = ?`,
-      [booking_id]
-    );
+      await conn.query(
+        `UPDATE chargers SET status = 'charging' WHERE charger_id = ?`,
+        [charger_id]
+      );
+
+      await conn.query(
+        `UPDATE bookings SET status = 'active' WHERE booking_id = ?`,
+        [booking_id]
+      );
+
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
 
     try {
       await pool.query(
@@ -113,7 +127,7 @@ router.post('/start', auth, async (req, res) => {
 
     return res.status(201).json({
       message: 'Charging session started.',
-      session_id: result.insertId,
+      session_id: sessionId,
     });
   } catch (error) {
     console.error('Start session error:', error);

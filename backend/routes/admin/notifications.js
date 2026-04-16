@@ -47,6 +47,23 @@ const roleCheck = require('../../middleware/roleCheck');
  *       500:
  *         description: Server error
  */
+// GET /api/admin/notifications/all — ดูทุก notification ในระบบ
+router.get('/all', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT n.*, u.first_name, u.last_name, u.role
+       FROM notifications n
+       JOIN users u ON n.user_id = u.user_id
+       ORDER BY n.created_at DESC
+       LIMIT 500`
+    );
+    return res.json({ notifications: rows });
+  } catch (err) {
+    console.error('GET /api/admin/notifications/all error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // lalla POST /api/notifications/broadcast
 router.post('/broadcast', auth, roleCheck('admin'), async (req, res) => {
   try {

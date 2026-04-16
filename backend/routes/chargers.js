@@ -145,7 +145,7 @@ router.get('/:id', async (req, res) => {
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
   const { station_id, charger_name, connector_type, power_kw, price_per_kwh, status, qr_code } = req.body;
 
-  if (!station_id || !charger_name || !connector_type || !power_kw || !status || !qr_code) {
+  if (!station_id || !charger_name || !connector_type || !power_kw) {
     return res.status(400).json({ message: 'station_id, charger_name, connector_type, and power_kw are required.' });
   }
 
@@ -216,10 +216,11 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { charger_name, connector_type, power_kw, price_per_kwh } = req.body;
 
   try {
+    const { status } = req.body;
     const [result] = await pool.query(
-      `UPDATE chargers SET charger_name = ?, connector_type = ?, power_kw = ?, price_per_kwh = ?
+      `UPDATE chargers SET charger_name = ?, connector_type = ?, power_kw = ?, price_per_kwh = ?, status = COALESCE(?, status)
        WHERE charger_id = ?`,
-      [charger_name || null, connector_type, power_kw, price_per_kwh || null, req.params.id]
+      [charger_name || null, connector_type, power_kw, price_per_kwh || null, status || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {

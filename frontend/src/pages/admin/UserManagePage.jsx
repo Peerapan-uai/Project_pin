@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaUser, FaBan, FaSearch } from 'react-icons/fa'
+import { FaUser, FaBan, FaSearch, FaTrash } from 'react-icons/fa'
 
 export default function UserManagePage() {
   const [users, setUsers]           = useState([])
@@ -22,6 +22,13 @@ export default function UserManagePage() {
     api.patch(`/api/users/${user.user_id}/ban`, { is_banned: !user.is_banned })
       .then(() => fetchUsers())
       .catch((err) => console.error(err))
+  }
+
+  const handleDelete = (user) => {
+    if (!window.confirm(`ลบผู้ใช้ "${user.first_name} ${user.last_name}" ออกจากระบบ?`)) return
+    api.delete(`/api/users/${user.user_id}`)
+      .then(() => fetchUsers())
+      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
   }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -90,17 +97,26 @@ export default function UserManagePage() {
                   </span>
                 </td>
                 <td className="px-5 py-4 text-center">
-                  <button
-                    onClick={() => toggleBan(u)}
-                    className={`flex items-center gap-1.5 mx-auto px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                      u.is_banned
-                        ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                        : 'bg-red-50 text-red-500 hover:bg-red-100'
-                    }`}
-                  >
-                    <FaBan size={11} />
-                    {u.is_banned ? 'ปลดแบน' : 'แบน'}
-                  </button>
+                  <div className="flex items-center justify-center gap-2">
+                    <button
+                      onClick={() => toggleBan(u)}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                        u.is_banned
+                          ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                          : 'bg-red-50 text-red-500 hover:bg-red-100'
+                      }`}
+                    >
+                      <FaBan size={11} />
+                      {u.is_banned ? 'ปลดแบน' : 'แบน'}
+                    </button>
+                    <button
+                      onClick={() => handleDelete(u)}
+                      className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"
+                      title="ลบผู้ใช้"
+                    >
+                      <FaTrash size={13} />
+                    </button>
+                  </div>
                 </td>
               </tr>
             ))}

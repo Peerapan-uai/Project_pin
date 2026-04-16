@@ -20,6 +20,11 @@ CREATE TABLE IF NOT EXISTS refund_requests (
   CONSTRAINT fk_rr_admin   FOREIGN KEY (reviewed_by) REFERENCES users    (user_id)    ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- stations scheduling — เพิ่ม 2026-04-15 (ตั้งเวลาเปิด/ปิดสถานีล่วงหน้า)
+ALTER TABLE stations
+  ADD COLUMN scheduled_status     ENUM('active','inactive') DEFAULT NULL,
+  ADD COLUMN scheduled_status_at  DATETIME                  DEFAULT NULL;
+
 -- =============================================================
 -- Sample Data — เพิ่มข้อมูลตัวอย่าง
 -- =============================================================
