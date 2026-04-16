@@ -42,29 +42,28 @@ export default function BookingManagePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">การจองทั้งหมด</h1>
-        <p className="text-gray-500 text-sm mt-0.5">รายการจองในระบบ {bookings.length} รายการ · รายได้ที่กรอง {totalRevenue.toFixed(2)} ฿</p>
-      </div>
-
-      <div className="flex gap-3 mb-4 flex-wrap">
-        <div className="flex gap-2 flex-wrap">
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">การจองทั้งหมด</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{bookings.length} รายการ · รายได้ {totalRevenue.toFixed(2)} ฿</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
           {statuses.map((s) => (
             <button
               key={s}
               onClick={() => setFilterStatus(s)}
-              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterStatus === s ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-primary/50'}`}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-all ${filterStatus === s ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-primary/50'}`}
             >
               {s === 'all' ? 'ทั้งหมด' : <StatusBadge status={s} />}
             </button>
           ))}
+          <input
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+          />
         </div>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

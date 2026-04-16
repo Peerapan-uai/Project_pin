@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
-import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes } from 'react-icons/fa'
+import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes, FaSearch } from 'react-icons/fa'
 
 const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', scheduled_status: '', scheduled_status_at: '' }
 const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
@@ -9,6 +9,7 @@ const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '',
 export default function StationManagePage() {
   const [stations, setStations]         = useState([])
   const [search, setSearch]             = useState('')
+  const [filterStatus, setFilterStatus] = useState('all')
   const [loading, setLoading]           = useState(true)
   const [showModal, setShowModal]       = useState(false)
   const [editingId, setEditingId]       = useState(null)
@@ -24,6 +25,7 @@ export default function StationManagePage() {
   const [chargerForm, setChargerForm]       = useState(EMPTY_CHARGER_FORM)
   const [chargerError, setChargerError]     = useState('')
   const [chargerSaving, setChargerSaving]   = useState(false)
+  const [revenueMap, setRevenueMap]         = useState({})  // station_id -> total_revenue
 
   const fetchStations = () => {
     setLoading(true)
@@ -33,7 +35,16 @@ export default function StationManagePage() {
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { fetchStations() }, [])
+  useEffect(() => {
+    fetchStations()
+    api.get('/api/admin/reports/stations')
+      .then((res) => {
+        const map = {}
+        ;(res.data.data ?? []).forEach((s) => { map[s.station_id] = s.total_revenue })
+        setRevenueMap(map)
+      })
+      .catch(() => {})
+  }, [])
 
   const openAdd = () => { setEditingId(null); setForm(EMPTY_FORM); setError(''); setShowModal(true) }
   const openEdit = (s) => {
@@ -158,33 +169,62 @@ export default function StationManagePage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
-  const filtered = stations.filter(
-    (s) => s.name?.includes(search) || s.address?.includes(search)
-  )
+  const getStationStatus = (s) => {
+    if (s.status === 'inactive') return 'closed'
+    if ((s.available_chargers ?? 0) === 0 && (s.total_chargers ?? 0) > 0) return 'full'
+    return 'open'
+  }
+
+  const filtered = stations.filter((s) => {
+    const matchSearch = s.name?.toLowerCase().includes(search.toLowerCase()) || s.address?.toLowerCase().includes(search.toLowerCase())
+    const stStatus = getStationStatus(s)
+    const matchFilter = filterStatus === 'all' || filterStatus === stStatus
+    return matchSearch && matchFilter
+  })
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">จัดการสถานี</h1>
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการสถานี</h1>
           <p className="text-gray-500 text-sm mt-0.5">สถานีชาร์จทั้งหมด {stations.length} แห่ง</p>
         </div>
-        <button
-          onClick={openAdd}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-md shadow-green-200"
-        >
-          <FaPlus size={13} /> เพิ่มสถานี
-        </button>
-      </div>
-
-      <div className="mb-4">
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ค้นหาสถานี..."
-          className="w-full max-w-sm border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาสถานี..."
+              className="pl-9 pr-4 py-2 w-48 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            />
+          </div>
+          {[
+            { key: 'all',    label: 'ทั้งหมด' },
+            { key: 'open',   label: 'พร้อมบริการ' },
+            { key: 'full',   label: 'เต็มแล้ว' },
+            { key: 'closed', label: 'ปิดบริการ' },
+          ].map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setFilterStatus(key)}
+              className={`px-3 py-2 rounded-xl text-xs font-medium transition-colors ${
+                filterStatus === key
+                  ? 'bg-primary text-white shadow-sm'
+                  : 'bg-white border border-gray-200 text-gray-600 hover:border-primary hover:text-primary'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+          <button
+            onClick={openAdd}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200"
+          >
+            <FaPlus size={12} /> เพิ่มสถานี
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -194,6 +234,7 @@ export default function StationManagePage() {
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600">ชื่อสถานี</th>
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">ที่อยู่</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ตู้ชาร์จ</th>
+              <th className="text-right px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">รายได้รวม</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">สถานะ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">จัดการ</th>
             </tr>
@@ -218,8 +259,18 @@ export default function StationManagePage() {
                     <span className="text-gray-400">/{s.total_chargers ?? 0}</span>
                   </span>
                 </td>
+                <td className="px-5 py-4 text-right hidden lg:table-cell">
+                  <span className="font-semibold text-primary text-sm">
+                    {revenueMap[s.station_id] != null ? `${Number(revenueMap[s.station_id]).toFixed(2)} ฿` : '-'}
+                  </span>
+                </td>
                 <td className="px-5 py-4 text-center">
-                  <StatusBadge status={s.status === 'active' ? 'available' : 'out_of_service'} />
+                  {(() => {
+                    const st = getStationStatus(s)
+                    if (st === 'closed') return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-gray-100 text-gray-500">ปิดให้บริการ</span>
+                    if (st === 'full')   return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-600">เต็มแล้ว</span>
+                    return <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-green-50 text-green-600">พร้อมให้บริการ</span>
+                  })()}
                 </td>
                 <td className="px-5 py-4">
                   <div className="flex items-center justify-center gap-2">

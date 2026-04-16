@@ -6,7 +6,6 @@
 SET FOREIGN_KEY_CHECKS = 0;
 
 DROP TABLE IF EXISTS wallet_transactions;
-DROP TABLE IF EXISTS notification_logs;
 DROP TABLE IF EXISTS messages;
 DROP TABLE IF EXISTS notifications;
 DROP TABLE IF EXISTS maintenance_tickets;
@@ -226,20 +225,6 @@ CREATE TABLE notifications (
   CONSTRAINT fk_notifications_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
--- notification_logs
--- =====================================================================
-CREATE TABLE notification_logs (
-  log_id            INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  notification_id   INT UNSIGNED NOT NULL,
-  user_id           INT UNSIGNED NOT NULL,
-  delivered_at      DATETIME     DEFAULT NULL,
-  read_at           DATETIME     DEFAULT NULL,
-  status            ENUM('pending', 'delivered', 'failed') NOT NULL DEFAULT 'pending',
-  PRIMARY KEY (log_id),
-  CONSTRAINT fk_notification_logs_notification FOREIGN KEY (notification_id) REFERENCES notifications (notification_id) ON DELETE CASCADE,
-  CONSTRAINT fk_notification_logs_user FOREIGN KEY (user_id) REFERENCES users (user_id) ON DELETE CASCADE
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-
 -- payment_refunds
 -- =====================================================================
 CREATE TABLE payment_refunds (
@@ -315,6 +300,13 @@ INSERT INTO users (email, password_hash, first_name, last_name, phone, role, wal
   ('alice@example.com',   '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice',    'Wongsiri',    '0811111111', 'user',       500.00),
   ('bob@example.com',     '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob',      'Prasert',     '0822222222', 'user',       200.00),
   ('charlie@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Charlie',  'Somboon',     '0833333333', 'user',       0.00);
+
+-- tech_profiles seed (ตรงกับ technician users ด้านบน)
+INSERT INTO tech_profiles (user_id, work_mode, primary_skill, status) VALUES
+  (2, 'FIELD', 'MECHANICAL', 'OFFLINE'),
+  (3, 'FIELD', 'ELECTRICAL', 'OFFLINE'),
+  (4, 'FIELD', 'SOFTWARE',   'OFFLINE'),
+  (5, 'FIELD', 'MECHANICAL', 'OFFLINE');
 
 -- =============================================================
 -- Stations: 10 สถานี (อิงข้อมูลจริงในกรุงเทพฯ)

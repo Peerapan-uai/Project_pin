@@ -469,10 +469,12 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
       [first_name, last_name, email, password_hash, phone || null, 'technician']
     );
 
-    await conn.query(
-      'insert into tech_profiles (user_id, primary_skill) values (?,?)',
-      [result.insertId, primary_skill]
-    );
+    if (primary_skill) {
+      await conn.query(
+        `INSERT INTO tech_profiles (user_id, work_mode, primary_skill, status) VALUES (?, 'FIELD', ?, 'OFFLINE')`,
+        [result.insertId, primary_skill]
+      );
+    }
 
     await conn.commit();
     return res.status(201).json({
@@ -498,5 +500,30 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
     return res.status(500).json({ message: 'Server error creating technician.' });
   }
 });
+
+// ช่างกดเปลี่ยนสถานะตัวเอง AVAILABLE ↔ OFFLINE
+router.patch('/me/status', auth, roleCheck('technician'), async (req, res) => {
+  const { status } = req.body;
+  if (!['AVAILABLE', 'OFFLINE'].includes(status)) {
+    return res.status(400).json({ message: 'status ต้องเป็น AVAILABLE หรือ OFFLINE' });
+  }
+  try {
+    await pool.query(
+      `update tech_profiles set status = ? where user_id = ?`,
+      [status, req.user.user_id]
+    );
+    return res.json({ message: 'อัพเดตสถานะแล้ว', status });
+  } catch (error) {
+    return res.status(500).json({ message: 'server error' });
+  }
+});
+
+
+
+
+
+
+
+
 
 module.exports = router;

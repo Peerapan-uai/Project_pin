@@ -41,30 +41,32 @@ export default function UserManagePage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการผู้ใช้</h1>
-        <p className="text-gray-500 text-sm mt-0.5">ผู้ใช้งานทั้งหมด {users.length} คน</p>
-      </div>
-      <div className="flex gap-3 mb-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
-            className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-          />
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการผู้ใช้</h1>
+          <p className="text-gray-500 text-sm mt-0.5">ผู้ใช้งานทั้งหมด {users.length} คน</p>
         </div>
-        <select
-          value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="all">ทุกสถานะ</option>
-          <option value="active">ปกติ</option>
-          <option value="banned">ถูกแบน</option>
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, อีเมล, เบอร์..."
+              className="pl-9 pr-4 py-2 w-52 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            />
+          </div>
+          <select
+            value={filterStatus}
+            onChange={(e) => setFilterStatus(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+          >
+            <option value="all">ทุกสถานะ</option>
+            <option value="active">ปกติ</option>
+            <option value="banned">ถูกแบน</option>
+          </select>
+        </div>
       </div>
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">

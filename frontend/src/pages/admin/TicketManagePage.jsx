@@ -65,52 +65,49 @@ export default function TicketManagePage() {
   })
 
   const statuses   = ['all', 'reported', 'assigned', 'in_progress', 'completed']
-  const priorities = ['low', 'medium', 'high', 'critical']
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการแจ้งซ่อม</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          แจ้งซ่อมทั้งหมด {tickets.length} รายการ · รอมอบหมาย {tickets.filter((t) => t.status === 'reported').length} รายการ
-        </p>
+      <div className="flex items-center justify-between gap-4 mb-4 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการแจ้งซ่อม</h1>
+          <p className="text-gray-500 text-sm mt-0.5">
+            ทั้งหมด {tickets.length} รายการ · รอมอบหมาย {tickets.filter((t) => t.status === 'reported').length} รายการ
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, ID, สถานี..."
+              className="pl-9 pr-4 py-2 w-48 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" />
+          </div>
+          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+            <option value="all">ความเร่งด่วน</option>
+            <option value="low">ต่ำ</option>
+            <option value="medium">ปานกลาง</option>
+            <option value="high">สูง</option>
+            <option value="critical">วิกฤต</option>
+          </select>
+          <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+            <option value="all">ความเชี่ยวชาญ</option>
+            <option value="ELECTRICAL">ระบบไฟฟ้า</option>
+            <option value="SOFTWARE">ซอฟต์แวร์</option>
+            <option value="MECHANICAL">เครื่องกล</option>
+          </select>
+        </div>
       </div>
 
-      {/* Status filter */}
-      <div className="flex gap-2 mb-3 flex-wrap">
+      {/* Status filter tabs */}
+      <div className="flex gap-2 mb-4 flex-wrap">
         {statuses.map((s) => (
           <button key={s} onClick={() => setFilterStatus(s)}
             className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all ${filterStatus === s ? 'bg-primary text-white' : 'bg-white border border-gray-200 text-gray-600 hover:border-primary/50'}`}>
             {s === 'all' ? 'ทั้งหมด' : <StatusBadge status={s} />}
           </button>
         ))}
-      </div>
-
-      {/* Filters row */}
-      <div className="flex gap-3 mb-4 flex-wrap items-center">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <FaSearch size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาชื่อ, ID, สถานี..."
-            className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
-        </div>
-
-        {/* Priority */}
-        <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-          <option value="all">ทุกความเร่งด่วน</option>
-          {priorities.map((p) => <option key={p} value={p}>{p}</option>)}
-        </select>
-
-        {/* Skill filter */}
-        <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-          <option value="all">ทุก skill</option>
-          <option value="ELECTRICAL">ELECTRICAL</option>
-          <option value="SOFTWARE">SOFTWARE</option>
-          <option value="MECHANICAL">MECHANICAL</option>
-        </select>
       </div>
 
       {/* Ticket list */}
@@ -191,10 +188,15 @@ export default function TicketManagePage() {
   )
 }
 
+const TECH_STATUS_CONFIG = {
+  AVAILABLE: { label: 'พร้อมทำงาน', dot: 'bg-green-500', text: 'text-green-600' },
+  BUSY:      { label: 'กำลังทำงาน', dot: 'bg-amber-500', text: 'text-amber-600' },
+  OFFLINE:   { label: 'ไม่พร้อม',   dot: 'bg-gray-400',  text: 'text-gray-400'  },
+}
+
 function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClose }) {
   const [search, setSearch] = useState('')
 
-  // นับจำนวนงานที่ช่างแต่ละคนรับอยู่ (status ไม่ใช่ completed)
   const workloadMap = technicians.reduce((acc, tech) => {
     acc[tech.user_id] = tickets.filter(
       (t) => t.assigned_to === tech.user_id && t.status !== 'completed'
@@ -202,7 +204,6 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
     return acc
   }, {})
 
-  // หา ticket ที่ priority สูงสุดของช่างแต่ละคน
   const maxPriorityMap = technicians.reduce((acc, tech) => {
     const active = tickets.filter((t) => t.assigned_to === tech.user_id && t.status !== 'completed')
     if (active.length === 0) { acc[tech.user_id] = null; return acc }
@@ -212,13 +213,19 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
     return acc
   }, {})
 
-  const filteredTechs = technicians.filter((tech) => {
-    if (!search.trim()) return true
-    const nameEmail = `${tech.first_name} ${tech.last_name} ${tech.email ?? ''}`.toLowerCase()
-    const isIdSearch = /^\d+$/.test(search.trim())
-    if (isIdSearch) return Number(search.trim()) === tech.user_id  // exact match tech_id
-    return nameEmail.includes(search.toLowerCase())
-  })
+  const filteredTechs = technicians
+    .filter((tech) => {
+      if (!search.trim()) return true
+      const nameEmail = `${tech.first_name} ${tech.last_name} ${tech.email ?? ''}`.toLowerCase()
+      const isIdSearch = /^\d+$/.test(search.trim())
+      if (isIdSearch) return Number(search.trim()) === tech.user_id
+      return nameEmail.includes(search.toLowerCase())
+    })
+    // เรียง AVAILABLE ขึ้นก่อน
+    .sort((a, b) => {
+      const order = { AVAILABLE: 0, BUSY: 1, OFFLINE: 2 }
+      return (order[a.tech_status] ?? 2) - (order[b.tech_status] ?? 2)
+    })
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -245,17 +252,23 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
         {/* Tech list */}
         <div className="overflow-y-auto flex-1 px-6 py-3 space-y-2">
           {filteredTechs.map((tech) => {
-            const workload    = workloadMap[tech.user_id] ?? 0
-            const maxPriority = maxPriorityMap[tech.user_id]
+            const workload            = workloadMap[tech.user_id] ?? 0
+            const maxPriority         = maxPriorityMap[tech.user_id]
             const isCurrentlyAssigned = ticket.assigned_to === tech.user_id
-            const isBusy = workload >= 3
+            const tsCfg               = TECH_STATUS_CONFIG[tech.tech_status] ?? TECH_STATUS_CONFIG.OFFLINE
+            const isUnavailable       = tech.tech_status === 'BUSY' || tech.tech_status === 'OFFLINE'
 
             return (
               <button
                 key={tech.user_id}
-                onClick={() => onAssign(tech.user_id)}
-                className={`w-full text-left p-4 rounded-xl border transition-all hover:border-primary/50 hover:bg-primary/5 ${
-                  isCurrentlyAssigned ? 'border-primary bg-primary/5' : 'border-gray-200'
+                onClick={() => !isUnavailable && onAssign(tech.user_id)}
+                disabled={isUnavailable && !isCurrentlyAssigned}
+                className={`w-full text-left p-4 rounded-xl border transition-all ${
+                  isCurrentlyAssigned
+                    ? 'border-primary bg-primary/5'
+                    : isUnavailable
+                      ? 'border-gray-100 bg-gray-50 opacity-60 cursor-not-allowed'
+                      : 'border-gray-200 hover:border-primary/50 hover:bg-primary/5'
                 }`}
               >
                 <div className="flex items-start justify-between gap-3">
@@ -267,23 +280,27 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
                       )}
                       {tech.primary_skill && (
                         <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_COLOR[tech.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {tech.primary_skill}
+                          {SKILL_LABEL[tech.primary_skill] ?? tech.primary_skill}
+                        </span>
+                      )}
+                      {/* สถานะช่าง */}
+                      {tech.tech_status && (
+                        <span className={`flex items-center gap-1 text-xs font-medium ${tsCfg.text}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${tsCfg.dot}`} />
+                          {tsCfg.label}
                         </span>
                       )}
                     </div>
                     <p className="text-xs text-gray-400 mt-0.5">{tech.email}</p>
                   </div>
 
-                  {/* Workload indicator */}
+                  {/* Workload */}
                   <div className="flex-shrink-0 text-right">
-                    <p className={`text-sm font-bold ${isBusy ? 'text-red-500' : workload > 0 ? 'text-amber-500' : 'text-green-500'}`}>
+                    <p className={`text-sm font-bold ${workload === 0 ? 'text-green-500' : workload >= 3 ? 'text-red-500' : 'text-amber-500'}`}>
                       {workload} งาน
                     </p>
-                    <p className={`text-xs mt-0.5 ${isBusy ? 'text-red-400' : workload === 0 ? 'text-green-400' : 'text-amber-400'}`}>
-                      {workload === 0 ? 'ว่าง' : isBusy ? 'งานเยอะ' : 'มีงานอยู่'}
-                    </p>
                     {maxPriority && (
-                      <p className="text-xs text-gray-400 mt-0.5">งานสูงสุด: <StatusBadge status={maxPriority} /></p>
+                      <p className="text-xs text-gray-400 mt-0.5">สูงสุด: <StatusBadge status={maxPriority} /></p>
                     )}
                   </div>
                 </div>
@@ -295,7 +312,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
           )}
         </div>
 
-        {/* Footer — ยกเลิกมอบหมาย (แสดงเฉพาะถ้ามีช่างอยู่แล้ว) */}
+        {/* Footer */}
         {ticket.assigned_to && (
           <div className="px-6 py-3 border-t border-gray-100 flex-shrink-0">
             <button

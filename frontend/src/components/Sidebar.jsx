@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   FaTachometerAlt,
   FaBuilding,
@@ -12,6 +12,8 @@ import {
   FaSignOutAlt,
   FaMoneyBillWave,
   FaUndo,
+  FaWallet,
+  FaChartBar,
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
 import api from '../utils/api'
@@ -26,22 +28,24 @@ const navItems = [
   { to: '/admin/tickets',       label: 'แจ้งซ่อม',           Icon: FaTicketAlt },
   { to: '/admin/payments',      label: 'การเงิน',            Icon: FaMoneyBillWave },
   { to: '/admin/refunds',        label: 'คืนเงิน',             Icon: FaUndo },
+  { to: '/admin/wallet',        label: 'จัดการ Wallet',       Icon: FaWallet },
+  { to: '/admin/reports',       label: 'รายงาน',              Icon: FaChartBar },
   { to: '/admin/notifications', label: 'แจ้งเตือน',          Icon: FaBell },
 ]
 
 export default function Sidebar() {
   const navigate = useNavigate()
+  const location = useLocation()
   const { logout } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     api.get('/api/notifications')
       .then((res) => {
-        const notifs = res.data.notifications ?? []
-        setUnreadCount(notifs.filter((n) => !n.is_read).length)
+        setUnreadCount(res.data.unread_count ?? 0)
       })
       .catch(() => {})
-  }, [])
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()

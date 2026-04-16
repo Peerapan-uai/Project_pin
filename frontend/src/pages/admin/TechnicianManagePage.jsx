@@ -17,6 +17,12 @@ const SKILL_BADGE = {
   MECHANICAL: 'bg-orange-100 text-orange-700',
 }
 
+const TECH_STATUS_CONFIG = {
+  AVAILABLE: { label: 'พร้อมทำงาน', dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' },
+  BUSY:      { label: 'กำลังทำงาน', dot: 'bg-amber-500', badge: 'bg-amber-100 text-amber-700' },
+  OFFLINE:   { label: 'ไม่พร้อม',   dot: 'bg-gray-400',  badge: 'bg-gray-100 text-gray-500'  },
+}
+
 export default function TechnicianManagePage() {
   const [technicians, setTechnicians] = useState([])
   const [tickets, setTickets]         = useState([])
@@ -97,28 +103,29 @@ export default function TechnicianManagePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">จัดการช่าง</h1>
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการช่าง</h1>
           <p className="text-gray-500 text-sm mt-0.5">ช่างเทคนิคทั้งหมด {technicians.length} คน</p>
         </div>
-        <button
-          onClick={openModal}
-          className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 shadow-md shadow-green-200"
-        >
-          <FaPlus size={13} /> เพิ่มช่าง
-        </button>
-      </div>
-
-      <div className="mb-4 relative max-w-sm">
-        <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="ค้นหาชื่อ, อีเมล, เบอร์โทร..."
-          className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-        />
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, อีเมล, เบอร์..."
+              className="pl-9 pr-4 py-2 w-52 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            />
+          </div>
+          <button
+            onClick={openModal}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200"
+          >
+            <FaPlus size={12} /> เพิ่มช่าง
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -134,11 +141,22 @@ export default function TechnicianManagePage() {
                   <p className="font-bold text-gray-900">{t.first_name} {t.last_name}</p>
                   <p className="text-xs text-gray-500">{t.email}</p>
                   <p className="text-xs text-gray-400">{t.phone}</p>
-                  {t.primary_skill && (
-                    <span className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_BADGE[t.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
-                      {t.primary_skill}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                    {t.primary_skill && (
+                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_BADGE[t.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
+                        {t.primary_skill}
+                      </span>
+                    )}
+                    {(() => {
+                      const cfg = TECH_STATUS_CONFIG[t.tech_status] ?? TECH_STATUS_CONFIG.OFFLINE
+                      return (
+                        <span className={`flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full ${cfg.badge}`}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${cfg.dot}`} />
+                          {cfg.label}
+                        </span>
+                      )
+                    })()}
+                  </div>
                 </div>
                 <div className="flex gap-1 flex-shrink-0">
                   <button onClick={() => openEdit(t)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg" title="แก้ไขข้อมูล">

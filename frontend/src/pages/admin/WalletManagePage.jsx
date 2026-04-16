@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaWallet, FaSearch, FaSnowflake, FaPlus, FaMinus, FaTimes } from 'react-icons/fa'
+import { FaSearch, FaTimes, FaInfoCircle, FaUserCircle, FaExchangeAlt } from 'react-icons/fa'
 
 const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
 const TYPE_COLOR = { topup: 'text-green-600', deduct: 'text-red-500', refund: 'text-blue-500', adjust: 'text-amber-500' }
@@ -9,7 +9,6 @@ export default function WalletManagePage() {
   const [summary, setSummary]             = useState(null)
   const [transactions, setTransactions]   = useState([])
   const [users, setUsers]                 = useState([])
-  const [filterUser, setFilterUser]       = useState('')
   const [filterType, setFilterType]       = useState('')
   const [page, setPage]                   = useState(1)
   const [totalPages, setTotalPages]       = useState(1)
@@ -18,7 +17,9 @@ export default function WalletManagePage() {
   const [adjustModal, setAdjustModal]     = useState(null)  // user ที่กด ปรับยอด
   const [adjustForm, setAdjustForm]       = useState({ amount: '', reason: '' })
   const [adjustSaving, setAdjustSaving]   = useState(false)
-  const [search, setSearch]               = useState('')
+  const [searchUser, setSearchUser]       = useState('')
+  const [searchTxn, setSearchTxn]         = useState('')
+  const [txnDetail, setTxnDetail]         = useState(null)  // transaction detail modal
 
   const fetchSummary = () =>
     api.get('/api/admin/wallet/summary').then((res) => setSummary(res.data.summary)).catch(() => {})
@@ -51,7 +52,7 @@ export default function WalletManagePage() {
 
   const handleFreeze = (userId, frozen) => {
     const action = frozen ? 'unfreeze' : 'freeze'
-    if (!window.confirm(`${action === 'freeze' ? 'อั้น' : 'ปลดอั้น'} wallet ของ user นี้?`)) return
+    if (!window.confirm(`${action === 'freeze' ? 'ระงับ' : 'ปลดระงับ'} wallet ของ user นี้?`)) return
     api.patch(`/api/admin/wallet/users/${userId}/wallet/freeze`, { action })
       .then(() => {
         if (walletModal) setWalletModal((prev) => ({ ...prev, user: { ...prev.user, wallet_frozen: action === 'freeze' ? 1 : 0 } }))
@@ -78,15 +79,32 @@ export default function WalletManagePage() {
       .finally(() => setAdjustSaving(false))
   }
 
-  const filteredUsers = users.filter((u) => u.role === 'user' &&
-    `${u.first_name} ${u.last_name} ${u.email} ${u.user_id}`.toLowerCase().includes(search.toLowerCase())
+  const openTxnDetail = (txnId) => {
+    api.get(`/api/admin/wallet/transactions/${txnId}`)
+      .then((res) => setTxnDetail(res.data.data))
+      .catch((err) => alert(err.response?.data?.message || 'ดึงข้อมูลไม่ได้'))
+  }
+
+  const filteredUsers = users.filter((u) => {
+    if (u.role !== 'user') return false
+    const q = searchUser.trim()
+    if (!q) return true
+    if (/^\d+$/.test(q)) return String(u.user_id) === q   // ID ต้อง exact match
+    return `${u.first_name} ${u.last_name} ${u.email}`.toLowerCase().includes(q.toLowerCase())
+  })
+
+  const filteredTransactions = transactions.filter((t) =>
+    `${t.first_name} ${t.last_name} ${t.reason ?? ''} ${t.ref ?? ''}`.toLowerCase().includes(searchTxn.toLowerCase())
   )
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">จัดการ Wallet</h1>
-        <p className="text-gray-500 text-sm mt-0.5">ดู ปรับยอด และอั้น wallet ของผู้ใช้</p>
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการ Wallet</h1>
+          <p className="text-gray-500 text-sm mt-0.5">ดู ปรับยอด และระงับ Wallet ของผู้ใช้</p>
+        </div>
+        <div />
       </div>
 
       {/* Summary cards */}
@@ -96,7 +114,7 @@ export default function WalletManagePage() {
             { label: 'ยอด Wallet รวม', value: `${Number(summary.total_wallet_balance ?? 0).toFixed(2)} ฿`, color: 'text-primary' },
             { label: 'เติมเงินรวม', value: `${Number(summary.total_topup ?? 0).toFixed(2)} ฿`, color: 'text-green-600' },
             { label: 'ตัดเงินรวม', value: `${Number(summary.total_deduct ?? 0).toFixed(2)} ฿`, color: 'text-red-500' },
-            { label: 'Wallet ถูกอั้น', value: `${summary.frozen_wallets_count} บัญชี`, color: 'text-amber-500' },
+            { label: 'Wallet ถูกระงับ', value: `${summary.frozen_wallets_count} บัญชี`, color: 'text-amber-500' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
               <p className="text-xs text-gray-500">{label}</p>
@@ -107,36 +125,63 @@ export default function WalletManagePage() {
       )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* User Wallet List */}
-        <div>
-          <h2 className="font-semibold text-gray-800 mb-3">Wallet ผู้ใช้</h2>
-          <div className="relative mb-3">
-            <FaSearch size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              placeholder="ค้นหาชื่อ, อีเมล, ID..."
-              className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+        {/* User Wallet Panel */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col" style={{ height: 'calc(100vh - 310px)', minHeight: '420px' }}>
+          {/* Sticky header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0 gap-3">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <FaUserCircle size={15} className="text-primary" />
+              <span className="font-semibold text-gray-800 text-sm">Wallet ผู้ใช้</span>
+              <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{filteredUsers.length}</span>
+            </div>
+            <div className="relative flex-1 max-w-[200px]">
+              <FaSearch size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchUser}
+                onChange={(e) => setSearchUser(e.target.value)}
+                placeholder="ค้นหาชื่อ, อีเมล..."
+                className="w-full pl-8 pr-3 py-1.5 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+              />
+            </div>
           </div>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
+          {/* Column labels */}
+          <div className="grid grid-cols-[1fr_auto] px-5 py-2 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+            <span className="text-xs font-medium text-gray-500">ผู้ใช้</span>
+            <span className="text-xs font-medium text-gray-500">จัดการ</span>
+          </div>
+          {/* Scrollable rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+            {filteredUsers.length === 0 && (
+              <p className="text-center text-gray-400 text-sm py-10">ไม่พบผู้ใช้</p>
+            )}
             {filteredUsers.map((u) => (
-              <div key={u.user_id} className="bg-white rounded-xl p-3 border border-gray-100 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="font-medium text-sm text-gray-900 truncate">{u.first_name} {u.last_name}</p>
-                  <p className="text-xs text-gray-400">{u.email}</p>
-                  <p className="text-sm font-bold text-primary mt-0.5">{Number(u.wallet_balance ?? 0).toFixed(2)} ฿
-                    {u.wallet_frozen ? <span className="ml-2 text-xs text-amber-500 font-semibold">อั้นอยู่</span> : null}
+              <div key={u.user_id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                  <FaUserCircle size={17} className="text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{u.first_name} {u.last_name}</p>
+                  <p className="text-xs text-gray-400 truncate">{u.email}</p>
+                  <p className="text-xs font-bold text-primary mt-0.5">
+                    {Number(u.wallet_balance ?? 0).toFixed(2)} ฿
+                    {u.wallet_frozen ? (
+                      <span className="ml-2 text-[10px] font-semibold text-amber-500 bg-amber-50 px-1.5 py-0.5 rounded-full">ระงับอยู่</span>
+                    ) : null}
                   </p>
                 </div>
                 <div className="flex gap-1.5 flex-shrink-0">
-                  <button onClick={() => openWallet(u)} className="px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100">
+                  <button onClick={() => openWallet(u)}
+                    className="px-2.5 py-1.5 bg-blue-50 text-blue-600 rounded-lg text-xs font-medium hover:bg-blue-100 transition-colors">
                     ดู
                   </button>
                   <button onClick={() => { setAdjustModal(u); setAdjustForm({ amount: '', reason: '' }) }}
-                    className="px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100">
+                    className="px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">
                     ปรับ
                   </button>
                   <button onClick={() => handleFreeze(u.user_id, u.wallet_frozen)}
-                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium ${u.wallet_frozen ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
-                    {u.wallet_frozen ? 'ปลด' : 'อั้น'}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${u.wallet_frozen ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
+                    {u.wallet_frozen ? 'ปลดระงับ' : 'ระงับ'}
                   </button>
                 </div>
               </div>
@@ -144,41 +189,88 @@ export default function WalletManagePage() {
           </div>
         </div>
 
-        {/* Transaction List */}
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h2 className="font-semibold text-gray-800">ประวัติธุรกรรม</h2>
-            <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1) }}
-              className="border border-gray-300 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-              <option value="">ทุกประเภท</option>
-              <option value="topup">เติมเงิน</option>
-              <option value="deduct">ตัดเงิน</option>
-              <option value="refund">คืนเงิน</option>
-              <option value="adjust">ปรับยอด</option>
-            </select>
-          </div>
-          {loading ? <p className="text-center text-gray-400 py-8">กำลังโหลด...</p> : (
-            <div className="space-y-2 max-h-96 overflow-y-auto">
-              {transactions.map((t) => (
-                <div key={t.txn_id} className="bg-white rounded-xl p-3 border border-gray-100 flex items-center justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{t.first_name} {t.last_name}</p>
-                    <p className="text-xs text-gray-400">{t.reason || t.ref}</p>
-                    <p className="text-xs text-gray-400">{new Date(t.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <span className={`text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 ${TYPE_COLOR[t.type]}`}>{TYPE_LABEL[t.type]}</span>
-                    <p className={`text-sm font-bold mt-1 ${TYPE_COLOR[t.type]}`}>{Number(t.amount).toFixed(2)} ฿</p>
-                  </div>
-                </div>
-              ))}
+        {/* Transaction Panel */}
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm flex flex-col" style={{ height: 'calc(100vh - 310px)', minHeight: '420px' }}>
+          {/* Sticky header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-100 flex-shrink-0 gap-3 flex-wrap">
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <FaExchangeAlt size={13} className="text-gray-500" />
+              <span className="font-semibold text-gray-800 text-sm">ประวัติธุรกรรม</span>
             </div>
-          )}
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <FaSearch size={11} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={searchTxn}
+                  onChange={(e) => setSearchTxn(e.target.value)}
+                  placeholder="ค้นหาชื่อ, เหตุผล..."
+                  className="pl-8 pr-3 py-1.5 w-36 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                />
+              </div>
+              <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1) }}
+                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                <option value="">ทุกประเภท</option>
+                <option value="topup">เติมเงิน</option>
+                <option value="deduct">ตัดเงิน</option>
+                <option value="refund">คืนเงิน</option>
+                <option value="adjust">ปรับยอด</option>
+              </select>
+            </div>
+          </div>
+          {/* Column labels */}
+          <div className="grid grid-cols-[1fr_auto] px-5 py-2 bg-gray-50 border-b border-gray-100 flex-shrink-0">
+            <span className="text-xs font-medium text-gray-500">รายการ</span>
+            <span className="text-xs font-medium text-gray-500">จำนวน</span>
+          </div>
+          {/* Scrollable rows */}
+          <div className="flex-1 overflow-y-auto divide-y divide-gray-50">
+            {loading && <p className="text-center text-gray-400 text-sm py-10">กำลังโหลด...</p>}
+            {!loading && filteredTransactions.length === 0 && (
+              <p className="text-center text-gray-400 text-sm py-10">ไม่มีธุรกรรม</p>
+            )}
+            {!loading && filteredTransactions.map((t) => (
+              <div key={t.txn_id} className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+                <div className={`w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                  t.type === 'topup'  ? 'bg-green-100' :
+                  t.type === 'deduct' ? 'bg-red-100'   :
+                  t.type === 'refund' ? 'bg-blue-100'  : 'bg-amber-100'
+                }`}>
+                  <FaExchangeAlt size={13} className={TYPE_COLOR[t.type]} />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">{t.first_name} {t.last_name}</p>
+                  <p className="text-xs text-gray-400 truncate">{t.reason || t.ref || '-'}</p>
+                  <p className="text-xs text-gray-400">
+                    {new Date(t.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <div className="text-right">
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                      t.type === 'topup'  ? 'bg-green-100 text-green-700' :
+                      t.type === 'deduct' ? 'bg-red-100 text-red-600'    :
+                      t.type === 'refund' ? 'bg-blue-100 text-blue-700'  : 'bg-amber-100 text-amber-700'
+                    }`}>{TYPE_LABEL[t.type]}</span>
+                    <p className={`text-sm font-bold mt-0.5 ${TYPE_COLOR[t.type]}`}>{Number(t.amount).toFixed(2)} ฿</p>
+                  </div>
+                  <button onClick={() => openTxnDetail(t.txn_id)}
+                    className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                    title="รายละเอียด">
+                    <FaInfoCircle size={14} />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+          {/* Pagination */}
           {totalPages > 1 && (
-            <div className="flex justify-center gap-2 mt-3">
-              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40">‹</button>
-              <span className="px-3 py-1.5 text-sm text-gray-600">{page} / {totalPages}</span>
-              <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)} className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40">›</button>
+            <div className="flex justify-center items-center gap-2 px-5 py-3 border-t border-gray-100 flex-shrink-0">
+              <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">‹</button>
+              <span className="px-2 text-sm text-gray-500">{page} / {totalPages}</span>
+              <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}
+                className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">›</button>
             </div>
           )}
         </div>
@@ -198,7 +290,7 @@ export default function WalletManagePage() {
                   className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-medium hover:bg-amber-100">ปรับยอด</button>
                 <button onClick={() => handleFreeze(walletModal.user.user_id, walletModal.user.wallet_frozen)}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium ${walletModal.user.wallet_frozen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
-                  {walletModal.user.wallet_frozen ? 'ปลดอั้น' : 'อั้น wallet'}
+                  {walletModal.user.wallet_frozen ? 'ปลดระงับ' : 'ระงับ Wallet'}
                 </button>
                 <button onClick={() => setWalletModal(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
               </div>
@@ -211,7 +303,7 @@ export default function WalletManagePage() {
               <div>
                 <p className="text-xs text-gray-500">สถานะ</p>
                 <p className={`text-sm font-semibold ${walletModal.user.wallet_frozen ? 'text-amber-500' : 'text-green-600'}`}>
-                  {walletModal.user.wallet_frozen ? 'ถูกอั้น' : 'ปกติ'}
+                  {walletModal.user.wallet_frozen ? 'ถูกระงับ' : 'ปกติ'}
                 </p>
               </div>
             </div>
@@ -227,6 +319,58 @@ export default function WalletManagePage() {
                 </div>
               ))}
               {walletModal.transactions.length === 0 && <p className="text-center text-gray-400 text-sm py-6">ไม่มีประวัติ</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Transaction Detail Modal */}
+      {txnDetail && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">รายละเอียดธุรกรรม #{txnDetail.txn_id}</h2>
+              <button onClick={() => setTxnDetail(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-3 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-500">ผู้ใช้</span>
+                <span className="font-medium text-gray-900">{txnDetail.first_name} {txnDetail.last_name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">อีเมล</span>
+                <span className="text-gray-700">{txnDetail.email}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">ประเภท</span>
+                <span className={`font-semibold ${TYPE_COLOR[txnDetail.type]}`}>{TYPE_LABEL[txnDetail.type]}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-500">จำนวนเงิน</span>
+                <span className={`font-bold text-base ${TYPE_COLOR[txnDetail.type]}`}>{Number(txnDetail.amount).toFixed(2)} ฿</span>
+              </div>
+              {txnDetail.reason && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 flex-shrink-0">เหตุผล</span>
+                  <span className="text-gray-700 text-right">{txnDetail.reason}</span>
+                </div>
+              )}
+              {txnDetail.ref && (
+                <div className="flex justify-between gap-4">
+                  <span className="text-gray-500 flex-shrink-0">Ref</span>
+                  <span className="text-gray-500 text-xs text-right break-all">{txnDetail.ref}</span>
+                </div>
+              )}
+              {txnDetail.adjusted_by_name && (
+                <div className="flex justify-between">
+                  <span className="text-gray-500">ดำเนินการโดย</span>
+                  <span className="font-medium text-amber-600">{txnDetail.adjusted_by_name}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-gray-500">วันที่</span>
+                <span className="text-gray-700">{new Date(txnDetail.created_at).toLocaleString('th-TH')}</span>
+              </div>
             </div>
           </div>
         </div>

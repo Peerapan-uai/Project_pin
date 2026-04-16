@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaMoneyBillWave, FaSearch } from 'react-icons/fa'
+import { FaMoneyBillWave, FaSearch, FaFileDownload } from 'react-icons/fa'
 
 export default function PaymentsPage() {
   const [payments, setPayments]         = useState([])
@@ -19,8 +19,20 @@ export default function PaymentsPage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
+  const handleDownloadInvoice = (paymentId) => {
+    api.get(`/api/admin/reports/payments/${paymentId}/invoice`, { responseType: 'blob' })
+      .then((res) => {
+        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `invoice-${paymentId}.pdf`
+        a.click()
+        window.URL.revokeObjectURL(url)
+      })
+      .catch(() => alert('ดาวน์โหลดใบเสร็จไม่สำเร็จ'))
+  }
+
   const stations = [...new Set(payments.map((p) => p.station_name).filter(Boolean))]
-  const methods  = [...new Set(payments.map((p) => p.method).filter(Boolean))]
 
   const filtered = payments.filter((p) => {
     const matchSearch  = `${p.first_name} ${p.last_name} ${p.station_name ?? ''}`.toLowerCase().includes(search.toLowerCase())
@@ -36,46 +48,47 @@ export default function PaymentsPage() {
 
   return (
     <div>
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">การเงิน</h1>
-        <p className="text-gray-500 text-sm mt-0.5">
-          {filtered.length} รายการ · รวม {totalRevenue.toFixed(2)} ฿
-        </p>
-      </div>
-
-      <div className="flex gap-3 mb-4 flex-wrap">
-        <div className="relative flex-1 min-w-[200px] max-w-sm">
-          <FaSearch size={13} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">การเงิน</h1>
+          <p className="text-gray-500 text-sm mt-0.5">{filtered.length} รายการ · รวม {totalRevenue.toFixed(2)} ฿</p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <div className="relative">
+            <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="ค้นหาชื่อ, สถานี..."
+              className="pl-9 pr-4 py-2 w-44 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+            />
+          </div>
+          <select
+            value={filterStation}
+            onChange={(e) => setFilterStation(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+          >
+            <option value="all">ทุกสถานี</option>
+            {stations.map((s) => <option key={s} value={s}>{s}</option>)}
+          </select>
+          <select
+            value={filterMethod}
+            onChange={(e) => setFilterMethod(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+          >
+            <option value="all">ช่องทางการชำระเงิน</option>
+            <option value="credit_card">บัตรเครดิต / เดบิต</option>
+            <option value="wallet">กระเป๋าเงิน (Wallet)</option>
+            <option value="promptpay">พร้อมเพย์ (QR)</option>
+          </select>
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="ค้นหาชื่อผู้ใช้, สถานี..."
-            className="w-full pl-9 pr-4 border border-gray-300 rounded-xl py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            type="date"
+            value={filterDate}
+            onChange={(e) => setFilterDate(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
           />
         </div>
-        <select
-          value={filterStation}
-          onChange={(e) => setFilterStation(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="all">ทุกสถานี</option>
-          {stations.map((s) => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select
-          value={filterMethod}
-          onChange={(e) => setFilterMethod(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="all">ทุกวิธีชำระ</option>
-          {methods.map((m) => <option key={m} value={m}>{m}</option>)}
-        </select>
-        <input
-          type="date"
-          value={filterDate}
-          onChange={(e) => setFilterDate(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        />
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
@@ -89,6 +102,7 @@ export default function PaymentsPage() {
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">วันที่</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">หน่วย (kWh)</th>
               <th className="text-right px-5 py-3.5 font-semibold text-gray-600">ยอดเงิน</th>
+              <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ใบเสร็จ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -113,6 +127,13 @@ export default function PaymentsPage() {
                 </td>
                 <td className="px-5 py-4 text-right font-semibold text-primary">
                   {p.amount ? `${Number(p.amount).toFixed(2)} ฿` : '-'}
+                </td>
+                <td className="px-5 py-4 text-center">
+                  {p.status === 'completed' && (
+                    <button onClick={() => handleDownloadInvoice(p.payment_id)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-green-50 rounded-lg transition-colors" title="ดาวน์โหลดใบเสร็จ">
+                      <FaFileDownload size={15} />
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}

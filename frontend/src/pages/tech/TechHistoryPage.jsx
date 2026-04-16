@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
-import StatusBadge from '../../components/StatusBadge'
 import { FaHistory, FaCheckCircle, FaCalendarAlt, FaChevronRight, FaClipboardCheck, FaCalendarCheck } from 'react-icons/fa'
 
 export default function TechHistoryPage() {
@@ -40,8 +39,7 @@ export default function TechHistoryPage() {
     : 0
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-2xl mx-auto">
+    <div>
         <h1 className="text-xl font-bold text-gray-900 mb-1">ประวัติงาน</h1>
         <p className="text-gray-500 text-sm mb-5">งานที่เสร็จสิ้นแล้ว {completed.length} รายการ</p>
 
@@ -97,7 +95,6 @@ export default function TechHistoryPage() {
             </button>
           ))}
         </div>
-      </div>
     </div>
   )
 }

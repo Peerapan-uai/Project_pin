@@ -35,9 +35,8 @@ export default function TechNotificationsPage() {
   const unreadCount = notifications.filter((n) => !n.is_read).length
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 md:p-6">
-      <div className="max-w-2xl mx-auto">
-        <div className="flex items-center justify-between mb-5">
+    <div>
+      <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-xl font-bold text-gray-900">การแจ้งเตือน</h1>
             <p className="text-gray-500 text-sm mt-0.5">ยังไม่อ่าน {unreadCount} รายการ</p>
@@ -84,7 +83,6 @@ export default function TechNotificationsPage() {
             </div>
           ))}
         </div>
-      </div>
     </div>
   )
 }

@@ -102,17 +102,17 @@ router.post('/', auth, async (req, res) => {
 
     const ticketId = result.insertId;
 
-    // auto-notify: แจ้งช่างทุกคนที่มีในระบบ
+    // auto-notify: แจ้งแอดมินทุกคนเมื่อมีแจ้งซ่อมใหม่
     try {
-      const [technicians] = await pool.query(
-        `SELECT user_id FROM users WHERE role = 'technician'`
+      const [admins] = await pool.query(
+        `SELECT user_id FROM users WHERE role = 'admin'`
       );
 
-      if (technicians.length > 0) {
-        const notifValues = technicians.map(t => [
-          t.user_id,
-          'มีแจ้งปัญหาใหม่',
-          `ตั๋วซ่อม #${ticketId}: ${title}`,
+      if (admins.length > 0) {
+        const notifValues = admins.map(a => [
+          a.user_id,
+          'มีแจ้งซ่อมใหม่',
+          `แจ้งซ่อม #${ticketId}: ${title}`,
           'maintenance',
         ]);
         await pool.query(
@@ -121,7 +121,7 @@ router.post('/', auth, async (req, res) => {
         );
       }
     } catch (notifErr) {
-      console.warn('Notify technicians failed (non-critical):', notifErr.message);
+      console.warn('Notify admins failed (non-critical):', notifErr.message);
     }
 
     return res.status(201).json({
@@ -338,6 +338,32 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'Ticket not found.' });
     }
+
+    // ถ้าช่างกด "รับงาน" → ตั้งสถานะเป็น BUSY
+    if (status === 'in_progress') {
+      try {
+        await pool.query(
+          `update tech_profiles set status = 'BUSY' where user_id = ?`, [req.user.user_id]
+        );
+      } catch (_) {}
+    }
+
+    // ถ้าช่างกด "เสร็จงาน" → เช็คว่ายังมีงานค้างอีกไหม
+    if (status === 'completed') {
+      try {
+        const [remaining] = await pool.query(
+          `select count(*) as cnt from maintenance_tickets
+          where assigned_to = ? and status in ('assigned', 'in_progress')`,[req.user.user_id]
+        );
+        if (remaining[0].cnt === 0) {
+          await pool.query(
+            `update tech_profiles set status = 'AVAILABLE' where user_id = ?`,[req.user.user_id]
+          );
+        }
+      } catch (_) {}
+    }
+
+
 
     // แจ้ง admin ทุกคนเมื่อช่างซ่อมเสร็จ
     if (status === 'completed') {

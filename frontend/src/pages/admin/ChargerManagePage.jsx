@@ -171,22 +171,21 @@ export default function ChargerManagePage() {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">จัดการตู้ชาร์จ</h1>
+      <div className="flex items-center justify-between gap-4 mb-6 flex-wrap">
+        <div className="flex-shrink-0">
+          <h1 className="text-xl font-bold text-gray-900">จัดการตู้ชาร์จ</h1>
           <p className="text-gray-500 text-sm mt-0.5">ตู้ชาร์จทั้งหมด {chargers.length} ตู้</p>
         </div>
-        <button onClick={openAdd} className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-md shadow-green-200">
-          <FaPlus size={13} /> เพิ่มตู้ชาร์จ
-        </button>
-      </div>
-
-      <div className="mb-4">
-        <select value={filterStation} onChange={(e) => setFilterStation(e.target.value)}
-          className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
-          <option value="all">ทุกสถานี</option>
-          {stationOptions.map((s) => <option key={s.station_id} value={s.station_id}>{s.name}</option>)}
-        </select>
+        <div className="flex items-center gap-2 flex-wrap">
+          <select value={filterStation} onChange={(e) => setFilterStation(e.target.value)}
+            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+            <option value="all">ทุกสถานี</option>
+            {stationOptions.map((s) => <option key={s.station_id} value={s.station_id}>{s.name}</option>)}
+          </select>
+          <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200">
+            <FaPlus size={12} /> เพิ่มตู้ชาร์จ
+          </button>
+        </div>
       </div>
 
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">

@@ -13,6 +13,7 @@ export default function DashboardPage() {
   const [loading, setLoading]       = useState(true)
   const [filterStation, setFilterStation] = useState('all')
   const [filterDate, setFilterDate] = useState('')
+  const [topStations, setTopStations] = useState([])
 
   useEffect(() => {
     Promise.all([
@@ -29,6 +30,16 @@ export default function DashboardPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
+
+    api.get('/api/admin/reports/stations')
+      .then((res) => {
+        const sorted = (res.data.data ?? [])
+          .filter((s) => s.total_revenue > 0)
+          .sort((a, b) => b.total_revenue - a.total_revenue)
+          .slice(0, 3)
+        setTopStations(sorted)
+      })
+      .catch(() => {})
   }, [])
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -60,6 +71,7 @@ export default function DashboardPage() {
     { label: 'สถานีทั้งหมด', value: stations.length, Icon: FaBuilding, light: 'bg-blue-50 text-blue-600' },
     { label: 'ผู้ใช้งาน', value: users.filter((u) => u.role === 'user').length, Icon: FaUsers, light: 'bg-purple-50 text-purple-600' },
     { label: filterDate || filterStation !== 'all' ? 'การจอง (ที่กรอง)' : 'การจองทั้งหมด', value: filteredBookings.length, Icon: FaClipboardList, light: 'bg-amber-50 text-amber-600' },
+    { label: 'ช่างในระบบ', value: users.filter((u) => u.role === 'technician').length, Icon: FaUsers, light: 'bg-teal-50 text-teal-600' },
     { label: 'แจ้งซ่อม (เปิด)', value: tickets.filter((t) => t.status !== 'completed').length, Icon: FaTicketAlt, light: 'bg-red-50 text-red-600' },
     {
       label: filterDate || filterStation !== 'all' ? `รายได้ (ที่กรอง)` : 'รายได้วันนี้',
@@ -118,6 +130,33 @@ export default function DashboardPage() {
           </div>
         ))}
       </div>
+
+      {/* Top 3 สถานีรายได้สูงสุด */}
+      {topStations.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+          <h2 className="font-bold text-gray-900 mb-5">Top 3 สถานีรายได้สูงสุด</h2>
+          <div className="space-y-4">
+            {topStations.map((s, i) => {
+              const barColors = ['bg-primary', 'bg-blue-400', 'bg-violet-400']
+              const badgeColors = ['text-primary border-primary/30 bg-green-50', 'text-blue-500 border-blue-200 bg-blue-50', 'text-violet-500 border-violet-200 bg-violet-50']
+              const maxRevenue = topStations[0].total_revenue
+              const pct = maxRevenue > 0 ? (s.total_revenue / maxRevenue) * 100 : 0
+              return (
+                <div key={s.station_id} className="flex items-center gap-3 px-1">
+                  <span className="text-sm font-bold text-gray-400 w-7 flex-shrink-0">0{i + 1}</span>
+                  <p className="text-sm font-medium text-gray-800 truncate flex-1">{s.name}</p>
+                  <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden flex-[2]">
+                    <div className={`h-full rounded-full transition-all duration-500 ${barColors[i]}`} style={{ width: `${pct}%` }} />
+                  </div>
+                  <span className={`text-xs font-semibold px-2.5 py-1 rounded-lg border flex-shrink-0 whitespace-nowrap ${badgeColors[i]}`}>
+                    {Number(s.total_revenue).toFixed(0)} ฿
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Recent tickets */}
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
