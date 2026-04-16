@@ -393,7 +393,7 @@ router.get('/history', auth, async (req, res) => {
        JOIN stations st ON c.station_id = st.station_id
        LEFT JOIN refund_requests rr ON rr.payment_id = p.payment_id AND rr.user_id = p.user_id
        WHERE p.user_id = ?
-       ORDER BY p.paid_at DESC`,
+       ORDER BY p.paid_at DESC, p.payment_id DESC`,
       [req.user.user_id]
     );
 

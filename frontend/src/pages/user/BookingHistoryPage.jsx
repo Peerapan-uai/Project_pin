@@ -9,15 +9,18 @@ import api from '../../utils/api'
 
 function useSecsLeft(startTime) {
   const EXPIRE_MINUTES = 30
-  const [secsLeft, setSecsLeft] = useState(() => {
-    const expireAt = new Date(startTime).getTime() + EXPIRE_MINUTES * 60 * 1000
-    return Math.max(0, Math.floor((expireAt - Date.now()) / 1000))
-  })
+  const getExpireAt = () => {
+    const raw = String(startTime)
+    // ถ้า DB ส่งมาไม่มี timezone suffix ให้ถือเป็น UTC
+    const ts = raw.endsWith('Z') || raw.includes('+') ? raw : raw.replace(' ', 'T') + 'Z'
+    return new Date(ts).getTime() + EXPIRE_MINUTES * 60 * 1000
+  }
+  const [secsLeft, setSecsLeft] = useState(() =>
+    Math.max(0, Math.floor((getExpireAt() - Date.now()) / 1000))
+  )
   useEffect(() => {
-    const calc = () => {
-      const expireAt = new Date(startTime).getTime() + EXPIRE_MINUTES * 60 * 1000
-      setSecsLeft(Math.max(0, Math.floor((expireAt - Date.now()) / 1000)))
-    }
+    const calc = () =>
+      setSecsLeft(Math.max(0, Math.floor((getExpireAt() - Date.now()) / 1000)))
     const t = setInterval(calc, 1000)
     return () => clearInterval(t)
   }, [startTime])
