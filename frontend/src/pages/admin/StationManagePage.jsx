@@ -3,7 +3,7 @@ import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes } from 'react-icons/fa'
 
-const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active' }
+const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', scheduled_status: '', scheduled_status_at: '' }
 const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
 
 export default function StationManagePage() {
@@ -47,6 +47,8 @@ export default function StationManagePage() {
       open_time: s.open_time ?? '',
       close_time: s.close_time ?? '',
       status: s.status ?? 'active',
+      scheduled_status: s.scheduled_status ?? '',
+      scheduled_status_at: s.scheduled_status_at ? s.scheduled_status_at.slice(0, 16) : '',
     })
     setError('')
     setShowModal(true)
@@ -75,6 +77,17 @@ export default function StationManagePage() {
       .then(() => { closeModal(); fetchStations() })
       .catch((err) => setError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setSaving(false))
+  }
+
+  const toggleStationStatus = (station) => {
+    const newStatus = station.status === 'active' ? 'inactive' : 'active'
+    if (!window.confirm(`${newStatus === 'inactive' ? 'ปิด' : 'เปิด'}สถานี "${station.name}"?`)) return
+    api.put(`/api/stations/${station.station_id}`, { ...station, status: newStatus })
+      .then(() => {
+        setChargerStation((prev) => prev ? { ...prev, status: newStatus } : prev)
+        fetchStations()
+      })
+      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
   }
 
   const openChargerModal = (station) => {
@@ -239,7 +252,19 @@ export default function StationManagePage() {
                 <h2 className="font-bold text-gray-900">ตู้ชาร์จ — {chargerStation.name}</h2>
                 <p className="text-xs text-gray-400 mt-0.5">{chargers.length} ตู้</p>
               </div>
-              <button onClick={closeChargerModal} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => toggleStationStatus(chargerStation)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
+                    chargerStation.status === 'active'
+                      ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
+                      : 'border-green-200 bg-green-50 text-green-600 hover:bg-green-100'
+                  }`}
+                >
+                  {chargerStation.status === 'active' ? 'ปิดสถานี' : 'เปิดสถานี'}
+                </button>
+                <button onClick={closeChargerModal} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+              </div>
             </div>
             <div className="overflow-y-auto flex-1 p-6 space-y-4">
               {chargerError && <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{chargerError}</p>}
@@ -288,13 +313,18 @@ export default function StationManagePage() {
                       />
                     </div>
                     <div>
-                      <label className="text-xs font-medium text-gray-600 mb-1 block">Connector *</label>
-                      <input
+                      <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภทหัวชาร์จ *</label>
+                      <select
                         value={chargerForm.connector_type}
                         onChange={(e) => setChargerForm({ ...chargerForm, connector_type: e.target.value })}
-                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                        placeholder="เช่น Type2, CHAdeMO"
-                      />
+                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                      >
+                        <option value="">-- เลือก --</option>
+                        <option value="CCS">CCS (DC)</option>
+                        <option value="CHAdeMO">CHAdeMO (DC)</option>
+                        <option value="Type2">Type 2 (AC)</option>
+                        <option value="Type1">Type 1 (AC)</option>
+                      </select>
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 mb-1 block">กำลัง (kW) *</label>
@@ -326,9 +356,10 @@ export default function StationManagePage() {
                       onChange={(e) => setChargerForm({ ...chargerForm, status: e.target.value })}
                       className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                     >
-                      <option value="available">available</option>
-                      <option value="in_use">in_use</option>
-                      <option value="out_of_service">out_of_service</option>
+                      <option value="available">ว่าง</option>
+                      <option value="reserved">จองแล้ว</option>
+                      <option value="charging">กำลังชาร์จ</option>
+                      <option value="out_of_service">ปิดซ่อม</option>
                     </select>
                   </div>
                   <div className="flex gap-3">
@@ -448,6 +479,39 @@ export default function StationManagePage() {
                   <option value="inactive">inactive</option>
                 </select>
               </div>
+              {/* ตั้งเวลาเปลี่ยนสถานะล่วงหน้า */}
+              <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-3">
+                <p className="text-xs font-semibold text-amber-700">ตั้งเวลาเปลี่ยนสถานะล่วงหน้า (optional)</p>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">เปลี่ยนเป็น</label>
+                    <select
+                      value={form.scheduled_status}
+                      onChange={(e) => setForm({ ...form, scheduled_status: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                    >
+                      <option value="">-- ไม่ตั้งเวลา --</option>
+                      <option value="active">active</option>
+                      <option value="inactive">inactive</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">เวลาที่จะเปลี่ยน</label>
+                    <input
+                      type="datetime-local"
+                      value={form.scheduled_status_at}
+                      onChange={(e) => setForm({ ...form, scheduled_status_at: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    />
+                  </div>
+                </div>
+                {form.scheduled_status && form.scheduled_status_at && (
+                  <p className="text-xs text-amber-600">
+                    จะเปลี่ยนเป็น <strong>{form.scheduled_status}</strong> ตอน {new Date(form.scheduled_status_at).toLocaleString('th-TH')}
+                  </p>
+                )}
+              </div>
+
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                   ยกเลิก

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { NavLink, useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate, useLocation } from 'react-router-dom'
 import {
   FaTachometerAlt,
   FaHistory,
@@ -24,17 +24,17 @@ const mobileNavItems = [
 
 export default function ResponsiveLayout({ children }) {
   const navigate = useNavigate()
+  const location = useLocation()
   const { logout } = useAuth()
   const [unreadCount, setUnreadCount] = useState(0)
 
   useEffect(() => {
     api.get('/api/notifications')
       .then((res) => {
-        const notifs = res.data.notifications ?? []
-        setUnreadCount(notifs.filter((n) => !n.is_read).length)
+        setUnreadCount(res.data.unread_count ?? res.data.notifications?.filter((n) => !n.is_read).length ?? 0)
       })
       .catch(() => {})
-  }, [])
+  }, [location.pathname])
 
   const handleLogout = () => {
     logout()

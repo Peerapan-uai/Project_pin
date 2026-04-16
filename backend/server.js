@@ -202,12 +202,33 @@ const startServer = async () => {
       } catch (err) {console.error('Scheduled notification error:', err.message)}
     })
   }
+  // cron: เช็คและอัปเดตสถานะสถานีที่ตั้งเวลาไว้ (ทุก 1 นาที)
+  const startStationScheduleJob = () => {
+    cron.schedule('* * * * *', async () => {
+      try {
+        const [due] = await pool.query(
+          `SELECT station_id, scheduled_status FROM stations
+           WHERE scheduled_status IS NOT NULL AND scheduled_status_at <= NOW()`
+        )
+        for (const s of due) {
+          await pool.query(
+            `UPDATE stations SET status = ?, scheduled_status = NULL, scheduled_status_at = NULL
+             WHERE station_id = ?`,
+            [s.scheduled_status, s.station_id]
+          )
+        }
+        if (due.length > 0) console.log(`[StationSchedule] อัปเดต ${due.length} สถานี`)
+      } catch (err) { console.error('Station schedule job error:', err.message) }
+    })
+  }
+
   app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     startExpireJob();
     startExpirePaymentsJob()
     startScheduleNotificationsJob()
+    startStationScheduleJob()
   });
 };
 // module.exports = router;
