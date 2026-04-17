@@ -59,6 +59,12 @@ CREATE TABLE admin_profiles (
 -- -------------------------------------------------------------
 -- tech_profiles  (extension สำหรับ role='technician' เท่านั้น)
 -- -------------------------------------------------------------
+-- ⚠️  NEM อ่านด้วย: ชื่อ column ที่ถูกต้องมีแค่นี้เท่านั้น
+--     work_mode     ← ไม่มี can_field_work
+--     primary_skill ← ไม่มี specialty
+--     status        ← ไม่มีชื่ออื่น
+-- query ใน users.js ต้องใช้ชื่อตามนี้เท่านั้น อย่าแก้ชื่อ column โดยไม่ตกลงกันก่อน
+-- -------------------------------------------------------------
 CREATE TABLE tech_profiles (
   tech_id        INT UNSIGNED NOT NULL AUTO_INCREMENT,
   user_id        INT UNSIGNED NOT NULL UNIQUE,

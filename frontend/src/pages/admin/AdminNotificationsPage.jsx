@@ -24,6 +24,7 @@ export default function AdminNotificationsPage() {
   const [notifications, setNotifications] = useState([])
   const [showSendModal, setShowSendModal]   = useState(false)
   const [sendForm, setSendForm]             = useState({ mode: 'broadcast', target_type: 'role', target_value: 'user', title: '', message: '', type: 'system', scheduled_at: '' })
+  const [specificTechId, setSpecificTechId] = useState('')
   const [sending, setSending]               = useState(false)
   const [sendResult, setSendResult]         = useState(null)
   const [users, setUsers]                 = useState([])
@@ -53,17 +54,21 @@ export default function AdminNotificationsPage() {
     setSending(true)
     setSendResult(null)
 
+    const isTechRole = sendForm.target_type === 'role' && sendForm.target_value === 'technician'
+    const effectiveTargetType  = (isTechRole && specificTechId) ? 'user_ids' : sendForm.target_type
+    const effectiveTargetValue = (isTechRole && specificTechId) ? specificTechId : sendForm.target_value
+
     let endpoint, payload
     if (sendForm.mode === 'broadcast') {
       endpoint = '/api/admin/notifications/broadcast'
       payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type }
     } else if (sendForm.mode === 'targeted') {
       endpoint = '/api/admin/notifications/targeted'
-      payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: sendForm.target_type, target_value: sendForm.target_value }
+      payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: effectiveTargetType, target_value: effectiveTargetValue }
     } else {
       endpoint = '/api/admin/notifications/schedule'
       if (!sendForm.scheduled_at) return alert('กรุณาเลือกเวลาที่จะส่ง')
-      payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: sendForm.target_type, target_value: sendForm.target_value, scheduled_at: sendForm.scheduled_at }
+      payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: effectiveTargetType, target_value: effectiveTargetValue, scheduled_at: sendForm.scheduled_at }
     }
 
     api.post(endpoint, payload)
@@ -139,6 +144,13 @@ export default function AdminNotificationsPage() {
             ))}
           </div>
 
+          {(() => {
+            const isTechTarget = sendForm.mode !== 'broadcast' && sendForm.target_type === 'role' && sendForm.target_value === 'technician'
+            const typeOptions = isTechTarget
+              ? [{ v: 'maintenance', l: 'แจ้งซ่อม' }, { v: 'system', l: 'ทั่วไป' }]
+              : [{ v: 'system', l: 'ทั่วไป' }, { v: 'booking', l: 'การจอง' }, { v: 'charging', l: 'การชาร์จ' }, { v: 'payment', l: 'การชำระเงิน' }]
+            const techUsers = users.filter((u) => u.role === 'technician')
+            return (
           <div className="space-y-3">
             {/* Target (targeted + schedule) */}
             {(sendForm.mode === 'targeted' || sendForm.mode === 'schedule') && (
@@ -157,7 +169,12 @@ export default function AdminNotificationsPage() {
                     {sendForm.target_type === 'role' ? 'Role' : sendForm.target_type === 'all' ? '-' : 'User IDs (คั่นด้วย ,)'}
                   </label>
                   {sendForm.target_type === 'role' ? (
-                    <select value={sendForm.target_value} onChange={(e) => setSendForm((f) => ({ ...f, target_value: e.target.value }))}
+                    <select value={sendForm.target_value}
+                      onChange={(e) => {
+                        const val = e.target.value
+                        setSpecificTechId('')
+                        setSendForm((f) => ({ ...f, target_value: val, type: val === 'technician' ? 'maintenance' : 'system' }))
+                      }}
                       className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
                       <option value="user">User</option>
                       <option value="technician">ช่าง</option>
@@ -170,6 +187,20 @@ export default function AdminNotificationsPage() {
                       placeholder="เช่น 1,2,5" className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
                   )}
                 </div>
+              </div>
+            )}
+
+            {/* Specific tech picker */}
+            {isTechTarget && (
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">ส่งหา</label>
+                <select value={specificTechId} onChange={(e) => setSpecificTechId(e.target.value)}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
+                  <option value="">ช่างทุกคน ({techUsers.length} คน)</option>
+                  {techUsers.map((t) => (
+                    <option key={t.user_id} value={t.user_id}>{t.first_name} {t.last_name}</option>
+                  ))}
+                </select>
               </div>
             )}
 
@@ -192,11 +223,7 @@ export default function AdminNotificationsPage() {
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภท</label>
                 <select value={sendForm.type} onChange={(e) => setSendForm((f) => ({ ...f, type: e.target.value }))}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                  <option value="system">ทั่วไป</option>
-                  <option value="booking">การจอง</option>
-                  <option value="charging">การชาร์จ</option>
-                  <option value="payment">การชำระเงิน</option>
-                  <option value="maintenance">แจ้งซ่อม</option>
+                  {typeOptions.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
                 </select>
               </div>
             </div>
@@ -218,6 +245,8 @@ export default function AdminNotificationsPage() {
               {sending ? 'กำลังส่ง...' : sendForm.mode === 'schedule' ? 'ตั้งเวลาส่ง' : 'ส่งแจ้งเตือน'}
             </button>
           </div>
+          )
+        })()}
         </div>
       )}
 
