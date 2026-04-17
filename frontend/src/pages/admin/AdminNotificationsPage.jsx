@@ -192,11 +192,11 @@ export default function AdminNotificationsPage() {
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภท</label>
                 <select value={sendForm.type} onChange={(e) => setSendForm((f) => ({ ...f, type: e.target.value }))}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                  <option value="system">system</option>
-                  <option value="booking">booking</option>
-                  <option value="charging">charging</option>
-                  <option value="payment">payment</option>
-                  <option value="maintenance">maintenance</option>
+                  <option value="system">ทั่วไป</option>
+                  <option value="booking">การจอง</option>
+                  <option value="charging">การชาร์จ</option>
+                  <option value="payment">การชำระเงิน</option>
+                  <option value="maintenance">แจ้งซ่อม</option>
                 </select>
               </div>
             </div>

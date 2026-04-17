@@ -254,26 +254,64 @@ router.get('/stations', auth, roleCheck('admin'), async (req, res) => {
 // lalla GET /api/admin/reports/comparison
 router.get('/comparison', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { compare_type } = req.query;
-    
-    // 🔴 TODO C: Calculate current and previous period revenue
-    const [[{ current_revenue, previous_revenue }]] = await pool.query(
-        `SELECT
-            SUM(p.amount) as current_revenue,
-            (SELECT SUM(amount) FROM payments WHERE status = 'completed' AND paid_at < DATE_SUB(NOW(), INTERVAL 1 MONTH)) as previous_revenue
-            FROM payments p 
-            WHERE p.status = 'completed'`
+    const { compare_type = 'monthly' } = req.query;
+
+    const now = new Date();
+    let currentStart, currentEnd, previousStart, previousEnd;
+    let currentLabel, previousLabel;
+
+    if (compare_type === 'daily') {
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const yesterdayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1);
+      const yesterdayEnd = new Date(todayStart.getTime() - 1);
+      currentStart = todayStart;
+      currentEnd = now;
+      previousStart = yesterdayStart;
+      previousEnd = yesterdayEnd;
+      currentLabel = 'วันนี้';
+      previousLabel = 'เมื่อวาน';
+    } else if (compare_type === 'weekly') {
+      const dayOfWeek = now.getDay() === 0 ? 6 : now.getDay() - 1;
+      const thisMonday = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek);
+      const lastMonday = new Date(thisMonday.getTime() - 7 * 24 * 60 * 60 * 1000);
+      const lastSunday = new Date(thisMonday.getTime() - 1);
+      currentStart = thisMonday;
+      currentEnd = now;
+      previousStart = lastMonday;
+      previousEnd = lastSunday;
+      currentLabel = 'สัปดาห์นี้';
+      previousLabel = 'สัปดาห์ที่แล้ว';
+    } else {
+      currentStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      currentEnd = now;
+      previousStart = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      previousEnd = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59);
+      currentLabel = 'เดือนนี้';
+      previousLabel = 'เดือนที่แล้ว';
+    }
+
+    const [[currentRow]] = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) AS revenue FROM payments WHERE status = 'completed' AND paid_at >= ? AND paid_at <= ?`,
+      [currentStart, currentEnd]
+    );
+    const [[previousRow]] = await pool.query(
+      `SELECT COALESCE(SUM(amount), 0) AS revenue FROM payments WHERE status = 'completed' AND paid_at >= ? AND paid_at <= ?`,
+      [previousStart, previousEnd]
     );
 
-    // 🔴 TODO D: Calculate percentage change
-    const percentageChange = previous_revenue > 0
-     ? ((current_revenue - previous_revenue ) / previous_revenue * 100).toFixed(2) : 0;
-     
+    const currentRevenue = parseFloat(currentRow.revenue || 0);
+    const previousRevenue = parseFloat(previousRow.revenue || 0);
+    const percentageChange = previousRevenue > 0
+      ? ((currentRevenue - previousRevenue) / previousRevenue * 100).toFixed(2)
+      : 0;
+
     return res.status(200).json({
       success: true,
-      comparison_type: compare_type,
-      current_period: current_revenue,
-      previous_period: previous_revenue,
+      compare_type,
+      current_revenue: currentRevenue,
+      previous_revenue: previousRevenue,
+      current_label: currentLabel,
+      previous_label: previousLabel,
       percentage_change: percentageChange
     });
   } catch (error) {

@@ -14,6 +14,7 @@ export default function DashboardPage() {
   const [filterStation, setFilterStation] = useState('all')
   const [filterDate, setFilterDate] = useState('')
   const [topStations, setTopStations] = useState([])
+  const [todayRevenue, setTodayRevenue] = useState(0)
 
   useEffect(() => {
     Promise.all([
@@ -31,6 +32,11 @@ export default function DashboardPage() {
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
 
+    const today = new Date().toISOString().slice(0, 10)
+    api.get(`/api/admin/reports/revenue?period=daily&from_date=${today}&to_date=${today}`)
+      .then((res) => setTodayRevenue(res.data.summary?.total_revenue ?? 0))
+      .catch(() => {})
+
     api.get('/api/admin/reports/stations')
       .then((res) => {
         const sorted = (res.data.data ?? [])
@@ -44,17 +50,11 @@ export default function DashboardPage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
-  const today = new Date().toISOString().slice(0, 10)
-
   const filteredBookings = bookings.filter((b) => {
     const matchStation = filterStation === 'all' || String(b.station_id) === filterStation
     const matchDate    = !filterDate || (b.start_time && b.start_time.startsWith(filterDate))
     return matchStation && matchDate
   })
-
-  const todayRevenue = bookings
-    .filter((b) => b.payment_status === 'completed' && b.total_amount && b.start_time?.startsWith(today))
-    .reduce((sum, b) => sum + Number(b.total_amount), 0)
 
   const filteredRevenue = filteredBookings
     .filter((b) => b.payment_status === 'completed' && b.total_amount)
@@ -75,7 +75,7 @@ export default function DashboardPage() {
     { label: 'แจ้งซ่อม (เปิด)', value: tickets.filter((t) => t.status !== 'completed').length, Icon: FaTicketAlt, light: 'bg-red-50 text-red-600' },
     {
       label: filterDate || filterStation !== 'all' ? `รายได้ (ที่กรอง)` : 'รายได้วันนี้',
-      value: `${(filterDate || filterStation !== 'all' ? filteredRevenue : todayRevenue).toFixed(2)} ฿`,
+      value: `${Number(filterDate || filterStation !== 'all' ? filteredRevenue : todayRevenue).toFixed(2)} ฿`,
       Icon: FaMoneyBillWave,
       light: 'bg-green-50 text-green-600',
     },
