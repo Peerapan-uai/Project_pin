@@ -153,7 +153,7 @@ router.delete('/profile', auth, async (req, res) => {
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT u.*, tp.specialty, tp.can_field_work FROM users u left join tech_profiles tp on u.user_id = tp.user_id'
+      'SELECT u.*, tp.primary_skill, tp.status as tech_status, tp.work_mode FROM users u LEFT JOIN tech_profiles tp ON u.user_id = tp.user_id'
     );
     return res.status(200).json({ users: rows });
   } catch (error) {
@@ -265,7 +265,7 @@ router.get('/:id', auth, roleCheck('admin', 'technician'), async (req,res) => {
     const [user] = await pool.query (
       `select u.user_id, u.email, u.first_name, u.last_name, u.phone, u.role,
         u.wallet_balance, u.wallet_frozen, u.is_banned, u.ban_reason, u.created_at,
-        tp.specialty, tp.can_field_work
+        tp.primary_skill, tp.status as tech_status, tp.work_mode
       from users u
       left join tech_profiles tp on u.user_id = tp.user_id
       where u.user_id = ?`, [id]
@@ -354,7 +354,7 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
 ///lalla  PUT /api/users/:id  (admin edit any user)
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
-  const { first_name, last_name, phone, password, specialty } = req.body;
+  const { first_name, last_name, phone, password, primary_skill } = req.body;
 
   try {
     let query = 'UPDATE users SET first_name = ?, last_name = ?, phone = ? WHERE user_id = ?';
@@ -371,10 +371,10 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
       return res.status(404).json({ message: 'User not found.' });
     }
 
-    if (specialty !== undefined) {
+    if (primary_skill !== undefined) {
       await pool.query(
-        'UPDATE tech_profiles SET specialty = ? WHERE user_id = ?',
-        [specialty || null, id]
+        'UPDATE tech_profiles SET primary_skill = ? WHERE user_id = ?',
+        [primary_skill || null, id]
       )
     }
 
@@ -445,7 +445,7 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  */
 ///lalla  POST /api/users/technician
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
-  const { first_name, last_name, email, password, phone, specialty } = req.body;
+  const { first_name, last_name, email, password, phone, primary_skill } = req.body;
 
   if (!first_name || !last_name || !email || !password) {
     return res.status(400).json({ message: 'first_name, last_name, email, and password are required.' });
@@ -469,10 +469,10 @@ router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
       [first_name, last_name, email, password_hash, phone || null, 'technician']
     );
 
-    if (specialty) {
+    if (primary_skill) {
       await conn.query(
-        `INSERT INTO tech_profiles (user_id, specialty) VALUES (?, ?)`,
-        [result.insertId, specialty]
+        `INSERT INTO tech_profiles (user_id, work_mode, primary_skill, status) VALUES (?, 'FIELD', ?, 'AVAILABLE')`,
+        [result.insertId, primary_skill]
       );
     }
 

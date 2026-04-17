@@ -22,12 +22,14 @@ export default function PaymentsPage() {
   const handleDownloadInvoice = (paymentId) => {
     api.get(`/api/admin/reports/payments/${paymentId}/invoice`, { responseType: 'blob' })
       .then((res) => {
-        const url = window.URL.createObjectURL(new Blob([res.data], { type: 'application/pdf' }))
+        const url = window.URL.createObjectURL(res.data)
         const a = document.createElement('a')
         a.href = url
         a.download = `invoice-${paymentId}.pdf`
+        document.body.appendChild(a)
         a.click()
-        window.URL.revokeObjectURL(url)
+        document.body.removeChild(a)
+        setTimeout(() => window.URL.revokeObjectURL(url), 1000)
       })
       .catch(() => alert('ดาวน์โหลดใบเสร็จไม่สำเร็จ'))
   }

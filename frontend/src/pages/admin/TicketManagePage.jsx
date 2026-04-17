@@ -197,15 +197,23 @@ const TECH_STATUS_CONFIG = {
 function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClose }) {
   const [search, setSearch] = useState('')
 
+  const todayStr = new Date().toDateString()
+
   const workloadMap = technicians.reduce((acc, tech) => {
     acc[tech.user_id] = tickets.filter(
-      (t) => t.assigned_to === tech.user_id && t.status !== 'completed'
+      (t) => t.assigned_to === tech.user_id &&
+             t.status !== 'completed' &&
+             t.assigned_at && new Date(t.assigned_at).toDateString() === todayStr
     ).length
     return acc
   }, {})
 
   const maxPriorityMap = technicians.reduce((acc, tech) => {
-    const active = tickets.filter((t) => t.assigned_to === tech.user_id && t.status !== 'completed')
+    const active = tickets.filter(
+      (t) => t.assigned_to === tech.user_id &&
+             t.status !== 'completed' &&
+             t.assigned_at && new Date(t.assigned_at).toDateString() === todayStr
+    )
     if (active.length === 0) { acc[tech.user_id] = null; return acc }
     acc[tech.user_id] = active.reduce((max, t) =>
       (PRIORITY_LEVEL[t.priority] ?? 0) > (PRIORITY_LEVEL[max.priority] ?? 0) ? t : max
