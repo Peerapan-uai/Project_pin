@@ -249,7 +249,7 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
     }
 
     const [result] = await pool.query(
-      `UPDATE maintenance_tickets SET assigned_to = ?, status = 'assigned' WHERE ticket_id = ?`,
+      `UPDATE maintenance_tickets SET assigned_to = ?, status = 'assigned', assigned_at = NOW() WHERE ticket_id = ?`,
       [technician_id, req.params.id]
     );
 
@@ -268,7 +268,7 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
 router.patch('/:id/unassign', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [result] = await pool.query(
-      `UPDATE maintenance_tickets SET assigned_to = NULL, status = 'reported' WHERE ticket_id = ?`,
+      `UPDATE maintenance_tickets SET assigned_to = NULL, assigned_at = NULL, status = 'reported' WHERE ticket_id = ?`,
       [req.params.id]
     );
     if (result.affectedRows === 0) {

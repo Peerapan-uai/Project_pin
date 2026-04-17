@@ -11,7 +11,8 @@ export default function UpdateTicketPage() {
   const [loading, setLoading] = useState(true)
   const [status, setStatus]   = useState('in_progress')
   const [notes, setNotes]     = useState('')
-  const [image, setImage]     = useState(null)
+  const [image, setImage]         = useState(null)
+  const [imagePreview, setImagePreview] = useState(null)
   const [saving, setSaving]   = useState(false)
   const [saved, setSaved]     = useState(false)
 
@@ -113,13 +114,36 @@ export default function UpdateTicketPage() {
           </div>
 
           <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-2">แนบรูปภาพ (ไม่บังคับ)</label>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              แนบรูปภาพ {status === 'completed' ? <span className="text-red-400 font-normal">(แนะนำให้แนบหลักฐาน)</span> : <span className="text-gray-400 font-normal">(ไม่บังคับ)</span>}
+            </label>
             <input
               type="file"
               accept="image/*"
-              onChange={(e) => setImage(e.target.files[0] || null)}
+              onChange={(e) => {
+                const file = e.target.files[0] || null
+                setImage(file)
+                if (file) {
+                  const reader = new FileReader()
+                  reader.onloadend = () => setImagePreview(reader.result)
+                  reader.readAsDataURL(file)
+                } else {
+                  setImagePreview(null)
+                }
+              }}
               className="w-full text-sm text-gray-600 file:mr-3 file:py-2 file:px-4 file:rounded-xl file:border-0 file:bg-primary/10 file:text-primary file:font-medium file:cursor-pointer"
             />
+            {imagePreview && (
+              <div className="mt-3 relative w-fit">
+                <img src={imagePreview} alt="preview" className="max-h-48 rounded-xl border border-gray-200 object-cover" />
+                <button
+                  onClick={() => { setImage(null); setImagePreview(null) }}
+                  className="absolute top-1.5 right-1.5 bg-black/50 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs hover:bg-black/70"
+                >
+                  ✕
+                </button>
+              </div>
+            )}
           </div>
 
           <button

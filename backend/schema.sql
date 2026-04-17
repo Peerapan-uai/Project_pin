@@ -209,6 +209,7 @@ CREATE TABLE maintenance_tickets (
   status       ENUM('reported','assigned','in_progress','completed') NOT NULL DEFAULT 'reported',
   priority     ENUM('low','medium','high','critical')                NOT NULL DEFAULT 'medium',
   created_at   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  assigned_at  TIMESTAMP    NULL DEFAULT NULL,
   completed_at TIMESTAMP    NULL DEFAULT NULL,
   PRIMARY KEY (ticket_id),
   CONSTRAINT fk_tickets_charger     FOREIGN KEY (charger_id)  REFERENCES chargers (charger_id) ON DELETE CASCADE,
