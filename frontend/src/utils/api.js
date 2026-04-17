@@ -15,13 +15,18 @@ api.interceptors.request.use((config) => {
 })
 
 // Response interceptor — handle 401
+let isRedirecting = false
+
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401 && !error.config._skipRedirect) {
+    if (error.response?.status === 401 && !error.config._skipRedirect && !isRedirecting) {
+      isRedirecting = true
+      const user = JSON.parse(localStorage.getItem('ev_user') || 'null')
+      const isStaff = user?.role === 'admin' || user?.role === 'technician'
       localStorage.removeItem('ev_user')
       localStorage.removeItem('ev_token')
-      window.location.href = '/login'
+      window.location.href = isStaff ? '/admin/login' : '/login'
     }
     return Promise.reject(error)
   }
