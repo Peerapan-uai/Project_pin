@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import api from '../../utils/api'
+import api, { BASE_URL } from '../../utils/api'
 import { FaUndo, FaCheck, FaTimes, FaImage } from 'react-icons/fa'
 
 export default function RefundManagePage() {
@@ -200,7 +200,7 @@ export default function RefundManagePage() {
               {imageModal.map((src, i) => (
                 <img
                   key={i}
-                  src={`http://localhost:5000${src}`}
+                  src={`${BASE_URL}${src}`}
                   alt={`รูป ${i + 1}`}
                   className="w-full rounded-xl object-cover border border-gray-100"
                 />

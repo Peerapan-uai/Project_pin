@@ -276,6 +276,24 @@ CREATE TABLE messages (
   CONSTRAINT fk_messages_receiver FOREIGN KEY (receiver_id) REFERENCES users (user_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+-- refund_requests (user ขอคืนเงิน → admin review approve/reject)
+-- =====================================================================
+CREATE TABLE refund_requests (
+  request_id   INT UNSIGNED    NOT NULL AUTO_INCREMENT,
+  payment_id   INT UNSIGNED    NOT NULL,
+  user_id      INT UNSIGNED    NOT NULL,
+  reason       VARCHAR(255)    DEFAULT NULL,
+  image_url    VARCHAR(500)    DEFAULT NULL,
+  status       ENUM('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  reviewed_by  INT UNSIGNED    DEFAULT NULL,
+  reviewed_at  TIMESTAMP       NULL DEFAULT NULL,
+  created_at   TIMESTAMP       NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (request_id),
+  CONSTRAINT fk_refund_req_payment  FOREIGN KEY (payment_id)  REFERENCES payments (payment_id) ON DELETE CASCADE,
+  CONSTRAINT fk_refund_req_user     FOREIGN KEY (user_id)     REFERENCES users    (user_id)    ON DELETE CASCADE,
+  CONSTRAINT fk_refund_req_reviewer FOREIGN KEY (reviewed_by) REFERENCES users    (user_id)    ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 -- ─── Performance Indexes ─────────────────────────────────────────────────────
 -- เปรียบเหมือนสารบัญหนังสือ: ไม่มี index = เปิดทุกหน้าหาข้อมูล → ช้ามาก
 CREATE INDEX idx_chargers_station     ON chargers(station_id, status);
