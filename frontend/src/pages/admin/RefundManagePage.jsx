@@ -79,9 +79,10 @@ export default function RefundManagePage() {
                     {Number(rr.amount).toFixed(2)} ฿
                     <span className="text-xs font-normal text-gray-400 ml-2">({rr.method})</span>
                   </p>
-                  <p className="text-sm text-gray-600 mb-1">
-                    <span className="font-medium">เหตุผล:</span> {rr.reason}
-                  </p>
+                  <p className="text-sm font-semibold text-gray-800 mb-0.5">{rr.title}</p>
+                  {rr.reason && (
+                    <p className="text-sm text-gray-600 mb-1">{rr.reason}</p>
+                  )}
                   <p className="text-xs text-gray-400">
                     ขอเมื่อ {new Date(rr.created_at).toLocaleDateString('th-TH', {
                       day: 'numeric', month: 'short', year: 'numeric',

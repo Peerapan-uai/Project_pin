@@ -809,12 +809,12 @@ router.get('/:id/refunds', auth, async (req, res) => {
  */
 // #48  POST /:id/refund-request  — nem
 router.post('/:id/refund-request', auth, async (req, res) => {
-  const { reason, images } = req.body;
+  const { title, reason, images } = req.body;
   const paymentId = req.params.id;
   const userId = req.user.user_id;
 
-  if (!reason) {
-    return res.status(400).json({ success: false, message: 'reason is required' });
+  if (!title) {
+    return res.status(400).json({ success: false, message: 'title is required' });
   }
 
   try {
@@ -862,8 +862,8 @@ router.post('/:id/refund-request', auth, async (req, res) => {
 
     // สร้าง refund request
     const [result] = await pool.query(
-      `INSERT INTO refund_requests (payment_id, user_id, reason, image_url) VALUES (?, ?, ?, ?)`,
-      [paymentId, userId, reason, imageUrl]
+      `INSERT INTO refund_requests (payment_id, user_id, title, reason, image_url) VALUES (?, ?, ?, ?, ?)`,
+      [paymentId, userId, title, reason, imageUrl]
     );
 
     // แจ้ง notification ให้ admin
