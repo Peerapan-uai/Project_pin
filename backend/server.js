@@ -1,5 +1,5 @@
 require('dotenv').config();
-const rateLimiter = require('express-rate-limit');
+const rateLimit = require('express-rate-limit');
 const express = require('express');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
