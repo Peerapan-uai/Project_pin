@@ -1,4 +1,5 @@
 require('dotenv').config();
+const rateLimiter = require('express-rate-limit');
 const express = require('express');
 const cors = require('cors');
 const swaggerJsdoc = require('swagger-jsdoc');
@@ -14,7 +15,7 @@ const { startExpireJob } = require('./jobs/expireBookings');
 const { startExpirePaymentsJob } = require('./jobs/expirePayments');
 
 // Route imports
-const authRoutes = require('./routes/auth');
+const authRoutes = require('./routes   auth');
 const userRoutes = require('./routes/users');
 const vehicleRoutes = require('./routes/vehicles');
 const stationRoutes = require('./routes/stations');
@@ -35,7 +36,17 @@ const adminRefundsRoutes = require('./routes/admin/refunds')
 const app = express();
 
 // ─── Core Middleware ───────────────────────────────────────────────────────────
-app.use(cors());
+app.use(cors({
+  origin: ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true
+}));
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { message: 'ลองใหม่ใน 15 นาที' }
+});
+app.use('/api/auth/login', loginLimiter);
+app.use('/api/admin/login', loginLimiter);
 app.use(express.json({ limit: '10mb' })); // รองรับ base64 image
 app.use(logger); // morgan + MongoDB logger
 

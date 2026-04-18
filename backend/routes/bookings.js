@@ -249,13 +249,25 @@ router.get('/all', auth, roleCheck('admin'), async (req, res) => {
 router.patch('/:id/admin-cancel', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params;
   try {
-    const [result] = await pool.query(
-      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ? AND status != 'cancelled'`,
+    const [booking] = await pool.query(
+      `SELECT charger_id, status FROM bookings WHERE booking_id = ? AND status != 'cancelled'`,
       [id]
     );
-    if (result.affectedRows === 0) {
+    if (booking.length === 0) {
       return res.status(404).json({ message: 'Booking not found or already cancelled.' });
     }
+
+    await pool.query(
+      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ?`,
+      [id]
+    );
+
+    // คืน charger เป็น available (เฉพาะตู้ที่ยังถูก reserve/charging อยู่)
+    await pool.query(
+      `UPDATE chargers SET status = 'available' WHERE charger_id = ? AND status IN ('reserved', 'charging')`,
+      [booking[0].charger_id]
+    );
+
     return res.status(200).json({ message: 'Booking cancelled successfully.' });
   } catch (error) {
     console.error('Admin cancel booking error:', error);

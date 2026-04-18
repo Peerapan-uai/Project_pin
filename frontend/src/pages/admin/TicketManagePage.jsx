@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
-import api from '../../utils/api'
+import api, { BASE_URL } from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
-import { FaTicketAlt, FaUserCog, FaWrench, FaSearch, FaTimes, FaSort } from 'react-icons/fa'
+import { FaTicketAlt, FaUserCog, FaWrench, FaSearch, FaTimes } from 'react-icons/fa'
 
 const SKILL_LABEL = { ELECTRICAL: 'ระบบไฟฟ้า', SOFTWARE: 'ซอฟต์แวร์', MECHANICAL: 'เครื่องกล' }
 const SKILL_COLOR = {
@@ -10,9 +10,6 @@ const SKILL_COLOR = {
   MECHANICAL: 'bg-orange-100 text-orange-700',
 }
 const PRIORITY_LEVEL = { low: 1, medium: 2, high: 3, critical: 4 }
-const STATUS_ORDER   = { reported: 0, assigned: 1, in_progress: 2, completed: 3 }
-
-const fmt = (dateStr) => dateStr ? new Date(dateStr).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' }) : null
 
 export default function TicketManagePage() {
   const [tickets, setTickets]               = useState([])
@@ -21,9 +18,8 @@ export default function TicketManagePage() {
   const [filterPriority, setFilterPriority] = useState('all')
   const [filterSkill, setFilterSkill]       = useState('all')
   const [search, setSearch]                 = useState('')
-  const [sortOrder, setSortOrder]           = useState('status') // 'status' | 'newest' | 'oldest'
   const [loading, setLoading]               = useState(true)
-  const [assignModal, setAssignModal]       = useState(null)
+  const [assignModal, setAssignModal]       = useState(null) // ticket ที่กำลัง assign
 
   const fetchData = () => {
     setLoading(true)
@@ -56,29 +52,19 @@ export default function TicketManagePage() {
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
-  const filtered = tickets
-    .filter((t) => {
-      const matchStatus   = filterStatus === 'all' || t.status === filterStatus
-      const matchPriority = filterPriority === 'all' || t.priority === filterPriority
-      const matchSkill    = filterSkill === 'all' || (() => {
-        if (!t.assigned_to) return true // ยังไม่มีช่าง → แสดงเสมอ
-        const tech = technicians.find((tc) => tc.user_id === t.assigned_to)
-        return tech?.primary_skill === filterSkill
-      })()
-      const matchSearch   = !search.trim() ||
-        `${t.title} ${t.description ?? ''} ${t.charger_name ?? ''} ${t.station_name ?? ''}`.toLowerCase().includes(search.toLowerCase())
-      return matchStatus && matchPriority && matchSkill && matchSearch
-    })
-    .sort((a, b) => {
-      if (sortOrder === 'newest') return new Date(b.created_at) - new Date(a.created_at)
-      if (sortOrder === 'oldest') return new Date(a.created_at) - new Date(b.created_at)
-      // sortOrder === 'status': reported ขึ้นก่อน, completed ลงหลัง; ภายใน status เดียวกันเรียงใหม่ก่อน
-      const statusDiff = (STATUS_ORDER[a.status] ?? 9) - (STATUS_ORDER[b.status] ?? 9)
-      if (statusDiff !== 0) return statusDiff
-      return new Date(b.created_at) - new Date(a.created_at)
-    })
+  const filtered = tickets.filter((t) => {
+    const matchStatus   = filterStatus === 'all'   || t.status === filterStatus
+    const matchPriority = filterPriority === 'all' || t.priority === filterPriority
+    const matchSkill    = filterSkill === 'all'    || (() => {
+      const tech = technicians.find((tc) => tc.user_id === t.assigned_to)
+      return tech?.primary_skill === filterSkill
+    })()
+    const matchSearch   = !search.trim() ||
+      `${t.title} ${t.description ?? ''} ${t.charger_name ?? ''} ${t.station_name ?? ''}`.toLowerCase().includes(search.toLowerCase())
+    return matchStatus && matchPriority && matchSkill && matchSearch
+  })
 
-  const statuses = ['all', 'reported', 'assigned', 'in_progress', 'completed']
+  const statuses   = ['all', 'reported', 'assigned', 'in_progress', 'completed']
 
   return (
     <div>
@@ -111,14 +97,6 @@ export default function TicketManagePage() {
             <option value="SOFTWARE">ซอฟต์แวร์</option>
             <option value="MECHANICAL">เครื่องกล</option>
           </select>
-          {/* Sort toggle */}
-          <button
-            onClick={() => setSortOrder((prev) => prev === 'status' ? 'newest' : prev === 'newest' ? 'oldest' : 'status')}
-            className="flex items-center gap-1.5 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white hover:border-primary/50 transition-colors text-gray-600"
-          >
-            <FaSort size={11} />
-            {sortOrder === 'status' ? 'สถานะ' : sortOrder === 'newest' ? 'ใหม่สุด' : 'เก่าสุด'}
-          </button>
         </div>
       </div>
 
@@ -146,18 +124,6 @@ export default function TicketManagePage() {
                 </div>
                 <p className="text-xs text-gray-500">{t.charger_name} · {t.station_name}</p>
                 <p className="text-xs text-gray-400 mt-1">{t.description}</p>
-
-                {/* วันที่ */}
-                <div className="flex items-center gap-3 mt-1.5 flex-wrap">
-                  <span className="text-xs text-gray-400">แจ้ง: {fmt(t.created_at)}</span>
-                  {t.assigned_at && (
-                    <span className="text-xs text-blue-400">รับงาน: {fmt(t.assigned_at)}</span>
-                  )}
-                  {t.completed_at && (
-                    <span className="text-xs text-green-500">เสร็จ: {fmt(t.completed_at)}</span>
-                  )}
-                </div>
-
                 {t.assigned_to_name && (
                   <p className="text-xs text-blue-600 mt-1 flex items-center gap-1">
                     <FaUserCog size={10} /> มอบหมายให้ {t.assigned_to_name}
@@ -191,10 +157,10 @@ export default function TicketManagePage() {
                   <div>
                     <p className="text-xs font-medium text-gray-500 mb-1">รูปการซ่อม:</p>
                     <img
-                      src={`http://localhost:5000${t.repair_image}`}
+                      src={`${BASE_URL}${t.repair_image}`}
                       alt="repair"
                       className="max-h-48 rounded-xl border border-gray-200 object-cover cursor-pointer hover:opacity-90"
-                      onClick={() => window.open(`http://localhost:5000${t.repair_image}`, '_blank')}
+                      onClick={() => window.open(`${BASE_URL}${t.repair_image}`, '_blank')}
                     />
                   </div>
                 )}
@@ -263,6 +229,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
       if (isIdSearch) return Number(search.trim()) === tech.user_id
       return nameEmail.includes(search.toLowerCase())
     })
+    // เรียง AVAILABLE ขึ้นก่อน
     .sort((a, b) => {
       const order = { AVAILABLE: 0, BUSY: 1, OFFLINE: 2 }
       return (order[a.tech_status] ?? 2) - (order[b.tech_status] ?? 2)
@@ -271,6 +238,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
       <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[80vh] flex flex-col">
+        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">เลือกช่าง</h2>
@@ -279,6 +247,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
         </div>
 
+        {/* Search */}
         <div className="px-6 py-3 border-b border-gray-100 flex-shrink-0">
           <div className="relative">
             <FaSearch size={12} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
@@ -288,6 +257,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
           </div>
         </div>
 
+        {/* Tech list */}
         <div className="overflow-y-auto flex-1 px-6 py-3 space-y-2">
           {filteredTechs.map((tech) => {
             const workload            = workloadMap[tech.user_id] ?? 0
@@ -321,6 +291,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
                           {SKILL_LABEL[tech.primary_skill] ?? tech.primary_skill}
                         </span>
                       )}
+                      {/* สถานะช่าง */}
                       {tech.tech_status && (
                         <span className={`flex items-center gap-1 text-xs font-medium ${tsCfg.text}`}>
                           <span className={`w-1.5 h-1.5 rounded-full ${tsCfg.dot}`} />
@@ -331,9 +302,10 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
                     <p className="text-xs text-gray-400 mt-0.5">{tech.email}</p>
                   </div>
 
+                  {/* Workload */}
                   <div className="flex-shrink-0 text-right">
                     <p className={`text-sm font-bold ${workload === 0 ? 'text-green-500' : workload >= 3 ? 'text-red-500' : 'text-amber-500'}`}>
-                      {workload} งานวันนี้
+                      {workload} งาน
                     </p>
                     {maxPriority && (
                       <p className="text-xs text-gray-400 mt-0.5">สูงสุด: <StatusBadge status={maxPriority} /></p>
@@ -348,6 +320,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
           )}
         </div>
 
+        {/* Footer */}
         {ticket.assigned_to && (
           <div className="px-6 py-3 border-t border-gray-100 flex-shrink-0">
             <button

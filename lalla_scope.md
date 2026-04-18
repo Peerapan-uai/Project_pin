@@ -502,6 +502,24 @@ ALTER TABLE users
 
 ---
 
+## 🔒 Security & Stability (lalla) — อัปเดต 2026-04-18
+
+### ✅ เสร็จแล้ว
+| # | งาน | ไฟล์ | สถานะ |
+|---|-----|------|-------|
+| 1 | CORS จำกัด origin `localhost:3000`, `localhost:5173` + `credentials: true` | `server.js` | ✅ |
+| 2 | Rate limiting login — max 10 ครั้ง / 15 นาที (`express-rate-limit`) | `server.js` | ✅ |
+| 3 | JWT_SECRET เปลี่ยนเป็น random 128 ตัวอักษร | `backend/.env` | ✅ |
+| 4 | Hardcoded `http://localhost:5000` ใน JSX แก้เป็น `BASE_URL` จาก api.js | `TicketManagePage.jsx`, `RefundManagePage.jsx` | ✅ |
+| 5 | export `BASE_URL` จาก `api.js` เพื่อให้ทุกไฟล์ import ใช้ได้ | `utils/api.js` | ✅ |
+
+### ⏳ ยังไม่ได้ทำ — ทำต่อ
+| # | งาน | ไฟล์ | หมายเหตุ |
+|---|-----|------|---------|
+| 6 | Error handling frontend — เปลี่ยน `.catch(console.error)` เป็น toast แจ้ง user | ทุก page | ต้อง install `react-hot-toast` ก่อน |
+
+---
+
 ## 🔧 Performance Optimization (lalla) — ต้องทำ
 
 ### 1. Re-import schema.sql เพื่อเพิ่ม Performance Indexes
