@@ -820,26 +820,54 @@ router.post('/:id/refund-request', auth, async (req, res) => {
   try {
     // เช็คว่า payment นี้เป็นของ user จริง + status = 'completed'
     const [payments] = await pool.query(
-      `SELECT payment_id, status, amount FROM payments WHERE payment_id = ? AND user_id = ?`,
+      `SELECT payment_id, status, amount, paid_at FROM payments WHERE payment_id = ? AND user_id = ?`,
       [paymentId, userId]
     );
 
     if (payments.length === 0) {
-      return res.status(404).json({ success: false, message: 'Payment not found.' });
+      return res.status(404).json({ success: false, message: 'ไม่พบรายการชำระเงิน' });
     }
 
     if (payments[0].status !== 'completed') {
-      return res.status(400).json({ success: false, message: 'Only completed payments can be refunded.' });
+      return res.status(400).json({ success: false, message: 'ขอคืนเงินได้เฉพาะรายการที่ชำระสำเร็จแล้วเท่านั้น' });
     }
 
-    // เช็คว่าเคยขอไปแล้วหรือยัง
+    // Rule 1: เกิน 30 วันหลังจ่าย → ขอคืนเงินไม่ได้
+    if (payments[0].paid_at) {
+      const daysSincePaid = (Date.now() - new Date(payments[0].paid_at).getTime()) / (1000 * 60 * 60 * 24);
+      if (daysSincePaid > 30) {
+        return res.status(400).json({ success: false, message: 'เกินระยะเวลา 30 วัน ไม่สามารถขอคืนเงินได้' });
+      }
+    }
+
+    // Rule 2: ถ้ามี pending อยู่แล้ว → ขอซ้ำไม่ได้
     const [existing] = await pool.query(
       `SELECT request_id FROM refund_requests WHERE payment_id = ? AND status = 'pending'`,
       [paymentId]
     );
 
     if (existing.length > 0) {
-      return res.status(400).json({ success: false, message: 'Refund request already submitted and pending.' });
+      return res.status(400).json({ success: false, message: 'คำขอคืนเงินของรายการนี้กำลังรอการดำเนินการอยู่' });
+    }
+
+    // Rule 3: payment นี้ถูก reject ไปแล้ว >= 2 ครั้ง → ขอไม่ได้อีก
+    const [rejectedRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM refund_requests WHERE payment_id = ? AND status = 'rejected'`,
+      [paymentId]
+    );
+
+    if (rejectedRows[0].cnt >= 2) {
+      return res.status(400).json({ success: false, message: 'รายการนี้ถูกปฏิเสธไปแล้ว 2 ครั้ง ไม่สามารถขอคืนเงินได้อีก' });
+    }
+
+    // Rule 4: user มี pending >= 3 รายการ → ขอใหม่ไม่ได้
+    const [userPendingRows] = await pool.query(
+      `SELECT COUNT(*) AS cnt FROM refund_requests WHERE user_id = ? AND status = 'pending'`,
+      [userId]
+    );
+
+    if (userPendingRows[0].cnt >= 3) {
+      return res.status(400).json({ success: false, message: 'คุณมีคำขอคืนเงินรอดำเนินการครบ 3 รายการแล้ว กรุณารอให้ admin ดำเนินการก่อน' });
     }
 
     // บันทึกรูปภาพ (ถ้ามี) — รองรับหลายรูป
