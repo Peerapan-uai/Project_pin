@@ -51,20 +51,21 @@
 
 ## งานที่ต้องทำต่อ
 
-### 🔴 Bug ต้องแก้ (จาก Code Review 2026-04-12)
-| # | ปัญหา | ไฟล์ | วิธีแก้ |
-|---|-------|------|---------|
-| 1 | **Admin cancel booking ไม่คืน charger เป็น available** | `routes/bookings.js:246-261` | เพิ่ม `UPDATE chargers SET status='available' WHERE charger_id = ?` หลัง UPDATE bookings |
-| 2 | **`GET /sessions/all` route ordering bug — Express จับ "all" เป็น `:id`** | `routes/sessions.js:402` | ย้าย `router.get('/all', ...)` ไว้ **ก่อน** `router.get('/:id/status', ...)` |
-| 3 | **Mongo Express เปิดไม่มี auth — ใครก็เข้า port 8082 แก้ข้อมูลได้** | `docker-compose.yml:50` | เปลี่ยน `ME_CONFIG_BASICAUTH: "false"` → `"true"` + ตั้ง username/password |
+### ✅ Bug แก้แล้ว (2026-04-19)
+| # | ปัญหา | ไฟล์ | สถานะ |
+|---|-------|------|-------|
+| 1 | **Admin cancel booking ไม่คืน charger** | `routes/bookings.js` | ✅ แก้แล้ว — SELECT charger_id ก่อน แล้ว UPDATE chargers SET status='available' |
+| 2 | **`GET /sessions/all` route ordering bug** | `routes/sessions.js` | ✅ ไม่ใช่ bug จริง — `/:id/status` ต้อง 2 segment ไม่ชนกับ `/all` |
+| 3 | **Mongo Express ไม่มี auth** | `docker-compose.yml:50` | 🟡 ยังไม่แก้ — ค่อยทำก็ได้ |
+| 4 | **server.js require path ผิด** `'./routes   auth'` | `server.js:18` | ✅ แก้แล้ว → `'./routes/auth'` |
 
-### 🟡 Frontend Admin ที่ยังไม่มี (Backend เสร็จหมดแล้ว แต่ยังไม่มี UI)
-| # | หน้าที่ต้องทำ | API ที่พร้อมแล้ว | หมายเหตุ |
-|---|--------------|-----------------|---------|
-| 1 | **Wallet Management UI** — ดูยอด/ประวัติ/ปรับยอด/freeze wallet ของ user | 6 endpoints ใน `routes/admin/wallet.js` | ยังไม่มีหน้า admin เลย |
-| 2 | **Refund Approval UI** — ✅ **เสร็จแล้ว** `frontend/src/pages/admin/RefundManagePage.jsx` | `GET/POST /api/admin/refunds` | ดู section "ระบบ Refund Request" ด้านล่าง |
-| 3 | **Reports / CSV Export UI** — แสดงกราฟรายได้ สถิติ + ปุ่ม export CSV/PDF | 6 endpoints ใน `routes/admin/reports.js` | ยังไม่มีหน้า admin |
-| 4 | **PDF Invoice ปุ่มดาวน์โหลด** — เพิ่มปุ่มใน PaymentsPage ให้ admin กดดาวน์โหลด invoice | `GET /admin/payments/:id/invoice` | ยังไม่มีปุ่มใน UI |
+### ✅ Frontend Admin — เสร็จหมดแล้ว
+| # | หน้า | สถานะ |
+|---|------|-------|
+| 1 | Wallet Management UI | ✅ |
+| 2 | Refund Approval UI | ✅ เพิ่ม predefined reject reasons + custom approve modal (2026-04-19) |
+| 3 | Reports / CSV Export UI | ✅ |
+| 4 | PDF Invoice ปุ่มดาวน์โหลด | ✅ |
 
 ---
 

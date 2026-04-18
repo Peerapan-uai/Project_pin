@@ -2,14 +2,25 @@ import { useState, useEffect } from 'react'
 import api, { BASE_URL } from '../../utils/api'
 import { FaUndo, FaCheck, FaTimes, FaImage } from 'react-icons/fa'
 
+const REJECT_PRESETS = [
+  'ตรวจสอบแล้วระบบบันทึกว่าชาร์จสำเร็จครบถ้วน',
+  'หลักฐานที่แนบมาไม่เพียงพอหรือไม่ชัดเจน',
+  'เกินระยะเวลา 7 วันนับจากวันชาร์จ',
+  'ไม่เข้าเงื่อนไขการขอคืนเงิน',
+  'คำขอซ้ำกับที่เคยดำเนินการแล้ว',
+  'อื่นๆ',
+]
+
 export default function RefundManagePage() {
-  const [refunds, setRefunds]           = useState([])
-  const [loading, setLoading]           = useState(true)
-  const [processing, setProcessing]     = useState(null)
-  const [rejectModal, setRejectModal]   = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [imageModal, setImageModal]     = useState(null)
-  const [filterStatus, setFilterStatus] = useState('pending')
+  const [refunds, setRefunds]             = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [processing, setProcessing]       = useState(null)
+  const [rejectModal, setRejectModal]     = useState(null)   // request_id
+  const [rejectPreset, setRejectPreset]   = useState('')
+  const [rejectCustom, setRejectCustom]   = useState('')
+  const [approveModal, setApproveModal]   = useState(null)   // refund object
+  const [imageModal, setImageModal]       = useState(null)
+  const [filterStatus, setFilterStatus]   = useState('pending')
 
   const fetchRefunds = () => {
     setLoading(true)
@@ -21,21 +32,23 @@ export default function RefundManagePage() {
 
   useEffect(() => { fetchRefunds() }, [filterStatus])
 
-  const handleApprove = (requestId) => {
-    if (!window.confirm('อนุมัติคืนเงินให้ผู้ใช้คนนี้?')) return
-    setProcessing(requestId)
-    api.post(`/api/admin/refunds/${requestId}/approve`)
-      .then(() => fetchRefunds())
+  const handleApprove = () => {
+    if (!approveModal) return
+    setProcessing(approveModal.request_id)
+    api.post(`/api/admin/refunds/${approveModal.request_id}/approve`)
+      .then(() => { setApproveModal(null); fetchRefunds() })
       .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setProcessing(null))
   }
 
   const handleReject = () => {
+    const reason = rejectPreset === 'อื่นๆ' ? rejectCustom : rejectPreset
     setProcessing(rejectModal)
-    api.post(`/api/admin/refunds/${rejectModal}/reject`, { reason: rejectReason })
+    api.post(`/api/admin/refunds/${rejectModal}/reject`, { reason })
       .then(() => {
         setRejectModal(null)
-        setRejectReason('')
+        setRejectPreset('')
+        setRejectCustom('')
         fetchRefunds()
       })
       .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
@@ -103,7 +116,7 @@ export default function RefundManagePage() {
                 {filterStatus === 'pending' && (
                   <div className="flex gap-2 flex-shrink-0">
                     <button
-                      onClick={() => handleApprove(rr.request_id)}
+                      onClick={() => setApproveModal(rr)}
                       disabled={processing === rr.request_id}
                       className="flex items-center gap-1.5 px-3 py-2 bg-green-500 text-white rounded-xl text-xs font-semibold hover:bg-green-600 disabled:opacity-50"
                     >
@@ -111,7 +124,7 @@ export default function RefundManagePage() {
                       {processing === rr.request_id ? 'กำลังดำเนินการ...' : 'Approve'}
                     </button>
                     <button
-                      onClick={() => { setRejectModal(rr.request_id); setRejectReason('') }}
+                      onClick={() => { setRejectModal(rr.request_id); setRejectPreset(''); setRejectCustom('') }}
                       disabled={processing === rr.request_id}
                       className="flex items-center gap-1.5 px-3 py-2 bg-red-500 text-white rounded-xl text-xs font-semibold hover:bg-red-600 disabled:opacity-50"
                     >
@@ -143,6 +156,40 @@ export default function RefundManagePage() {
         )}
       </div>
 
+      {/* Approve Modal */}
+      {approveModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันอนุมัติคืนเงิน</h2>
+              <button onClick={() => setApproveModal(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-3">
+              <div className="bg-gray-50 rounded-xl p-4 space-y-1.5 text-sm">
+                <p className="font-semibold text-gray-800">{approveModal.first_name} {approveModal.last_name}</p>
+                <p className="text-gray-500 text-xs">{approveModal.email}</p>
+                <p className="font-bold text-green-600 text-lg">{Number(approveModal.amount).toFixed(2)} ฿</p>
+                <p className="text-gray-700">{approveModal.title}</p>
+                {approveModal.reason && <p className="text-gray-500 text-xs">{approveModal.reason}</p>}
+              </div>
+              <p className="text-sm text-gray-600">เงินจำนวน <span className="font-bold text-green-600">{Number(approveModal.amount).toFixed(2)} ฿</span> จะถูกโอนเข้า wallet ของผู้ใช้ทันที</p>
+              <div className="flex gap-3 pt-1">
+                <button onClick={() => setApproveModal(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleApprove}
+                  disabled={processing === approveModal.request_id}
+                  className="flex-1 py-2.5 bg-green-500 text-white rounded-xl text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
+                >
+                  {processing === approveModal.request_id ? 'กำลังดำเนินการ...' : 'ยืนยันอนุมัติ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Reject Modal */}
       {rejectModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
@@ -155,14 +202,32 @@ export default function RefundManagePage() {
             </div>
             <div className="p-6 space-y-4">
               <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">เหตุผล (optional)</label>
-                <textarea
-                  value={rejectReason}
-                  onChange={(e) => setRejectReason(e.target.value)}
-                  rows={3}
-                  placeholder="ระบุเหตุผลที่ปฏิเสธ..."
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-                />
+                <label className="text-xs font-medium text-gray-600 mb-2 block">เหตุผลที่ปฏิเสธ</label>
+                <div className="space-y-2">
+                  {REJECT_PRESETS.map((preset) => (
+                    <label key={preset} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl hover:bg-gray-50 border border-transparent has-[:checked]:border-red-200 has-[:checked]:bg-red-50">
+                      <input
+                        type="radio"
+                        name="rejectPreset"
+                        value={preset}
+                        checked={rejectPreset === preset}
+                        onChange={() => { setRejectPreset(preset); setRejectCustom('') }}
+                        className="accent-red-500"
+                      />
+                      <span className="text-sm text-gray-700">{preset}</span>
+                    </label>
+                  ))}
+                </div>
+                {rejectPreset === 'อื่นๆ' && (
+                  <textarea
+                    value={rejectCustom}
+                    onChange={(e) => setRejectCustom(e.target.value)}
+                    rows={3}
+                    placeholder="ระบุเหตุผลเพิ่มเติม..."
+                    autoFocus
+                    className="mt-3 w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-red-300 resize-none"
+                  />
+                )}
               </div>
               <div className="flex gap-3">
                 <button
@@ -173,7 +238,7 @@ export default function RefundManagePage() {
                 </button>
                 <button
                   onClick={handleReject}
-                  disabled={processing === rejectModal}
+                  disabled={processing === rejectModal || !rejectPreset || (rejectPreset === 'อื่นๆ' && !rejectCustom.trim())}
                   className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
                 >
                   {processing === rejectModal ? 'กำลังดำเนินการ...' : 'ยืนยันปฏิเสธ'}

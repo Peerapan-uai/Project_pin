@@ -7,13 +7,16 @@ const auth = require('../../middleware/auth')
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
     try {
     const status = req.query.status || 'pending'
-    const [rows] = await pool.query(` select rr.request_id ,  rr.user_id ,	rr.reason	,rr.image_url ,	rr.status , rr.reviewed_by , p.payment_id , 
-    p.amount , p.method ,  u.first_name , u.last_name , u.email 
-    from refund_requests rr
-    join payments p on rr.payment_id = p.payment_id
-    join users u  on rr.user_id = u.user_id
-    where rr.status = ?
-    order by rr.created_at DESC`, [status])
+    const [rows] = await pool.query(
+      `SELECT rr.request_id, rr.user_id, rr.title, rr.reason, rr.image_url,
+              rr.status, rr.reviewed_by, rr.created_at,
+              p.payment_id, p.amount, p.method,
+              u.first_name, u.last_name, u.email
+       FROM refund_requests rr
+       JOIN payments p ON rr.payment_id = p.payment_id
+       JOIN users u ON rr.user_id = u.user_id
+       WHERE rr.status = ?
+       ORDER BY rr.created_at DESC`, [status])
 
      return res.json({ refund_request: rows })
    } catch (err) {

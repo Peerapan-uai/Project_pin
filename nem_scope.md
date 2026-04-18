@@ -21,6 +21,17 @@
 | 1 | ~~payments refund คืนเงินเข้า wallet~~ | `routes/payments.js` | ✅ ทำเสร็จแล้ว (มี refund + refund-request + คืน wallet ครบ) |
 | 2 | เปลี่ยน PromptPay QR → Omise webhook (ต้องสมัคร ngrok) | `routes/wallet.js` | 🔜 ทำทีหลัง |
 | 3 | Performance optimization (4 จุด — ดูตารางด้านล่าง) | หลายไฟล์ | ⏳ ไม่เร่ง |
+| 4 | **แสดงสถานะ Refund ใน PaymentHistoryPage** — badge pending/approved/rejected + ซ่อนปุ่ม "ขอคืนเงิน" ถ้ายื่นไปแล้ว | `pages/user/PaymentHistoryPage.jsx` | ⏳ ต้องทำ |
+
+### ✅ BE Refund ฝั่ง user ครบแล้ว (ไม่ต้องทำเพิ่ม)
+| endpoint | หมายเหตุ |
+|----------|---------|
+| `POST /api/payments/:id/refund-request` | user ยื่นคำขอ (title, reason, images) — ✅ |
+| `GET /api/payments/history` | LEFT JOIN refund_requests → ได้ `refund_status`, `refund_request_id` ใน response แล้ว — ✅ |
+| notification approve | admin อนุมัติ → user ได้รับ "คำขอคืนเงินอนุมัติแล้ว + เงินเข้า wallet" — ✅ |
+| notification reject | admin ปฏิเสธ → user ได้รับ "คำขอคืนเงินถูกปฏิเสธ + เหตุผล" — ✅ |
+
+> BE ไม่มีอะไรค้าง — nem ต้องทำแค่ **FE แสดง refund_status badge** ใน PaymentHistoryPage
 
 ### แก้ไขจาก Code Review (2026-04-12)
 | # | ปัญหา | ไฟล์ | สถานะ |
