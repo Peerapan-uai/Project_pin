@@ -1,5 +1,4 @@
-import { useState, useEffect } from 'react'
-import { NavLink, useNavigate, useLocation } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import {
   FaTachometerAlt,
   FaBuilding,
@@ -14,9 +13,10 @@ import {
   FaUndo,
   FaWallet,
   FaChartBar,
+  FaRecycle,
 } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
-import api from '../utils/api'
+import { useNotifications } from '../context/NotificationContext'
 
 const navItems = [
   { to: '/admin/dashboard',     label: 'แดชบอร์ด',           Icon: FaTachometerAlt },
@@ -31,21 +31,13 @@ const navItems = [
   { to: '/admin/wallet',        label: 'จัดการ Wallet',       Icon: FaWallet },
   { to: '/admin/reports',       label: 'รายงาน',              Icon: FaChartBar },
   { to: '/admin/notifications', label: 'แจ้งเตือน',          Icon: FaBell },
+  { to: '/admin/trash',         label: 'Recycle Bin',         Icon: FaRecycle },
 ]
 
 export default function Sidebar() {
   const navigate = useNavigate()
-  const location = useLocation()
   const { logout } = useAuth()
-  const [unreadCount, setUnreadCount] = useState(0)
-
-  useEffect(() => {
-    api.get('/api/notifications')
-      .then((res) => {
-        setUnreadCount(res.data.unread_count ?? 0)
-      })
-      .catch(() => {})
-  }, [location.pathname])
+  const { unreadCount } = useNotifications()
 
   const handleLogout = () => {
     logout()

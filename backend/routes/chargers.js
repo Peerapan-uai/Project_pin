@@ -37,6 +37,7 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
       `SELECT c.*, s.name AS station_name
        FROM chargers c
        JOIN stations s ON c.station_id = s.station_id
+       where c.deleted_at IS NULL
        ORDER BY c.station_id ASC, c.charger_id ASC`
     );
     return res.status(200).json(rows);
@@ -50,7 +51,7 @@ router.get('/', auth, roleCheck('admin'), async (req, res) => {
 router.get('/station/:stationId', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM chargers WHERE station_id = ? ORDER BY charger_id ASC',
+      'SELECT * FROM chargers WHERE station_id = ? AND deleted_at IS NULL ORDER BY charger_id ASC',
       [req.params.stationId]
     );
     return res.status(200).json(rows);
@@ -85,7 +86,7 @@ router.get('/station/:stationId', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT * FROM chargers WHERE charger_id = ?',
+      'SELECT * FROM chargers WHERE charger_id = ? AND deleted_at IS NULL',
       [req.params.id]
     );
 
@@ -300,7 +301,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
 router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [result] = await pool.query(
-      'DELETE FROM chargers WHERE charger_id = ?',
+      'update chargers set deleted_at = NOW() where charger_id = ? and deleted_at IS NULL',
       [req.params.id]
     );
 
@@ -314,5 +315,25 @@ router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
     return res.status(500).json({ message: 'Server error deleting charger.' });
   }
 });
+
+///lalla  PATCH /api/chargers/:id/restore — Admin: restore soft-deleted charger
+router.patch('/:id/restore', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE chargers SET deleted_at = NULL WHERE charger_id = ? AND deleted_at IS NOT NULL',
+      [req.params.id]
+    )
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: 'ไม่พบใน trash' })
+    return res.json({ message: 'Restore สำเร็จ' })
+  } catch (err) {
+    console.error('Restore charger error:', err)
+    return res.status(500).json({ message: 'Server error' })
+  }
+})
+
+
+
+
 
 module.exports = router;

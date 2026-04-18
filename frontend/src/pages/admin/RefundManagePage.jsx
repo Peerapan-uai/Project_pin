@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import api, { BASE_URL } from '../../utils/api'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
 import { FaUndo, FaCheck, FaTimes, FaImage } from 'react-icons/fa'
 
 const REJECT_PRESETS = [
@@ -12,6 +14,7 @@ const REJECT_PRESETS = [
 ]
 
 export default function RefundManagePage() {
+  const toast = useToast()
   const [refunds, setRefunds]             = useState([])
   const [loading, setLoading]             = useState(true)
   const [processing, setProcessing]       = useState(null)
@@ -37,7 +40,7 @@ export default function RefundManagePage() {
     setProcessing(approveModal.request_id)
     api.post(`/api/admin/refunds/${approveModal.request_id}/approve`)
       .then(() => { setApproveModal(null); fetchRefunds() })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setProcessing(null))
   }
 
@@ -51,7 +54,7 @@ export default function RefundManagePage() {
         setRejectCustom('')
         fetchRefunds()
       })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setProcessing(null))
   }
 
@@ -65,15 +68,15 @@ export default function RefundManagePage() {
           <h1 className="text-2xl font-bold text-gray-900">คำขอคืนเงิน</h1>
           <p className="text-gray-500 text-sm mt-0.5">{refunds.length} รายการ</p>
         </div>
-        <select
+        <Select
           value={filterStatus}
-          onChange={(e) => setFilterStatus(e.target.value)}
-          className="border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="pending">รอดำเนินการ</option>
-          <option value="approved">อนุมัติแล้ว</option>
-          <option value="rejected">ปฏิเสธแล้ว</option>
-        </select>
+          onChange={(v) => setFilterStatus(v)}
+          options={[
+            { value: 'pending', label: 'รอดำเนินการ' },
+            { value: 'approved', label: 'อนุมัติแล้ว' },
+            { value: 'rejected', label: 'ปฏิเสธแล้ว' },
+          ]}
+        />
       </div>
 
       {/* รายการ */}

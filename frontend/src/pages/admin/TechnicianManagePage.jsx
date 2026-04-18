@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
 import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch, FaTrash } from 'react-icons/fa'
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '', primary_skill: '' }
@@ -24,17 +26,20 @@ const TECH_STATUS_CONFIG = {
 }
 
 export default function TechnicianManagePage() {
-  const [technicians, setTechnicians] = useState([])
-  const [tickets, setTickets]         = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [showModal, setShowModal]     = useState(false)
-  const [editTech, setEditTech]       = useState(null)
-  const [form, setForm]               = useState(EMPTY_FORM)
-  const [editForm, setEditForm]       = useState(EMPTY_FORM)
-  const [saving, setSaving]           = useState(false)
-  const [error, setError]             = useState('')
-  const [editError, setEditError]     = useState('')
-  const [search, setSearch]           = useState('')
+  const toast = useToast()
+  const [technicians, setTechnicians]     = useState([])
+  const [tickets, setTickets]             = useState([])
+  const [loading, setLoading]             = useState(true)
+  const [showModal, setShowModal]         = useState(false)
+  const [editTech, setEditTech]           = useState(null)
+  const [form, setForm]                   = useState(EMPTY_FORM)
+  const [editForm, setEditForm]           = useState(EMPTY_FORM)
+  const [saving, setSaving]               = useState(false)
+  const [error, setError]                 = useState('')
+  const [editError, setEditError]         = useState('')
+  const [search, setSearch]               = useState('')
+  const [confirmDeleteTech, setConfirmDeleteTech] = useState(null)
+  const [confirmPwdChange, setConfirmPwdChange]   = useState(null)  // { tech, payload }
 
   const fetchData = () => {
     setLoading(true)
@@ -57,15 +62,15 @@ export default function TechnicianManagePage() {
 
   const openEdit = (tech) => {
     setEditTech(tech)
-    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '', primary_skill: tech.primary_skill ?? '' })
+    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '', confirm_password: '', primary_skill: tech.primary_skill ?? '' })
     setEditError('')
   }
 
-  const handleDelete = (tech) => {
-    if (!window.confirm(`ลบช่าง ${tech.first_name} ${tech.last_name} ออกจากระบบ?`)) return
-    api.delete(`/api/users/${tech.user_id}`)
-      .then(() => fetchData())
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+  const handleDelete = () => {
+    if (!confirmDeleteTech) return
+    api.delete(`/api/users/${confirmDeleteTech.user_id}`)
+      .then(() => { setConfirmDeleteTech(null); fetchData(); toast.success('ลบช่างสำเร็จ') })
+      .catch((err) => { setConfirmDeleteTech(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
   const closeEdit = () => setEditTech(null)
 
@@ -75,9 +80,39 @@ export default function TechnicianManagePage() {
       setEditError('กรุณากรอกชื่อและนามสกุล')
       return
     }
+    if (editForm.password && editForm.password !== editForm.confirm_password) {
+      setEditError('รหัสผ่านใหม่ไม่ตรงกัน')
+      return
+    }
+    if (editForm.password && editForm.password.length < 6) {
+      setEditError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
+      return
+    }
+    const payload = {
+      first_name: editForm.first_name,
+      last_name: editForm.last_name,
+      phone: editForm.phone,
+      primary_skill: editForm.primary_skill,
+      ...(editForm.password ? { password: editForm.password } : {}),
+    }
+    if (editForm.password) {
+      setConfirmPwdChange({ tech: editTech, payload })
+      return
+    }
     setSaving(true)
-    api.put(`/api/users/${editTech.user_id}`, editForm)
-      .then(() => { closeEdit(); fetchData() })
+    api.put(`/api/users/${editTech.user_id}`, payload)
+      .then(() => { closeEdit(); fetchData(); toast.success('แก้ไขข้อมูลช่างสำเร็จ') })
+      .catch((err) => setEditError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setSaving(false))
+  }
+
+  const handleEditConfirmed = () => {
+    if (!confirmPwdChange) return
+    const { tech, payload } = confirmPwdChange
+    setConfirmPwdChange(null)
+    setSaving(true)
+    api.put(`/api/users/${tech.user_id}`, payload)
+      .then(() => { closeEdit(); fetchData(); toast.success('แก้ไขข้อมูลช่างสำเร็จ') })
       .catch((err) => setEditError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setSaving(false))
   }
@@ -162,7 +197,7 @@ export default function TechnicianManagePage() {
                   <button onClick={() => openEdit(t)} className="p-2 text-blue-500 hover:bg-blue-50 rounded-lg" title="แก้ไขข้อมูล">
                     <FaEdit size={15} />
                   </button>
-                  <button onClick={() => handleDelete(t)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg" title="ลบช่าง">
+                  <button onClick={() => setConfirmDeleteTech(t)} className="p-2 text-red-400 hover:bg-red-50 rounded-lg" title="ลบช่าง">
                     <FaTrash size={14} />
                   </button>
                 </div>
@@ -237,15 +272,11 @@ export default function TechnicianManagePage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
-                <select
+                <Select
                   value={editForm.primary_skill}
-                  onChange={(e) => setEditForm({ ...editForm, primary_skill: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                >
-                  {SKILL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setEditForm({ ...editForm, primary_skill: v })}
+                  options={SKILL_OPTIONS}
+                />
                 {!editForm.primary_skill && (
                   <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
                 )}
@@ -324,15 +355,11 @@ export default function TechnicianManagePage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
-                <select
+                <Select
                   value={form.primary_skill}
-                  onChange={(e) => setForm({ ...form, primary_skill: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                >
-                  {SKILL_OPTIONS.map((o) => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
+                  onChange={(v) => setForm({ ...form, primary_skill: v })}
+                  options={SKILL_OPTIONS}
+                />
                 {!form.primary_skill && (
                   <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
                 )}
@@ -346,6 +373,34 @@ export default function TechnicianManagePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Technician Modal */}
+      {confirmDeleteTech && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
+              <FaTrash size={18} className="text-red-500" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-gray-900 text-lg">ยืนยันลบช่าง</h3>
+              <p className="text-gray-500 text-sm mt-1">
+                <span className="font-semibold text-gray-700">{confirmDeleteTech.first_name} {confirmDeleteTech.last_name}</span>
+                {' '}จะถูกลบออกจากระบบถาวร
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteTech(null)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                ยกเลิก
+              </button>
+              <button onClick={handleDelete}
+                className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
+                ลบช่าง
+              </button>
+            </div>
           </div>
         </div>
       )}

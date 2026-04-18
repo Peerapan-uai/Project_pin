@@ -1,8 +1,11 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { FaBolt, FaBuilding, FaUsers, FaTicketAlt, FaClipboardList, FaExclamationTriangle, FaMoneyBillWave } from 'react-icons/fa'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
+import Select from '../../components/ui/Select'
+
+const POLL_INTERVAL = 10000
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -15,8 +18,17 @@ export default function DashboardPage() {
   const [filterDate, setFilterDate] = useState('')
   const [topStations, setTopStations] = useState([])
   const [todayRevenue, setTodayRevenue] = useState(0)
+  const intervalRef = useRef(null)
 
-  useEffect(() => {
+  const fetchTodayRevenue = useCallback(() => {
+    // ไม่ส่ง to_date → backend ใช้ new Date() (ตอนนี้) เป็น upper bound → รวมทั้งวันนี้
+    const today = new Date().toISOString().slice(0, 10)
+    api.get(`/api/admin/reports/revenue?period=daily&from_date=${today}`)
+      .then((res) => setTodayRevenue(res.data.summary?.total_revenue ?? 0))
+      .catch(() => {})
+  }, [])
+
+  const fetchAll = useCallback(() => {
     Promise.all([
       api.get('/api/users'),
       api.get('/api/stations'),
@@ -29,13 +41,10 @@ export default function DashboardPage() {
         setBookings(bookingsRes.data.bookings ?? [])
         setTickets(ticketsRes.data.tickets ?? [])
       })
-      .catch((err) => console.error(err))
+      .catch(() => {})
       .finally(() => setLoading(false))
 
-    const today = new Date().toISOString().slice(0, 10)
-    api.get(`/api/admin/reports/revenue?period=daily&from_date=${today}&to_date=${today}`)
-      .then((res) => setTodayRevenue(res.data.summary?.total_revenue ?? 0))
-      .catch(() => {})
+    fetchTodayRevenue()
 
     api.get('/api/admin/reports/stations')
       .then((res) => {
@@ -46,7 +55,18 @@ export default function DashboardPage() {
         setTopStations(sorted)
       })
       .catch(() => {})
-  }, [])
+  }, [fetchTodayRevenue])
+
+  useEffect(() => {
+    fetchAll()
+    intervalRef.current = setInterval(fetchAll, POLL_INTERVAL)
+    const onVisible = () => { if (document.visibilityState === 'visible') fetchAll() }
+    document.addEventListener('visibilitychange', onVisible)
+    return () => {
+      clearInterval(intervalRef.current)
+      document.removeEventListener('visibilitychange', onVisible)
+    }
+  }, [fetchAll])
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
@@ -89,16 +109,11 @@ export default function DashboardPage() {
           <p className="text-gray-500 text-sm">ภาพรวมระบบ EV Charger</p>
         </div>
         <div className="flex gap-3 flex-wrap">
-          <select
+          <Select
             value={filterStation}
-            onChange={(e) => setFilterStation(e.target.value)}
-            className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          >
-            <option value="all">ทุกสถานี</option>
-            {stations.map((s) => (
-              <option key={s.station_id} value={s.station_id}>{s.name}</option>
-            ))}
-          </select>
+            onChange={(v) => setFilterStation(v)}
+            options={[{ value: 'all', label: 'ทุกสถานี' }, ...stations.map((s) => ({ value: s.station_id, label: s.name }))]}
+          />
           <input
             type="date"
             value={filterDate}
@@ -134,7 +149,10 @@ export default function DashboardPage() {
       {/* Top 3 สถานีรายได้สูงสุด */}
       {topStations.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
-          <h2 className="font-bold text-gray-900 mb-5">Top 3 สถานีรายได้สูงสุด</h2>
+          <div className="mb-5">
+            <h2 className="font-bold text-gray-900">Top 3 สถานีรายได้สูงสุด</h2>
+            <p className="text-xs text-gray-400 mt-0.5">รายได้สะสมตลอดเวลา (ทุก payment ที่ผ่านมา)</p>
+          </div>
           <div className="space-y-4">
             {topStations.map((s, i) => {
               const barColors = ['bg-primary', 'bg-blue-400', 'bg-violet-400']

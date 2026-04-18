@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
 import { FaPlus, FaEdit, FaTrash, FaBolt, FaTimes } from 'react-icons/fa'
 
 const EMPTY_FORM = { charger_name: '', station_id: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
@@ -18,6 +20,7 @@ const STATUSES = [
 ]
 
 export default function ChargerManagePage() {
+  const toast = useToast()
   const [chargers, setChargers]           = useState([])
   const [stations, setStations]           = useState([])
   const [filterStation, setFilterStation] = useState('all')
@@ -27,6 +30,7 @@ export default function ChargerManagePage() {
   const [form, setForm]                   = useState(EMPTY_FORM)
   const [saving, setSaving]               = useState(false)
   const [formError, setFormError]         = useState('')
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null)
 
   const fetchAll = () => {
     setLoading(true)
@@ -44,11 +48,11 @@ export default function ChargerManagePage() {
 
   useEffect(() => { fetchAll() }, [])
 
-  const handleDelete = (id) => {
-    if (!window.confirm('ยืนยันการลบตู้ชาร์จนี้?')) return
-    api.delete(`/api/chargers/${id}`)
-      .then(() => fetchAll())
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+  const handleDelete = () => {
+    if (!confirmDeleteId) return
+    api.delete(`/api/chargers/${confirmDeleteId}`)
+      .then(() => { setConfirmDeleteId(null); fetchAll(); toast.success('ลบตู้ชาร์จสำเร็จ') })
+      .catch((err) => { setConfirmDeleteId(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   const openEdit = (c) => {
@@ -78,7 +82,7 @@ export default function ChargerManagePage() {
     }
     setSaving(true)
     api.put(`/api/chargers/${editCharger.charger_id}`, form)
-      .then(() => { setEditCharger(null); fetchAll() })
+      .then(() => { setEditCharger(null); fetchAll(); toast.success('แก้ไขตู้ชาร์จสำเร็จ') })
       .catch((err) => setFormError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setSaving(false))
   }
@@ -91,7 +95,7 @@ export default function ChargerManagePage() {
     }
     setSaving(true)
     api.post('/api/chargers', form)
-      .then(() => { setShowAdd(false); fetchAll() })
+      .then(() => { setShowAdd(false); fetchAll(); toast.success('เพิ่มตู้ชาร์จสำเร็จ') })
       .catch((err) => setFormError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setSaving(false))
   }
@@ -119,27 +123,30 @@ export default function ChargerManagePage() {
       </div>
       <div>
         <label className="text-xs font-medium text-gray-600 mb-1 block">สถานี *</label>
-        <select value={form.station_id} onChange={(e) => setForm({ ...form, station_id: e.target.value })}
-          className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-          <option value="">-- เลือกสถานี --</option>
-          {stationOptions.map((s) => <option key={s.station_id} value={s.station_id}>{s.name}</option>)}
-        </select>
+        <Select
+          value={form.station_id}
+          onChange={(v) => setForm({ ...form, station_id: v })}
+          placeholder="-- เลือกสถานี --"
+          options={stationOptions.map((s) => ({ value: s.station_id, label: s.name }))}
+        />
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภทหัวชาร์จ *</label>
-          <select value={form.connector_type} onChange={(e) => setForm({ ...form, connector_type: e.target.value })}
-            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-            <option value="">-- เลือก --</option>
-            {CONNECTOR_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-          </select>
+          <Select
+            value={form.connector_type}
+            onChange={(v) => setForm({ ...form, connector_type: v })}
+            placeholder="-- เลือก --"
+            options={CONNECTOR_TYPES}
+          />
         </div>
         <div>
           <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
-          <select value={form.status} onChange={(e) => setForm({ ...form, status: e.target.value })}
-            className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-            {STATUSES.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-          </select>
+          <Select
+            value={form.status}
+            onChange={(v) => setForm({ ...form, status: v })}
+            options={STATUSES}
+          />
         </div>
       </div>
       <div className="grid grid-cols-2 gap-3">
@@ -177,11 +184,11 @@ export default function ChargerManagePage() {
           <p className="text-gray-500 text-sm mt-0.5">ตู้ชาร์จทั้งหมด {chargers.length} ตู้</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
-          <select value={filterStation} onChange={(e) => setFilterStation(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-            <option value="all">ทุกสถานี</option>
-            {stationOptions.map((s) => <option key={s.station_id} value={s.station_id}>{s.name}</option>)}
-          </select>
+          <Select
+            value={filterStation}
+            onChange={(v) => setFilterStation(v)}
+            options={[{ value: 'all', label: 'ทุกสถานี' }, ...stationOptions.map((s) => ({ value: s.station_id, label: s.name }))]}
+          />
           <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200">
             <FaPlus size={12} /> เพิ่มตู้ชาร์จ
           </button>
@@ -231,7 +238,7 @@ export default function ChargerManagePage() {
                       <button onClick={() => openEdit(c)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg" title="แก้ไข">
                         <FaEdit size={14} />
                       </button>
-                      <button onClick={() => handleDelete(c.charger_id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg" title="ลบ">
+                      <button onClick={() => setConfirmDeleteId(c.charger_id)} className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg" title="ลบ">
                         <FaTrash size={14} />
                       </button>
                     </div>
@@ -265,6 +272,31 @@ export default function ChargerManagePage() {
               <button onClick={() => setShowAdd(false)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
             </div>
             <ChargerForm onSubmit={handleAddSubmit} title="เพิ่มตู้ชาร์จ" />
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Modal */}
+      {confirmDeleteId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 bg-red-100 rounded-2xl flex items-center justify-center mx-auto">
+              <FaTrash size={18} className="text-red-500" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-gray-900 text-lg">ยืนยันการลบ</h3>
+              <p className="text-gray-500 text-sm mt-1">ตู้ชาร์จนี้จะถูกลบออกจากระบบถาวร</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmDeleteId(null)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                ยกเลิก
+              </button>
+              <button onClick={handleDelete}
+                className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
+                ลบตู้ชาร์จ
+              </button>
+            </div>
           </div>
         </div>
       )}

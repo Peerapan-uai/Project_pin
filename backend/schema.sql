@@ -43,6 +43,7 @@ CREATE TABLE users (
   omise_customer_id VARCHAR(50)  DEFAULT NULL,
   wallet_frozen  TINYINT(1)     DEFAULT 0,
   freeze_reason  TEXT           DEFAULT NULL,
+  deleted_at    DATETIME        NULL DEFAULT NULL,
   PRIMARY KEY (user_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -105,6 +106,7 @@ CREATE TABLE stations (
   close_time  TIME            DEFAULT NULL,
   image       VARCHAR(500)    DEFAULT NULL,
   status      ENUM('active','inactive') NOT NULL DEFAULT 'active',
+  deleted_at  DATETIME        NULL DEFAULT NULL,
   PRIMARY KEY (station_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
@@ -121,6 +123,7 @@ CREATE TABLE chargers (
   status          ENUM('available','reserved','charging','out_of_service') NOT NULL DEFAULT 'available',
   temperature_celsius DECIMAL(5,2) DEFAULT NULL,
   qr_code         VARCHAR(500)    DEFAULT NULL,
+  deleted_at      DATETIME        NULL DEFAULT NULL,
   PRIMARY KEY (charger_id),
   CONSTRAINT fk_chargers_station FOREIGN KEY (station_id) REFERENCES stations (station_id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

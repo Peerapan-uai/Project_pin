@@ -1,8 +1,12 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
+import { useToast } from '../../context/ToastContext'
+import CalendarPicker from '../../components/ui/CalendarPicker'
+import Select from '../../components/ui/Select'
 import { FaDownload } from 'react-icons/fa'
 
 export default function ReportsPage() {
+  const toast = useToast()
   const [tab, setTab]                 = useState('revenue')
   const [revenue, setRevenue]         = useState([])
   const [stationStats, setStationStats] = useState([])
@@ -85,7 +89,7 @@ export default function ReportsPage() {
         document.body.removeChild(a)
         window.URL.revokeObjectURL(url)
       })
-      .catch(() => alert('Export ไม่สำเร็จ'))
+      .catch(() => toast.error('Export ไม่สำเร็จ'))
       .finally(() => setExporting(false))
   }
 
@@ -121,13 +125,11 @@ export default function ReportsPage() {
           <>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">จากวันที่</label>
-              <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <CalendarPicker value={fromDate} onChange={setFromDate} placeholder="เลือกวันเริ่มต้น" />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">ถึงวันที่</label>
-              <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <CalendarPicker value={toDate} onChange={setToDate} placeholder="เลือกวันสิ้นสุด" />
             </div>
           </>
         )}
@@ -136,22 +138,24 @@ export default function ReportsPage() {
           <>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">จัดกลุ่มตาม</label>
-              <select value={period} onChange={(e) => setPeriod(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                <option value="daily">รายวัน</option>
-                <option value="monthly">รายเดือน</option>
-                <option value="yearly">รายปี</option>
-              </select>
+              <Select
+                value={period}
+                onChange={(v) => setPeriod(v)}
+                options={[
+                  { value: 'daily', label: 'รายวัน' },
+                  { value: 'monthly', label: 'รายเดือน' },
+                  { value: 'yearly', label: 'รายปี' },
+                ]}
+              />
             </div>
             <div>
               <label className="text-xs font-medium text-gray-500 mb-1 block">สถานี</label>
-              <select value={revenueStation} onChange={(e) => setRevenueStation(e.target.value)}
-                className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                <option value="">ทุกสถานี</option>
-                {stationList.map((s) => (
-                  <option key={s.station_id} value={s.station_id}>{s.name}</option>
-                ))}
-              </select>
+              <Select
+                value={revenueStation}
+                onChange={(v) => setRevenueStation(v)}
+                placeholder="ทุกสถานี"
+                options={stationList.map((s) => ({ value: s.station_id, label: s.name }))}
+              />
             </div>
           </>
         )}
@@ -159,10 +163,11 @@ export default function ReportsPage() {
         {tab === 'comparison' && (
           <div>
             <label className="text-xs font-medium text-gray-500 mb-1 block">เปรียบเทียบ</label>
-            <select value={compareType} onChange={(e) => { setCompareType(e.target.value); fetchComparison(e.target.value) }}
-              className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-              {compareOptions.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-            </select>
+            <Select
+              value={compareType}
+              onChange={(v) => { setCompareType(v); fetchComparison(v) }}
+              options={compareOptions.map((o) => ({ value: o.v, label: o.l }))}
+            />
           </div>
         )}
 

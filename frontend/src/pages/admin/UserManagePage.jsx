@@ -1,12 +1,26 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaUser, FaBan, FaSearch, FaTrash } from 'react-icons/fa'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
+import { FaUser, FaBan, FaSearch, FaTrash, FaEdit, FaKey, FaTimes } from 'react-icons/fa'
+
+const EMPTY_EDIT_FORM = { first_name: '', last_name: '', phone: '', password: '', confirm_password: '' }
 
 export default function UserManagePage() {
-  const [users, setUsers]           = useState([])
-  const [search, setSearch]         = useState('')
+  const toast = useToast()
+  const [users, setUsers]               = useState([])
+  const [search, setSearch]             = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
-  const [loading, setLoading]       = useState(true)
+  const [loading, setLoading]           = useState(true)
+
+  const [editUser, setEditUser]         = useState(null)   // user object being edited
+  const [editForm, setEditForm]         = useState(EMPTY_EDIT_FORM)
+  const [editSaving, setEditSaving]     = useState(false)
+  const [editError, setEditError]       = useState('')
+
+  const [confirmDeleteUser, setConfirmDeleteUser] = useState(null)  // user object to delete
+  const [deleting, setDeleting]         = useState(false)
+  const [confirmPwdChange, setConfirmPwdChange] = useState(null)   // { user, payload } — double-confirm password
 
   const fetchUsers = () => {
     setLoading(true)
@@ -18,17 +32,82 @@ export default function UserManagePage() {
 
   useEffect(() => { fetchUsers() }, [])
 
+  const openEdit = (u) => {
+    setEditUser(u)
+    setEditForm({ first_name: u.first_name ?? '', last_name: u.last_name ?? '', phone: u.phone ?? '', password: '', confirm_password: '' })
+    setEditError('')
+  }
+  const closeEdit = () => { setEditUser(null); setEditError('') }
+
   const toggleBan = (user) => {
     api.patch(`/api/users/${user.user_id}/ban`, { is_banned: !user.is_banned })
-      .then(() => fetchUsers())
-      .catch((err) => console.error(err))
+      .then(() => { fetchUsers(); toast.success(user.is_banned ? 'ปลดแบนผู้ใช้สำเร็จ' : 'แบนผู้ใช้สำเร็จ') })
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
   }
 
-  const handleDelete = (user) => {
-    if (!window.confirm(`ลบผู้ใช้ "${user.first_name} ${user.last_name}" ออกจากระบบ?`)) return
-    api.delete(`/api/users/${user.user_id}`)
-      .then(() => fetchUsers())
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+  const handleEditSubmit = (e) => {
+    e.preventDefault()
+    if (!editForm.first_name || !editForm.last_name) {
+      setEditError('กรุณากรอกชื่อและนามสกุล')
+      return
+    }
+    if (editForm.password && editForm.password !== editForm.confirm_password) {
+      setEditError('รหัสผ่านใหม่ไม่ตรงกัน')
+      return
+    }
+    if (editForm.password && editForm.password.length < 6) {
+      setEditError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
+      return
+    }
+    const payload = {
+      first_name: editForm.first_name,
+      last_name: editForm.last_name,
+      phone: editForm.phone,
+      ...(editForm.password ? { password: editForm.password } : {}),
+    }
+    // ถ้ามีการเปลี่ยนรหัสผ่าน → แสดง double-confirm modal ก่อน
+    if (editForm.password) {
+      setConfirmPwdChange({ user: editUser, payload })
+      return
+    }
+    setEditSaving(true)
+    api.put(`/api/users/${editUser.user_id}`, payload)
+      .then(() => {
+        closeEdit()
+        fetchUsers()
+        toast.success('แก้ไขข้อมูลผู้ใช้สำเร็จ')
+      })
+      .catch((err) => setEditError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setEditSaving(false))
+  }
+
+  const handleEditConfirmed = () => {
+    if (!confirmPwdChange) return
+    const { user, payload } = confirmPwdChange
+    setConfirmPwdChange(null)
+    setEditSaving(true)
+    api.put(`/api/users/${user.user_id}`, payload)
+      .then(() => {
+        closeEdit()
+        fetchUsers()
+        toast.success('แก้ไขข้อมูลผู้ใช้สำเร็จ')
+      })
+      .catch((err) => setEditError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setEditSaving(false))
+  }
+
+  const handleDelete = () => {
+    if (!confirmDeleteUser) return
+    setDeleting(true)
+    api.delete(`/api/users/${confirmDeleteUser.user_id}`)
+      .then(() => {
+        setConfirmDeleteUser(null)
+        closeEdit()
+        fetchUsers()
+        toast.success('ลบผู้ใช้สำเร็จ')
+      })
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setDeleting(false))
   }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -57,17 +136,18 @@ export default function UserManagePage() {
               className="pl-9 pr-4 py-2 w-52 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
             />
           </div>
-          <select
+          <Select
             value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          >
-            <option value="all">ทุกสถานะ</option>
-            <option value="active">ปกติ</option>
-            <option value="banned">ถูกแบน</option>
-          </select>
+            onChange={(v) => setFilterStatus(v)}
+            options={[
+              { value: 'all', label: 'ทุกสถานะ' },
+              { value: 'active', label: 'ปกติ' },
+              { value: 'banned', label: 'ถูกแบน' },
+            ]}
+          />
         </div>
       </div>
+
       <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <table className="w-full text-sm">
           <thead className="bg-gray-50 border-b border-gray-100">
@@ -86,9 +166,18 @@ export default function UserManagePage() {
                     <div className="w-9 h-9 bg-primary/10 rounded-full flex items-center justify-center flex-shrink-0">
                       <FaUser size={14} className="text-primary" />
                     </div>
-                    <div>
-                      <p className="font-medium text-gray-900">{u.first_name} {u.last_name}</p>
-                      <p className="text-xs text-gray-400">{u.email}</p>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="min-w-0">
+                        <p className="font-medium text-gray-900">{u.first_name} {u.last_name}</p>
+                        <p className="text-xs text-gray-400">{u.email}</p>
+                      </div>
+                      <button
+                        onClick={() => openEdit(u)}
+                        className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                        title="แก้ไขผู้ใช้"
+                      >
+                        <FaEdit size={12} />
+                      </button>
                     </div>
                   </div>
                 </td>
@@ -99,26 +188,17 @@ export default function UserManagePage() {
                   </span>
                 </td>
                 <td className="px-5 py-4 text-center">
-                  <div className="flex items-center justify-center gap-2">
-                    <button
-                      onClick={() => toggleBan(u)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                        u.is_banned
-                          ? 'bg-green-50 text-green-600 hover:bg-green-100'
-                          : 'bg-red-50 text-red-500 hover:bg-red-100'
-                      }`}
-                    >
-                      <FaBan size={11} />
-                      {u.is_banned ? 'ปลดแบน' : 'แบน'}
-                    </button>
-                    <button
-                      onClick={() => handleDelete(u)}
-                      className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg"
-                      title="ลบผู้ใช้"
-                    >
-                      <FaTrash size={13} />
-                    </button>
-                  </div>
+                  <button
+                    onClick={() => toggleBan(u)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors mx-auto ${
+                      u.is_banned
+                        ? 'bg-green-50 text-green-600 hover:bg-green-100'
+                        : 'bg-red-50 text-red-500 hover:bg-red-100'
+                    }`}
+                  >
+                    <FaBan size={11} />
+                    {u.is_banned ? 'ปลดแบน' : 'แบน'}
+                  </button>
                 </td>
               </tr>
             ))}
@@ -128,6 +208,186 @@ export default function UserManagePage() {
           <div className="text-center py-12 text-gray-400 text-sm">ไม่พบผู้ใช้</div>
         )}
       </div>
+
+      {/* Edit User Modal */}
+      {editUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <div>
+                <h2 className="font-bold text-gray-900">แก้ไขผู้ใช้</h2>
+                <p className="text-xs text-gray-400 mt-0.5">{editUser.email}</p>
+              </div>
+              <button onClick={closeEdit} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <form onSubmit={handleEditSubmit} className="p-6 space-y-4">
+              {editError && (
+                <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{editError}</p>
+              )}
+
+              {/* Name fields */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">ชื่อ *</label>
+                  <input
+                    value={editForm.first_name}
+                    onChange={(e) => setEditForm({ ...editForm, first_name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="ชื่อ"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">นามสกุล *</label>
+                  <input
+                    value={editForm.last_name}
+                    onChange={(e) => setEditForm({ ...editForm, last_name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="นามสกุล"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">เบอร์โทร</label>
+                <input
+                  value={editForm.phone}
+                  onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="0812345678"
+                />
+              </div>
+
+              {/* Password change section */}
+              <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <FaKey size={12} className="text-blue-500" />
+                  <p className="text-xs font-semibold text-blue-700">เปลี่ยนรหัสผ่าน (ไม่บังคับ)</p>
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่านใหม่</label>
+                  <input
+                    type="password"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
+                    autoComplete="new-password"
+                  />
+                </div>
+                {editForm.password && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">ยืนยันรหัสผ่านใหม่</label>
+                    <input
+                      type="password"
+                      value={editForm.confirm_password}
+                      onChange={(e) => setEditForm({ ...editForm, confirm_password: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      placeholder="ยืนยันรหัสผ่านใหม่"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* Action buttons */}
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={closeEdit} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={editSaving}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
+                >
+                  {editSaving ? 'กำลังบันทึก...' : 'บันทึก'}
+                </button>
+              </div>
+
+              {/* Delete section — separated from save */}
+              <div className="border-t border-gray-100 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteUser(editUser)}
+                  className="w-full flex items-center justify-center gap-2 py-2.5 border border-red-200 bg-red-50 text-red-500 rounded-xl text-sm font-medium hover:bg-red-100 transition-colors"
+                >
+                  <FaTrash size={12} /> ลบผู้ใช้นี้ออกจากระบบ
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Double-Confirm Password Change Modal */}
+      {confirmPwdChange && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันเปลี่ยนรหัสผ่าน</h2>
+              <button onClick={() => setConfirmPwdChange(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <FaKey size={16} className="text-amber-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {confirmPwdChange.user.first_name} {confirmPwdChange.user.last_name}
+                  </p>
+                  <p className="text-xs text-gray-500">{confirmPwdChange.user.email}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                รหัสผ่านของผู้ใช้จะถูกเปลี่ยนทันที ผู้ใช้จะต้องใช้รหัสผ่านใหม่ในการ login ครั้งถัดไป
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmPwdChange(null)}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleEditConfirmed}
+                  className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600"
+                >
+                  ยืนยันเปลี่ยนรหัสผ่าน
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete User Modal */}
+      {confirmDeleteUser && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันลบผู้ใช้</h2>
+              <button onClick={() => setConfirmDeleteUser(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="bg-red-50 rounded-xl p-4 space-y-1">
+                <p className="font-semibold text-gray-900 text-sm">{confirmDeleteUser.first_name} {confirmDeleteUser.last_name}</p>
+                <p className="text-xs text-gray-500">{confirmDeleteUser.email}</p>
+              </div>
+              <p className="text-sm text-gray-600">การลบผู้ใช้ไม่สามารถยกเลิกได้ ข้อมูลทั้งหมดจะหายไปถาวร</p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDeleteUser(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleDelete}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600 disabled:opacity-50"
+                >
+                  {deleting ? 'กำลังลบ...' : 'ยืนยันลบ'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

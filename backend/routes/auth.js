@@ -125,7 +125,7 @@ router.post('/login', async (req, res) => {
 
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, first_name, last_name, email, password_hash, role, is_banned FROM users WHERE email = ?',
+      'SELECT user_id, first_name, last_name, email, password_hash, role, is_banned FROM users WHERE email = ? and deleted_at IS NULL',
       [email]
     );
 

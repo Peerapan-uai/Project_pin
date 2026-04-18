@@ -1,13 +1,20 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
+import { useToast } from '../../context/ToastContext'
+import DateTimePicker from '../../components/ui/DateTimePicker'
+import Select from '../../components/ui/Select'
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes, FaSearch } from 'react-icons/fa'
 
 const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', scheduled_status: '', scheduled_status_at: '' }
 const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
 
 export default function StationManagePage() {
+  const toast = useToast()
   const [stations, setStations]         = useState([])
+  const [confirmDeleteStation, setConfirmDeleteStation] = useState(null)
+  const [confirmToggleStation, setConfirmToggleStation] = useState(null)
+  const [confirmDeleteCharger, setConfirmDeleteCharger] = useState(null)
   const [search, setSearch]             = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [loading, setLoading]           = useState(true)
@@ -66,11 +73,11 @@ export default function StationManagePage() {
   }
   const closeModal = () => setShowModal(false)
 
-  const handleDelete = (id) => {
-    if (!window.confirm('ยืนยันการลบสถานีนี้?')) return
-    api.delete(`/api/stations/${id}`)
-      .then(() => fetchStations())
-      .catch((err) => console.error(err))
+  const handleDelete = () => {
+    if (!confirmDeleteStation) return
+    api.delete(`/api/stations/${confirmDeleteStation}`)
+      .then(() => { setConfirmDeleteStation(null); fetchStations(); toast.success('ลบสถานีสำเร็จ') })
+      .catch((err) => { setConfirmDeleteStation(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   const handleSubmit = (e) => {
@@ -90,15 +97,18 @@ export default function StationManagePage() {
       .finally(() => setSaving(false))
   }
 
-  const toggleStationStatus = (station) => {
+  const toggleStationStatus = () => {
+    if (!confirmToggleStation) return
+    const { station } = confirmToggleStation
     const newStatus = station.status === 'active' ? 'inactive' : 'active'
-    if (!window.confirm(`${newStatus === 'inactive' ? 'ปิด' : 'เปิด'}สถานี "${station.name}"?`)) return
     api.put(`/api/stations/${station.station_id}`, { ...station, status: newStatus })
       .then(() => {
+        setConfirmToggleStation(null)
         setChargerStation((prev) => prev ? { ...prev, status: newStatus } : prev)
         fetchStations()
+        toast.success(`${newStatus === 'inactive' ? 'ปิด' : 'เปิด'}สถานีสำเร็จ`)
       })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => { setConfirmToggleStation(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   const openChargerModal = (station) => {
@@ -126,14 +136,16 @@ export default function StationManagePage() {
     setChargerError('')
   }
 
-  const handleDeleteCharger = (id) => {
-    if (!window.confirm('ยืนยันการลบตู้ชาร์จนี้?')) return
-    api.delete(`/api/chargers/${id}`)
+  const handleDeleteCharger = () => {
+    if (!confirmDeleteCharger) return
+    api.delete(`/api/chargers/${confirmDeleteCharger}`)
       .then(() => {
-        setChargers((prev) => prev.filter((c) => c.charger_id !== id))
+        setConfirmDeleteCharger(null)
+        setChargers((prev) => prev.filter((c) => c.charger_id !== confirmDeleteCharger))
         fetchStations()
+        toast.success('ลบตู้ชาร์จสำเร็จ')
       })
-      .catch((err) => setChargerError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => { setConfirmDeleteCharger(null); setChargerError(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   const handleChargerSubmit = (e) => {
@@ -234,7 +246,9 @@ export default function StationManagePage() {
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600">ชื่อสถานี</th>
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">ที่อยู่</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ตู้ชาร์จ</th>
-              <th className="text-right px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">รายได้รวม</th>
+              <th className="text-right px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">
+                รายได้รวม<span className="font-normal text-xs text-gray-400 ml-1">(ยอดสะสมทุกช่วงเวลา)</span>
+              </th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">สถานะ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">จัดการ</th>
             </tr>
@@ -277,7 +291,7 @@ export default function StationManagePage() {
                     <button onClick={() => openChargerModal(s)} className="p-1.5 text-green-600 hover:bg-green-50 rounded-lg transition-colors" title="จัดการตู้ชาร์จ"><FaBolt size={14} /></button>
                     <button onClick={() => openEdit(s)} className="p-1.5 text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="แก้ไขสถานี"><FaEdit size={14} /></button>
                     <button
-                      onClick={() => handleDelete(s.station_id)}
+                      onClick={() => setConfirmDeleteStation(s.station_id)}
                       className="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition-colors"
                       title="ลบสถานี"
                     >
@@ -305,7 +319,7 @@ export default function StationManagePage() {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => toggleStationStatus(chargerStation)}
+                  onClick={() => setConfirmToggleStation({ station: chargerStation })}
                   className={`px-3 py-1.5 rounded-xl text-xs font-semibold border transition-colors ${
                     chargerStation.status === 'active'
                       ? 'border-red-200 bg-red-50 text-red-600 hover:bg-red-100'
@@ -341,7 +355,7 @@ export default function StationManagePage() {
                           <div className="flex items-center gap-2 flex-shrink-0">
                             <StatusBadge status={c.status} />
                             <button onClick={() => startEditCharger(c)} className="p-1.5 text-blue-500 hover:bg-blue-100 rounded-lg"><FaEdit size={13} /></button>
-                            <button onClick={() => handleDeleteCharger(c.charger_id)} className="p-1.5 text-red-400 hover:bg-red-100 rounded-lg"><FaTrash size={13} /></button>
+                            <button onClick={() => setConfirmDeleteCharger(c.charger_id)} className="p-1.5 text-red-400 hover:bg-red-100 rounded-lg"><FaTrash size={13} /></button>
                           </div>
                         </div>
                       ))}
@@ -365,17 +379,17 @@ export default function StationManagePage() {
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภทหัวชาร์จ *</label>
-                      <select
+                      <Select
                         value={chargerForm.connector_type}
-                        onChange={(e) => setChargerForm({ ...chargerForm, connector_type: e.target.value })}
-                        className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                      >
-                        <option value="">-- เลือก --</option>
-                        <option value="CCS">CCS (DC)</option>
-                        <option value="CHAdeMO">CHAdeMO (DC)</option>
-                        <option value="Type2">Type 2 (AC)</option>
-                        <option value="Type1">Type 1 (AC)</option>
-                      </select>
+                        onChange={(v) => setChargerForm({ ...chargerForm, connector_type: v })}
+                        placeholder="-- เลือก --"
+                        options={[
+                          { value: 'CCS', label: 'CCS (DC)' },
+                          { value: 'CHAdeMO', label: 'CHAdeMO (DC)' },
+                          { value: 'Type2', label: 'Type 2 (AC)' },
+                          { value: 'Type1', label: 'Type 1 (AC)' },
+                        ]}
+                      />
                     </div>
                     <div>
                       <label className="text-xs font-medium text-gray-600 mb-1 block">กำลัง (kW) *</label>
@@ -402,16 +416,16 @@ export default function StationManagePage() {
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
-                    <select
+                    <Select
                       value={chargerForm.status}
-                      onChange={(e) => setChargerForm({ ...chargerForm, status: e.target.value })}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    >
-                      <option value="available">ว่าง</option>
-                      <option value="reserved">จองแล้ว</option>
-                      <option value="charging">กำลังชาร์จ</option>
-                      <option value="out_of_service">ปิดซ่อม</option>
-                    </select>
+                      onChange={(v) => setChargerForm({ ...chargerForm, status: v })}
+                      options={[
+                        { value: 'available', label: 'ว่าง' },
+                        { value: 'reserved', label: 'จองแล้ว' },
+                        { value: 'charging', label: 'กำลังชาร์จ' },
+                        { value: 'out_of_service', label: 'ปิดซ่อม' },
+                      ]}
+                    />
                   </div>
                   <div className="flex gap-3">
                     {editingCharger && (
@@ -521,14 +535,14 @@ export default function StationManagePage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
-                <select
+                <Select
                   value={form.status}
-                  onChange={(e) => setForm({ ...form, status: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="active">active</option>
-                  <option value="inactive">inactive</option>
-                </select>
+                  onChange={(v) => setForm({ ...form, status: v })}
+                  options={[
+                    { value: 'active', label: 'active' },
+                    { value: 'inactive', label: 'inactive' },
+                  ]}
+                />
               </div>
               {/* ตั้งเวลาเปลี่ยนสถานะล่วงหน้า */}
               <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-3">
@@ -536,23 +550,22 @@ export default function StationManagePage() {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">เปลี่ยนเป็น</label>
-                    <select
+                    <Select
                       value={form.scheduled_status}
-                      onChange={(e) => setForm({ ...form, scheduled_status: e.target.value })}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-                    >
-                      <option value="">-- ไม่ตั้งเวลา --</option>
-                      <option value="active">active</option>
-                      <option value="inactive">inactive</option>
-                    </select>
+                      onChange={(v) => setForm({ ...form, scheduled_status: v })}
+                      placeholder="-- ไม่ตั้งเวลา --"
+                      options={[
+                        { value: 'active', label: 'active' },
+                        { value: 'inactive', label: 'inactive' },
+                      ]}
+                    />
                   </div>
                   <div>
                     <label className="text-xs font-medium text-gray-600 mb-1 block">เวลาที่จะเปลี่ยน</label>
-                    <input
-                      type="datetime-local"
+                    <DateTimePicker
                       value={form.scheduled_status_at}
-                      onChange={(e) => setForm({ ...form, scheduled_status_at: e.target.value })}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      onChange={(v) => setForm({ ...form, scheduled_status_at: v })}
+                      placeholder="เลือกวัน & เวลาที่จะเปลี่ยน"
                     />
                   </div>
                 </div>
@@ -572,6 +585,92 @@ export default function StationManagePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Station Modal */}
+      {confirmDeleteStation && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันลบสถานี</h2>
+              <button onClick={() => setConfirmDeleteStation(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4">
+                <FaTrash size={18} className="text-red-400 flex-shrink-0" />
+                <p className="text-sm text-gray-700">การลบสถานีไม่สามารถยกเลิกได้ ข้อมูลทั้งหมดจะหายไป</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDeleteStation(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button onClick={handleDelete} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
+                  ยืนยันลบ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Toggle Station Status Modal */}
+      {confirmToggleStation && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">
+                {confirmToggleStation.station.status === 'active' ? 'ยืนยันปิดสถานี' : 'ยืนยันเปิดสถานี'}
+              </h2>
+              <button onClick={() => setConfirmToggleStation(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <p className="text-sm text-gray-600">
+                {confirmToggleStation.station.status === 'active'
+                  ? `ต้องการปิดสถานี "${confirmToggleStation.station.name}" ใช่ไหม? ผู้ใช้จะไม่สามารถจองตู้ชาร์จได้`
+                  : `ต้องการเปิดสถานี "${confirmToggleStation.station.name}" ใช่ไหม?`}
+              </p>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmToggleStation(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={toggleStationStatus}
+                  className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white ${
+                    confirmToggleStation.station.status === 'active' ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'
+                  }`}
+                >
+                  {confirmToggleStation.station.status === 'active' ? 'ยืนยันปิด' : 'ยืนยันเปิด'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Delete Charger Modal */}
+      {confirmDeleteCharger && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันลบตู้ชาร์จ</h2>
+              <button onClick={() => setConfirmDeleteCharger(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4">
+                <FaTrash size={18} className="text-red-400 flex-shrink-0" />
+                <p className="text-sm text-gray-700">ลบตู้ชาร์จนี้ออกจากสถานีถาวร ไม่สามารถยกเลิกได้</p>
+              </div>
+              <div className="flex gap-3">
+                <button onClick={() => setConfirmDeleteCharger(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button onClick={handleDeleteCharger} className="flex-1 py-2.5 bg-red-500 text-white rounded-xl text-sm font-semibold hover:bg-red-600">
+                  ยืนยันลบ
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

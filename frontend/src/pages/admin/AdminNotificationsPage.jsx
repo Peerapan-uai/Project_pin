@@ -1,6 +1,10 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
+import { useToast } from '../../context/ToastContext'
+import { useNotifications } from '../../context/NotificationContext'
+import DateTimePicker from '../../components/ui/DateTimePicker'
+import Select from '../../components/ui/Select'
 import { FaBell, FaBolt, FaShoppingCart, FaTools, FaCalendarCheck } from 'react-icons/fa'
 
 const typeIcon = { booking: FaCalendarCheck, charging: FaBolt, payment: FaShoppingCart, maintenance: FaTools }
@@ -21,7 +25,30 @@ const isWithin = (dateStr, period) => {
 
 export default function AdminNotificationsPage() {
   const navigate = useNavigate()
+  const toast = useToast()
+  // context ใช้สำหรับ badge (unread count ของ admin เอง)
+  const { refresh: refreshBadge } = useNotifications()
+
+  const markRead = (id) => {
+    api.patch(`/api/notifications/${id}/read`)
+      .then(() => {
+        setNotifications((prev) => prev.map((n) => n.notification_id === id ? { ...n, is_read: true } : n))
+        refreshBadge()
+      })
+      .catch(() => {})
+  }
+
+  const markAllRead = () => {
+    api.patch('/api/notifications/read-all')
+      .then(() => {
+        setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
+        refreshBadge()
+      })
+      .catch(() => {})
+  }
+  // list ใน page นี้ใช้ /api/admin/notifications/all (ทุกคนในระบบ)
   const [notifications, setNotifications] = useState([])
+  const [loading, setLoading]             = useState(true)
   const [showSendModal, setShowSendModal]   = useState(false)
   const [sendForm, setSendForm]             = useState({ mode: 'broadcast', target_type: 'role', target_value: 'user', title: '', message: '', type: 'system', scheduled_at: '' })
   const [specificTechId, setSpecificTechId] = useState('')
@@ -31,10 +58,15 @@ export default function AdminNotificationsPage() {
   const [filterUser, setFilterUser]       = useState('')
   const [filterRole, setFilterRole]       = useState('all')
   const [filterPeriod, setFilterPeriod]   = useState('all')
-  const [loading, setLoading]             = useState(true)
 
-  const fetchData = () => {
-    setLoading(true)
+  const fetchAdminNotifs = () => {
+    api.get('/api/admin/notifications/all')
+      .then((res) => setNotifications(res.data.notifications ?? []))
+      .catch((err) => console.error(err))
+      .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
     Promise.all([
       api.get('/api/admin/notifications/all'),
       api.get('/api/users'),
@@ -45,12 +77,14 @@ export default function AdminNotificationsPage() {
       })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
-  }
 
-  useEffect(() => { fetchData() }, [])
+    // poll ทุก 10 วินาที
+    const id = setInterval(fetchAdminNotifs, 10000)
+    return () => clearInterval(id)
+  }, [])
 
   const handleSend = () => {
-    if (!sendForm.title || !sendForm.message) return alert('กรุณากรอก title และ message')
+    if (!sendForm.title || !sendForm.message) return toast.warning('กรุณากรอก title และ message')
     setSending(true)
     setSendResult(null)
 
@@ -67,7 +101,7 @@ export default function AdminNotificationsPage() {
       payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: effectiveTargetType, target_value: effectiveTargetValue }
     } else {
       endpoint = '/api/admin/notifications/schedule'
-      if (!sendForm.scheduled_at) return alert('กรุณาเลือกเวลาที่จะส่ง')
+      if (!sendForm.scheduled_at) return toast.warning('กรุณาเลือกเวลาที่จะส่ง')
       payload = { title: sendForm.title, message: sendForm.message, type: sendForm.type, target_type: effectiveTargetType, target_value: effectiveTargetValue, scheduled_at: sendForm.scheduled_at }
     }
 
@@ -75,22 +109,11 @@ export default function AdminNotificationsPage() {
       .then((res) => {
         setSendResult({ success: true, text: `ส่งสำเร็จ ${res.data.recipients_count ?? ''} คน` })
         setSendForm((f) => ({ ...f, title: '', message: '' }))
-        fetchData()
+        fetchAdminNotifs()
+        refreshBadge()
       })
       .catch((err) => setSendResult({ success: false, text: err.response?.data?.message || 'เกิดข้อผิดพลาด' }))
       .finally(() => setSending(false))
-  }
-
-  const markAllRead = () => {
-    api.patch('/api/notifications/read-all')
-      .then(() => fetchData())
-      .catch((err) => console.error(err))
-  }
-
-  const markRead = (id) => {
-    api.patch(`/api/notifications/${id}/read`)
-      .then(() => setNotifications((prev) => prev.filter((n) => n.notification_id !== id)))
-      .catch((err) => console.error(err))
   }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -157,29 +180,33 @@ export default function AdminNotificationsPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภทผู้รับ</label>
-                  <select value={sendForm.target_type} onChange={(e) => setSendForm((f) => ({ ...f, target_type: e.target.value }))}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                    <option value="role">ตาม Role</option>
-                    <option value="user_ids">ระบุ User ID</option>
-                    {sendForm.mode === 'schedule' && <option value="all">ทุกคน</option>}
-                  </select>
+                  <Select
+                    value={sendForm.target_type}
+                    onChange={(v) => setSendForm((f) => ({ ...f, target_type: v }))}
+                    options={[
+                      { value: 'role', label: 'ตาม Role' },
+                      { value: 'user_ids', label: 'ระบุ User ID' },
+                      ...(sendForm.mode === 'schedule' ? [{ value: 'all', label: 'ทุกคน' }] : []),
+                    ]}
+                  />
                 </div>
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">
                     {sendForm.target_type === 'role' ? 'Role' : sendForm.target_type === 'all' ? '-' : 'User IDs (คั่นด้วย ,)'}
                   </label>
                   {sendForm.target_type === 'role' ? (
-                    <select value={sendForm.target_value}
-                      onChange={(e) => {
-                        const val = e.target.value
+                    <Select
+                      value={sendForm.target_value}
+                      onChange={(v) => {
                         setSpecificTechId('')
-                        setSendForm((f) => ({ ...f, target_value: val, type: val === 'technician' ? 'maintenance' : 'system' }))
+                        setSendForm((f) => ({ ...f, target_value: v, type: v === 'technician' ? 'maintenance' : 'system' }))
                       }}
-                      className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                      <option value="user">User</option>
-                      <option value="technician">ช่าง</option>
-                      <option value="admin">Admin</option>
-                    </select>
+                      options={[
+                        { value: 'user', label: 'User' },
+                        { value: 'technician', label: 'ช่าง' },
+                        { value: 'admin', label: 'Admin' },
+                      ]}
+                    />
                   ) : sendForm.target_type === 'all' ? (
                     <input disabled value="ทุกคน" className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-400" />
                   ) : (
@@ -194,13 +221,12 @@ export default function AdminNotificationsPage() {
             {isTechTarget && (
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ส่งหา</label>
-                <select value={specificTechId} onChange={(e) => setSpecificTechId(e.target.value)}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                  <option value="">ช่างทุกคน ({techUsers.length} คน)</option>
-                  {techUsers.map((t) => (
-                    <option key={t.user_id} value={t.user_id}>{t.first_name} {t.last_name}</option>
-                  ))}
-                </select>
+                <Select
+                  value={specificTechId}
+                  onChange={(v) => setSpecificTechId(v)}
+                  placeholder={`ช่างทุกคน (${techUsers.length} คน)`}
+                  options={techUsers.map((t) => ({ value: t.user_id, label: `${t.first_name} ${t.last_name}` }))}
+                />
               </div>
             )}
 
@@ -208,8 +234,11 @@ export default function AdminNotificationsPage() {
             {sendForm.mode === 'schedule' && (
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">เวลาที่จะส่ง</label>
-                <input type="datetime-local" value={sendForm.scheduled_at} onChange={(e) => setSendForm((f) => ({ ...f, scheduled_at: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <DateTimePicker
+                  value={sendForm.scheduled_at}
+                  onChange={(v) => setSendForm((f) => ({ ...f, scheduled_at: v }))}
+                  placeholder="เลือกวัน & เวลาที่จะส่ง"
+                />
               </div>
             )}
 
@@ -221,10 +250,11 @@ export default function AdminNotificationsPage() {
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภท</label>
-                <select value={sendForm.type} onChange={(e) => setSendForm((f) => ({ ...f, type: e.target.value }))}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                  {typeOptions.map((o) => <option key={o.v} value={o.v}>{o.l}</option>)}
-                </select>
+                <Select
+                  value={sendForm.type}
+                  onChange={(v) => setSendForm((f) => ({ ...f, type: v }))}
+                  options={typeOptions.map((o) => ({ value: o.v, label: o.l }))}
+                />
               </div>
             </div>
             <div>
@@ -258,26 +288,26 @@ export default function AdminNotificationsPage() {
           placeholder="ค้นหาชื่อหรือ ID ผู้ใช้..."
           className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary min-w-[200px]"
         />
-        <select
+        <Select
           value={filterRole}
-          onChange={(e) => setFilterRole(e.target.value)}
-          className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="all">ทุก role</option>
-          <option value="user">User</option>
-          <option value="technician">ช่าง</option>
-        </select>
-        <select
+          onChange={(v) => setFilterRole(v)}
+          options={[
+            { value: 'all', label: 'ทุก role' },
+            { value: 'user', label: 'User' },
+            { value: 'technician', label: 'ช่าง' },
+          ]}
+        />
+        <Select
           value={filterPeriod}
-          onChange={(e) => setFilterPeriod(e.target.value)}
-          className="border border-gray-300 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-        >
-          <option value="all">ทุกช่วงเวลา</option>
-          <option value="day">วันนี้</option>
-          <option value="week">7 วันล่าสุด</option>
-          <option value="month">เดือนนี้</option>
-          <option value="year">ปีนี้</option>
-        </select>
+          onChange={(v) => setFilterPeriod(v)}
+          options={[
+            { value: 'all', label: 'ทุกช่วงเวลา' },
+            { value: 'day', label: 'วันนี้' },
+            { value: 'week', label: '7 วันล่าสุด' },
+            { value: 'month', label: 'เดือนนี้' },
+            { value: 'year', label: 'ปีนี้' },
+          ]}
+        />
       </div>
 
       <div className="space-y-2">

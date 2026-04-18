@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
 import { FaMoneyBillWave, FaSearch, FaFileDownload } from 'react-icons/fa'
 
 export default function PaymentsPage() {
+  const toast = useToast()
   const [payments, setPayments]         = useState([])
   const [loading, setLoading]           = useState(true)
   const [search, setSearch]             = useState('')
@@ -31,7 +34,7 @@ export default function PaymentsPage() {
         document.body.removeChild(a)
         setTimeout(() => window.URL.revokeObjectURL(url), 1000)
       })
-      .catch(() => alert('ดาวน์โหลดใบเสร็จไม่สำเร็จ'))
+      .catch(() => toast.error('ดาวน์โหลดใบเสร็จไม่สำเร็จ'))
   }
 
   const stations = [...new Set(payments.map((p) => p.station_name).filter(Boolean))]
@@ -66,24 +69,21 @@ export default function PaymentsPage() {
               className="pl-9 pr-4 py-2 w-44 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
             />
           </div>
-          <select
+          <Select
             value={filterStation}
-            onChange={(e) => setFilterStation(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          >
-            <option value="all">ทุกสถานี</option>
-            {stations.map((s) => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select
+            onChange={(v) => setFilterStation(v)}
+            options={[{ value: 'all', label: 'ทุกสถานี' }, ...stations.map((s) => ({ value: s, label: s }))]}
+          />
+          <Select
             value={filterMethod}
-            onChange={(e) => setFilterMethod(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          >
-            <option value="all">ช่องทางการชำระเงิน</option>
-            <option value="credit_card">บัตรเครดิต / เดบิต</option>
-            <option value="wallet">กระเป๋าเงิน (Wallet)</option>
-            <option value="promptpay">พร้อมเพย์ (QR)</option>
-          </select>
+            onChange={(v) => setFilterMethod(v)}
+            options={[
+              { value: 'all', label: 'ช่องทางการชำระเงิน' },
+              { value: 'credit_card', label: 'บัตรเครดิต / เดบิต' },
+              { value: 'wallet', label: 'กระเป๋าเงิน (Wallet)' },
+              { value: 'promptpay', label: 'พร้อมเพย์ (QR)' },
+            ]}
+          />
           <input
             type="date"
             value={filterDate}

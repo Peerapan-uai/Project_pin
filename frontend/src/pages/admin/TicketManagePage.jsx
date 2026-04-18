@@ -1,6 +1,8 @@
 import { useState, useEffect } from 'react'
 import api, { BASE_URL } from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
 import { FaTicketAlt, FaUserCog, FaWrench, FaSearch, FaTimes } from 'react-icons/fa'
 
 const SKILL_LABEL = { ELECTRICAL: 'ระบบไฟฟ้า', SOFTWARE: 'ซอฟต์แวร์', MECHANICAL: 'เครื่องกล' }
@@ -12,6 +14,7 @@ const SKILL_COLOR = {
 const PRIORITY_LEVEL = { low: 1, medium: 2, high: 3, critical: 4 }
 
 export default function TicketManagePage() {
+  const toast = useToast()
   const [tickets, setTickets]               = useState([])
   const [technicians, setTechnicians]       = useState([])
   const [filterStatus, setFilterStatus]     = useState('all')
@@ -19,7 +22,8 @@ export default function TicketManagePage() {
   const [filterSkill, setFilterSkill]       = useState('all')
   const [search, setSearch]                 = useState('')
   const [loading, setLoading]               = useState(true)
-  const [assignModal, setAssignModal]       = useState(null) // ticket ที่กำลัง assign
+  const [assignModal, setAssignModal]       = useState(null)
+  const [confirmUnassignId, setConfirmUnassignId] = useState(null)
 
   const fetchData = () => {
     setLoading(true)
@@ -39,15 +43,15 @@ export default function TicketManagePage() {
 
   const assign = (ticketId, techId) => {
     api.patch(`/api/tickets/${ticketId}/assign`, { technician_id: Number(techId) })
-      .then(() => { setAssignModal(null); fetchData() })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .then(() => { setAssignModal(null); fetchData(); toast.success('มอบหมายช่างสำเร็จ') })
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
   }
 
-  const unassign = (ticketId) => {
-    if (!window.confirm('ยกเลิกการมอบหมายช่างสำหรับงานนี้?')) return
-    api.patch(`/api/tickets/${ticketId}/unassign`)
-      .then(() => { setAssignModal(null); fetchData() })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+  const unassign = () => {
+    if (!confirmUnassignId) return
+    api.patch(`/api/tickets/${confirmUnassignId}/unassign`)
+      .then(() => { setAssignModal(null); setConfirmUnassignId(null); fetchData(); toast.success('ยกเลิกการมอบหมายสำเร็จ') })
+      .catch((err) => { setConfirmUnassignId(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
@@ -82,21 +86,27 @@ export default function TicketManagePage() {
               placeholder="ค้นหาชื่อ, ID, สถานี..."
               className="pl-9 pr-4 py-2 w-48 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" />
           </div>
-          <select value={filterPriority} onChange={(e) => setFilterPriority(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-            <option value="all">ความเร่งด่วน</option>
-            <option value="low">ต่ำ</option>
-            <option value="medium">ปานกลาง</option>
-            <option value="high">สูง</option>
-            <option value="critical">วิกฤต</option>
-          </select>
-          <select value={filterSkill} onChange={(e) => setFilterSkill(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-            <option value="all">ความเชี่ยวชาญ</option>
-            <option value="ELECTRICAL">ระบบไฟฟ้า</option>
-            <option value="SOFTWARE">ซอฟต์แวร์</option>
-            <option value="MECHANICAL">เครื่องกล</option>
-          </select>
+          <Select
+            value={filterPriority}
+            onChange={(v) => setFilterPriority(v)}
+            options={[
+              { value: 'all', label: 'ความเร่งด่วน' },
+              { value: 'low', label: 'ต่ำ' },
+              { value: 'medium', label: 'ปานกลาง' },
+              { value: 'high', label: 'สูง' },
+              { value: 'critical', label: 'วิกฤต' },
+            ]}
+          />
+          <Select
+            value={filterSkill}
+            onChange={(v) => setFilterSkill(v)}
+            options={[
+              { value: 'all', label: 'ความเชี่ยวชาญ' },
+              { value: 'ELECTRICAL', label: 'ระบบไฟฟ้า' },
+              { value: 'SOFTWARE', label: 'ซอฟต์แวร์' },
+              { value: 'MECHANICAL', label: 'เครื่องกล' },
+            ]}
+          />
         </div>
       </div>
 
@@ -180,9 +190,34 @@ export default function TicketManagePage() {
           technicians={technicians}
           tickets={tickets}
           onAssign={(techId) => assign(assignModal.ticket_id, techId)}
-          onUnassign={() => unassign(assignModal.ticket_id)}
+          onUnassign={() => setConfirmUnassignId(assignModal.ticket_id)}
           onClose={() => setAssignModal(null)}
         />
+      )}
+
+      {/* Confirm Unassign Modal */}
+      {confirmUnassignId && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 bg-amber-100 rounded-2xl flex items-center justify-center mx-auto">
+              <FaWrench size={18} className="text-amber-500" />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-gray-900 text-lg">ยืนยันยกเลิกมอบหมาย</h3>
+              <p className="text-gray-500 text-sm mt-1">ช่างที่ได้รับมอบหมายจะถูกถอดออกจากงานนี้</p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmUnassignId(null)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                ยกเลิก
+              </button>
+              <button onClick={unassign}
+                className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600">
+                ยืนยัน
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

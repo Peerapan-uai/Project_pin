@@ -47,14 +47,14 @@ router.get('/', async (req, res) => {
       LEFT JOIN reviews r ON s.station_id = r.station_id
     `;
     let params = [];
-
+    
+    query += ` WHERE s.deleted_at IS NULL`
     if (connector_type) {
-      query += ` WHERE s.station_id IN (
+      query += ` and s.station_id IN (
         SELECT station_id FROM chargers WHERE connector_type = ?
       )`;
       params = [connector_type];
     }
-
     query += ' GROUP BY s.station_id ORDER BY s.station_id ASC';
 
     const [rows] = await pool.query(query, params);
@@ -148,6 +148,7 @@ router.get('/nearby', async (req, res) => {
       FROM stations s
       LEFT JOIN chargers c ON s.station_id = c.station_id
       LEFT JOIN reviews r ON s.station_id = r.station_id
+      where s.deleted_at IS NULL
       GROUP BY s.station_id
       HAVING distance_km <= ?
       ORDER BY distance_km ASC`,
@@ -164,7 +165,7 @@ router.get('/nearby', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [stationRows] = await pool.query(
-      'SELECT * FROM stations WHERE station_id = ?',
+      'SELECT * FROM stations WHERE station_id = ? AND deleted_at IS NULL',
       [req.params.id]
     );
 
@@ -173,7 +174,7 @@ router.get('/:id', async (req, res) => {
     }
 
     const [chargerRows] = await pool.query(
-      'SELECT * FROM chargers WHERE station_id = ?',
+      'SELECT * FROM chargers WHERE station_id = ? and deleted_at IS NULL',
       [req.params.id]
     );
 
@@ -353,7 +354,7 @@ router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
 router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [result] = await pool.query(
-      'DELETE FROM stations WHERE station_id = ?',
+      'UPDATE stations set deleted_at = now() WHERE station_id = ? and deleted_at IS NULL',
       [req.params.id]
     );
 
@@ -400,14 +401,12 @@ router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
 
     // 🔴 TODO A: Check station exists
     const [stations] = await pool.query(
-      'SELECT station_id, name FROM stations WHERE station_id = ?',
+      'SELECT station_id, name FROM stations WHERE station_id = ? and deleted_at IS NULL',
       [stationId]
     );
     if (stations.length === 0) { return res.status(404).json({message: 'Failed'}); }
 
     // 🔴 TODO B: Count total bookings for this station
-    
-
     const [[{total_bookings}]] = await pool.query(
       `SELECT COUNT(b.booking_id) as total_bookings
       FROM bookings b
@@ -417,8 +416,6 @@ router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
     );
 
     // 🔴 TODO C: Sum total revenue for this station
-    
-
     const [[{ total_revenue }]] = await pool.query(
       `SELECT SUM(p.amount) as total_revenue
         FROM payments p
@@ -430,7 +427,6 @@ router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
 
 
     // 🔴 TODO D: Calculate charger availability percentage
-    
     const [[{ total_chargers, available_chargers }]] = await pool.query(
       `SELECT
         COUNT(*) as total_chargers,
@@ -461,5 +457,27 @@ router.get('/:id/stats', auth, roleCheck('admin'), async (req, res) => {
     });
   }
 });
+
+
+
+router.patch('/:id/restore', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE stations SET deleted_at = NULL WHERE station_id = ? AND deleted_at IS NOT NULL',
+      [req.params.id]
+    )
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: 'ไม่พบใน trash' })
+    return res.json({ message: 'Restore สำเร็จ' })
+  } catch (err) {
+    console.error('Restore station error:', err)
+    return res.status(500).json({ message: 'Server error' })
+  }
+})
+
+
+
+
+
 
 module.exports = router;

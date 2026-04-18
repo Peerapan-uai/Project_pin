@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../utils/api'
 import { useAuth } from '../../context/AuthContext'
+import { useToast } from '../../context/ToastContext'
 import StatusBadge from '../../components/StatusBadge'
 import { FaTicketAlt, FaCheckCircle, FaClock, FaWrench, FaChevronRight, FaCalendarAlt } from 'react-icons/fa'
 
@@ -12,6 +13,7 @@ const STATUS_CONFIG = {
 }
 
 export default function TechDashboardPage() {
+  const toast = useToast()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [tickets, setTickets]       = useState([])
@@ -48,7 +50,7 @@ export default function TechDashboardPage() {
     setTogglingStatus(true)
     api.patch('/api/users/me/status', { status: next })
       .then(() => setTechStatus(next))
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setTogglingStatus(false))
   }
 

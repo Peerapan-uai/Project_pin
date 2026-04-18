@@ -1,22 +1,12 @@
-import { useState, useEffect } from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { FaBell, FaUserCircle } from 'react-icons/fa'
 import { useAuth } from '../context/AuthContext'
-import api from '../utils/api'
+import { useNotifications } from '../context/NotificationContext'
 
 export default function TopBar({ notifPath = '/admin/notifications' }) {
   const { user } = useAuth()
   const navigate = useNavigate()
-  const location = useLocation()
-  const [unreadCount, setUnreadCount] = useState(0)
-
-  useEffect(() => {
-    api.get('/api/notifications')
-      .then((res) => {
-        setUnreadCount(res.data.unread_count ?? 0)
-      })
-      .catch(() => {})
-  }, [location.pathname])
+  const { unreadCount } = useNotifications()
 
   return (
     <header className="h-14 bg-white border-b border-gray-100 px-6 flex items-center justify-end gap-4 sticky top-0 z-40 shadow-[0_1px_4px_rgba(0,0,0,0.06)]">

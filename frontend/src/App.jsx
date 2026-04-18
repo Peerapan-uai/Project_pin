@@ -1,10 +1,16 @@
 import { AuthProvider } from './context/AuthContext'
+import { ToastProvider } from './context/ToastContext'
+import { NotificationProvider } from './context/NotificationContext'
 import AppRouter from './routes/AppRouter'
 
 export default function App() {
   return (
-    <AuthProvider>
-      <AppRouter />
-    </AuthProvider>
+    <ToastProvider>
+      <AuthProvider>
+        <NotificationProvider>
+          <AppRouter />
+        </NotificationProvider>
+      </AuthProvider>
+    </ToastProvider>
   )
 }

@@ -20,7 +20,7 @@
 > **43 endpoints เสร็จหมดแล้ว** (อัปเดต 2026-04-12)
 > สิ่งที่เหลือ: แก้ bug 3 ตัว + ทำ Frontend Admin UI 4 หน้า (ดู section "งานที่ต้องทำต่อ")
 
-## สถานะปัจจุบัน (อัปเดต 2026-04-15)
+## สถานะปัจจุบัน (อัปเดต 2026-04-18)
 - Database MySQL schema — **เสร็จแล้ว ✅**
 - Database MongoDB (Logs) — **เสร็จแล้ว ✅** (TTL index 90 วัน, logger middleware, logs API)
 - Backend routes admin/tech (22 endpoints) — **เสร็จแล้ว ✅**
@@ -66,6 +66,29 @@
 | 2 | Refund Approval UI | ✅ เพิ่ม predefined reject reasons + custom approve modal (2026-04-19) |
 | 3 | Reports / CSV Export UI | ✅ |
 | 4 | PDF Invoice ปุ่มดาวน์โหลด | ✅ |
+
+### ✅ FE งานที่ทำ 2026-04-19 (เพิ่มเติม)
+| # | งาน | ไฟล์ | สถานะ |
+|---|-----|------|-------|
+| 1 | Real-time notifications (polling 10s + visibilitychange) | `context/NotificationContext.jsx`, `App.jsx`, `Sidebar.jsx`, `TopBar.jsx` | ✅ |
+| 2 | Recycle Bin route + menu | `AppRouter.jsx`, `Sidebar.jsx` | ✅ |
+| 3 | Custom Select dropdown (แทน native `<select>` ทุกหน้า admin/tech) | `components/ui/Select.jsx` + 11 ไฟล์ | ✅ |
+| 4 | Dropdown max-height จำกัด 3 แถว + scroll | `components/ui/Select.jsx` | ✅ |
+| 5 | Dashboard real-time polling 10s + visibilitychange | `DashboardPage.jsx` | ✅ |
+| 6 | แก้ bug รายได้วันนี้ (ไม่ส่ง to_date → backend ใช้ now()) | `DashboardPage.jsx` | ✅ |
+| 7 | กำกับ period label "ตลอดเวลา" ใน Top3, StationManagePage | `DashboardPage.jsx`, `StationManagePage.jsx` | ✅ |
+| 8 | BookingManagePage subtitle ใช้ filtered.length + label period | `BookingManagePage.jsx` | ✅ |
+| 9 | BookingManagePage ชำระเงิน/ยอดเงิน แสดง "รอชำระ" แทน dash สำหรับ pending | `BookingManagePage.jsx` | ✅ |
+
+### วิธีเทส "รายได้วันนี้" บน Dashboard
+1. เปิด `http://localhost:5001/api-docs` → Authorize ด้วย admin token
+2. ไปที่ `GET /api/admin/reports/revenue`
+3. ใส่ params: `period=daily`, `from_date=2026-04-19` (ไม่ต้องใส่ to_date)
+4. ถ้า summary.total_revenue > 0 = endpoint ทำงานถูกต้อง
+5. ถ้า = 0 แปลว่าวันนี้ยังไม่มี payment completed ใน DB ให้ตรวจว่ามี payment record ที่ `paid_at` เป็นวันนี้หรือไม่
+
+> ⚠️ bug เดิม: ส่ง `to_date=today` ทำให้ MySQL เปรียบเทียบ `paid_at <= 2026-04-19 00:00:00` (midnight) → ไม่เจอ record ที่จ่ายตอนกลางวัน
+> แก้แล้ว: ไม่ส่ง `to_date` → backend default เป็น `new Date()` (ตอนนี้) → รวมทุก payment วันนี้
 
 ---
 
@@ -540,6 +563,113 @@ CREATE TABLE notification_logs (
 - เข้าใจว่าแต่ละบรรทัดทำอะไร ไม่ใช่แค่ copy
 - รู้ว่า bug เกิดจากไหน ไม่ใช่แค่แก้ตามที่บอก
 - พอถึงตอนอาจารย์ถาม จะตอบได้ครับ
+
+---
+
+## ✅ Soft Delete (Recycle Bin) — เสร็จแล้ว (2026-04-18)
+
+### แนวคิด Soft Delete vs Hard Delete
+| | Hard Delete | Soft Delete |
+|--|------------|-------------|
+| SQL | `DELETE FROM table` | `UPDATE table SET deleted_at = NOW()` |
+| ข้อมูลหาย? | ถาวร ✗ | ไม่หาย ✓ |
+| กู้คืนได้? | ไม่ได้ | ได้ (ล้าง `deleted_at = NULL`) |
+| เหมาะกับ | log ชั่วคราว | users, stations, chargers |
+
+### Schema ที่เพิ่ม
+เพิ่ม column `deleted_at DATETIME NULL DEFAULT NULL` ใน 3 ตาราง:
+```sql
+-- รันใน phpMyAdmin ถ้ายังไม่มี
+ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+ALTER TABLE stations ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+ALTER TABLE chargers ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+```
+
+### chargers.js — สิ่งที่แก้
+| บรรทัด | แก้อะไร | ทำไม |
+|-------|---------|------|
+| GET / ~40 | เพิ่ม `WHERE c.deleted_at IS NULL` | ไม่แสดงตู้ที่ถูกลบแล้วในหน้า admin |
+| GET /station/:id ~54 | เพิ่ม `AND deleted_at IS NULL` | ไม่แสดงตู้ที่ถูกลบในหน้าสถานี |
+| GET /:id ~89 | เพิ่ม `AND deleted_at IS NULL` | ไม่ดึงตู้ที่ถูกลบมา detail |
+| DELETE /:id | เปลี่ยน `DELETE FROM` → `UPDATE SET deleted_at = NOW()` | Soft Delete แทน Hard Delete |
+| PATCH /:id/restore (ใหม่) | `SET deleted_at = NULL WHERE deleted_at IS NOT NULL` | กู้คืนจาก trash |
+
+### stations.js — สิ่งที่แก้
+| บรรทัด | แก้อะไร | ทำไม |
+|-------|---------|------|
+| GET / ~51 | เพิ่ม `WHERE s.deleted_at IS NULL` (ก่อน AND) | query ต้องมี WHERE ก่อน ถึงต่อ AND ได้ |
+| GET /nearby ~151 | เพิ่ม `WHERE s.deleted_at IS NULL` | ไม่แสดงสถานีที่ถูกลบในแผนที่ |
+| GET /:id ~168 | เพิ่ม `AND deleted_at IS NULL` | ไม่ดึงสถานีที่ถูกลบ |
+| GET /:id/stats ~404 | เพิ่ม `AND deleted_at IS NULL` | stats ต้องไม่รวมสถานีที่ถูกลบ |
+| DELETE /:id | เปลี่ยนเป็น `UPDATE SET deleted_at = NOW()` | Soft Delete |
+| PATCH /:id/restore (ใหม่) | กู้คืนสถานีจาก trash | |
+
+### users.js — สิ่งที่แก้
+| บรรทัด | แก้อะไร | ทำไม |
+|-------|---------|------|
+| GET / ~156 | เพิ่ม `WHERE u.deleted_at IS NULL` | admin ไม่เห็น user ที่ถูกลบ |
+| GET /profile ~35 | เพิ่ม `AND deleted_at IS NULL` | user ที่ถูกลบดู profile ตัวเองไม่ได้ |
+| GET /:id ~265 | เพิ่ม `AND u.deleted_at IS NULL` | admin ดู user ที่ถูกลบไม่ได้ (ต้องไปที่ trash) |
+| DELETE /:id ~343 | เปลี่ยนเป็น `UPDATE SET deleted_at = NOW()` | Soft Delete |
+| PATCH /:id/restore (ใหม่) | กู้คืน user จาก trash | |
+| ⚠️ line ~128 | **ไม่แก้** — self-delete ของ user | นี่คือ user ลบตัวเอง ซึ่งเป็น Hard Delete ตั้งใจ |
+
+### auth.js — สิ่งที่แก้
+| บรรทัด | แก้อะไร | ทำไม |
+|-------|---------|------|
+| Login query ~128 | เพิ่ม `AND deleted_at IS NULL` | user ที่ถูก soft-delete ต้อง login ไม่ได้ |
+
+### trash.js (ใหม่) + server.js
+- สร้างไฟล์ `backend/routes/admin/trash.js` — scaffold 9 endpoints (GET list, PATCH restore, DELETE permanent) สำหรับ users/stations/chargers
+- เพิ่ม route ใน `server.js`: `app.use('/api/admin/trash', adminTrashRoutes)`
+- endpoints ทั้ง 9 ตัวยัง **TODO** — รอเขียน query จริง
+
+### สถานะ Soft Delete (อัปเดต 2026-04-18)
+| # | งาน | ไฟล์ | สถานะ |
+|---|-----|------|-------|
+| 1 | เติม query จริงใน trash.js ทุก endpoint (9 endpoints) | `routes/admin/trash.js` | ✅ เสร็จแล้ว |
+| 2 | FE TrashPage — 3 tabs (Users/Stations/Chargers) + ปุ่ม restore + ปุ่ม permanent delete + confirm modal | `pages/admin/TrashPage.jsx` | ✅ เสร็จแล้ว |
+| 3 | เพิ่ม route `/admin/trash` ใน AppRouter.jsx | `frontend/src/routes/AppRouter.jsx` | ⏳ ยังไม่ได้ทำ |
+| 4 | เพิ่มเมนู "Recycle Bin" ใน Sidebar.jsx | `frontend/src/components/Sidebar.jsx` | ⏳ ยังไม่ได้ทำ |
+| 5 | รัน ALTER TABLE เพิ่ม `deleted_at` ใน phpMyAdmin | DB | ⏳ ต้องรันก่อนใช้งาน |
+
+### ⏳ งานที่ต้องทำต่อในแชทใหม่ — Soft Delete (เหลือ 3 อย่าง)
+
+#### 1. รัน ALTER TABLE ใน phpMyAdmin ก่อนเลย
+```sql
+ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+ALTER TABLE stations ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+ALTER TABLE chargers ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
+```
+
+#### 2. เพิ่ม route ใน `frontend/src/routes/AppRouter.jsx`
+
+เพิ่ม 2 บรรทัดนี้:
+
+ตรง import (หลัง ReportsPage):
+```js
+const TrashPage = lazy(() => import('../pages/admin/TrashPage'))
+```
+
+ตรง Admin pages routes (หลัง `/admin/reports`):
+```jsx
+<Route path="/admin/trash" element={<RoleRoute roles={['admin']}><DesktopLayout><TrashPage /></DesktopLayout></RoleRoute>} />
+```
+
+#### 3. เพิ่มเมนูใน `frontend/src/components/Sidebar.jsx`
+
+เพิ่ม import icon บรรทัด 17 (ใน import list เดิม):
+```js
+FaRecycle,
+```
+> import จาก `react-icons/fa` เหมือน icon อื่น
+
+เพิ่มใน `navItems` array (หลัง reports):
+```js
+{ to: '/admin/trash', label: 'Recycle Bin', Icon: FaRecycle },
+```
+
+---
 
 ## ⚠️ งานที่ต้องทำเพิ่ม — Wallet Admin (เพิ่มใหม่ 2026-04-08)
 

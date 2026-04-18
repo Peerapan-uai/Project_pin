@@ -32,7 +32,7 @@ const roleCheck = require('../middleware/roleCheck');
 router.get('/profile', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, first_name, last_name ,email, phone, role, created_at FROM users WHERE user_id = ?',
+      'SELECT user_id, first_name, last_name ,email, phone, role, created_at FROM users WHERE user_id = ? and u.deleted_at IS NULL',
       [req.user.user_id]
     );
 
@@ -153,7 +153,7 @@ router.delete('/profile', auth, async (req, res) => {
 router.get('/', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT u.*, tp.primary_skill, tp.status as tech_status, tp.work_mode FROM users u LEFT JOIN tech_profiles tp ON u.user_id = tp.user_id'
+      'SELECT u.*, tp.primary_skill, tp.status as tech_status, tp.work_mode FROM users u LEFT JOIN tech_profiles tp ON u.user_id = tp.user_id where u.deleted_at IS NULL'
     );
     return res.status(200).json({ users: rows });
   } catch (error) {
@@ -340,7 +340,7 @@ router.get('/:id', auth, roleCheck('admin', 'technician'), async (req,res) => {
 router.delete('/:id', auth, roleCheck('admin'), async (req, res) => {
   const { id } = req.params
   try {
-    const [result] = await pool.query('DELETE FROM users WHERE user_id = ?', [id])
+    const [result] = await pool.query('UPDATE users SET deleted_at = NOW() WHERE user_id = ? AND deleted_at IS NULL', [id])
     if (result.affectedRows === 0) {
       return res.status(404).json({ message: 'User not found.' })
     }
@@ -520,6 +520,21 @@ router.patch('/me/status', auth, roleCheck('technician'), async (req, res) => {
 
 
 
+// PATCH /api/users/:id/restore — admin restore soft-deleted user
+router.patch('/:id/restore', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE users SET deleted_at = NULL WHERE user_id = ? AND deleted_at IS NOT NULL',
+      [req.params.id]
+    )
+    if (result.affectedRows === 0)
+      return res.status(404).json({ message: 'ไม่พบใน trash' })
+    return res.json({ message: 'Restore สำเร็จ' })
+  } catch (err) {
+    console.error('Restore user error:', err)
+    return res.status(500).json({ message: 'Server error' })
+  }
+})
 
 
 

@@ -1,11 +1,14 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
-import { FaSearch, FaTimes, FaInfoCircle, FaUserCircle, FaExchangeAlt } from 'react-icons/fa'
+import { useToast } from '../../context/ToastContext'
+import Select from '../../components/ui/Select'
+import { FaSearch, FaTimes, FaInfoCircle, FaUserCircle, FaExchangeAlt, FaLock } from 'react-icons/fa'
 
 const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
 const TYPE_COLOR = { topup: 'text-green-600', deduct: 'text-red-500', refund: 'text-blue-500', adjust: 'text-amber-500' }
 
 export default function WalletManagePage() {
+  const toast = useToast()
   const [summary, setSummary]             = useState(null)
   const [transactions, setTransactions]   = useState([])
   const [users, setUsers]                 = useState([])
@@ -13,13 +16,14 @@ export default function WalletManagePage() {
   const [page, setPage]                   = useState(1)
   const [totalPages, setTotalPages]       = useState(1)
   const [loading, setLoading]             = useState(true)
-  const [walletModal, setWalletModal]     = useState(null)  // user ที่กด ดู wallet
-  const [adjustModal, setAdjustModal]     = useState(null)  // user ที่กด ปรับยอด
+  const [walletModal, setWalletModal]     = useState(null)
+  const [adjustModal, setAdjustModal]     = useState(null)
   const [adjustForm, setAdjustForm]       = useState({ amount: '', reason: '' })
   const [adjustSaving, setAdjustSaving]   = useState(false)
   const [searchUser, setSearchUser]       = useState('')
   const [searchTxn, setSearchTxn]         = useState('')
-  const [txnDetail, setTxnDetail]         = useState(null)  // transaction detail modal
+  const [txnDetail, setTxnDetail]         = useState(null)
+  const [confirmFreeze, setConfirmFreeze] = useState(null) // { userId, frozen }
 
   const fetchSummary = () =>
     api.get('/api/admin/wallet/summary').then((res) => setSummary(res.data.summary)).catch(() => {})
@@ -47,42 +51,45 @@ export default function WalletManagePage() {
   const openWallet = (user) => {
     api.get(`/api/admin/wallet/users/${user.user_id}/wallet`)
       .then((res) => setWalletModal(res.data))
-      .catch((err) => alert(err.response?.data?.message || 'ดึงข้อมูลไม่ได้'))
+      .catch((err) => toast.error(err.response?.data?.message || 'ดึงข้อมูลไม่ได้'))
   }
 
-  const handleFreeze = (userId, frozen) => {
+  const handleFreeze = () => {
+    if (!confirmFreeze) return
+    const { userId, frozen } = confirmFreeze
     const action = frozen ? 'unfreeze' : 'freeze'
-    if (!window.confirm(`${action === 'freeze' ? 'ระงับ' : 'ปลดระงับ'} wallet ของ user นี้?`)) return
     api.patch(`/api/admin/wallet/users/${userId}/wallet/freeze`, { action })
       .then(() => {
+        setConfirmFreeze(null)
         if (walletModal) setWalletModal((prev) => ({ ...prev, user: { ...prev.user, wallet_frozen: action === 'freeze' ? 1 : 0 } }))
         fetchSummary()
+        toast.success(`${action === 'freeze' ? 'ระงับ' : 'ปลดระงับ'} wallet สำเร็จ`)
       })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => { setConfirmFreeze(null); toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด') })
   }
 
   const handleAdjust = () => {
-    if (!adjustForm.amount || !adjustForm.reason) return alert('กรุณากรอก amount และ reason')
+    if (!adjustForm.amount || !adjustForm.reason) return toast.warning('กรุณากรอก amount และ reason')
     const amount = parseFloat(adjustForm.amount)
-    if (isNaN(amount) || amount === 0) return alert('amount ต้องเป็นตัวเลขที่ไม่ใช่ 0')
+    if (isNaN(amount) || amount === 0) return toast.warning('amount ต้องเป็นตัวเลขที่ไม่ใช่ 0')
     setAdjustSaving(true)
     api.post(`/api/admin/wallet/users/${adjustModal.user_id}/wallet/adjust`, { amount, reason: adjustForm.reason })
       .then((res) => {
-        alert(`ปรับยอดสำเร็จ ยอดใหม่: ${res.data.new_balance} ฿`)
+        toast.success(`ปรับยอดสำเร็จ ยอดใหม่: ${res.data.new_balance} ฿`)
         setAdjustModal(null)
         setAdjustForm({ amount: '', reason: '' })
         if (walletModal?.user?.user_id === adjustModal.user_id) openWallet(adjustModal)
         fetchSummary()
         fetchTransactions()
       })
-      .catch((err) => alert(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .catch((err) => toast.error(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
       .finally(() => setAdjustSaving(false))
   }
 
   const openTxnDetail = (txnId) => {
     api.get(`/api/admin/wallet/transactions/${txnId}`)
       .then((res) => setTxnDetail(res.data.data))
-      .catch((err) => alert(err.response?.data?.message || 'ดึงข้อมูลไม่ได้'))
+      .catch((err) => toast.error(err.response?.data?.message || 'ดึงข้อมูลไม่ได้'))
   }
 
   const filteredUsers = users.filter((u) => {
@@ -179,7 +186,7 @@ export default function WalletManagePage() {
                     className="px-2.5 py-1.5 bg-amber-50 text-amber-600 rounded-lg text-xs font-medium hover:bg-amber-100 transition-colors">
                     ปรับ
                   </button>
-                  <button onClick={() => handleFreeze(u.user_id, u.wallet_frozen)}
+                  <button onClick={() => setConfirmFreeze({ userId: u.user_id, frozen: u.wallet_frozen })}
                     className={`px-2.5 py-1.5 rounded-lg text-xs font-medium transition-colors ${u.wallet_frozen ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-red-50 text-red-500 hover:bg-red-100'}`}>
                     {u.wallet_frozen ? 'ปลดระงับ' : 'ระงับ'}
                   </button>
@@ -208,14 +215,17 @@ export default function WalletManagePage() {
                   className="pl-8 pr-3 py-1.5 w-36 border border-gray-200 rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-white"
                 />
               </div>
-              <select value={filterType} onChange={(e) => { setFilterType(e.target.value); setPage(1) }}
-                className="border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-primary bg-white">
-                <option value="">ทุกประเภท</option>
-                <option value="topup">เติมเงิน</option>
-                <option value="deduct">ตัดเงิน</option>
-                <option value="refund">คืนเงิน</option>
-                <option value="adjust">ปรับยอด</option>
-              </select>
+              <Select
+                value={filterType}
+                onChange={(v) => { setFilterType(v); setPage(1) }}
+                options={[
+                  { value: '', label: 'ทุกประเภท' },
+                  { value: 'topup', label: 'เติมเงิน' },
+                  { value: 'deduct', label: 'ตัดเงิน' },
+                  { value: 'refund', label: 'คืนเงิน' },
+                  { value: 'adjust', label: 'ปรับยอด' },
+                ]}
+              />
             </div>
           </div>
           {/* Column labels */}
@@ -288,7 +298,7 @@ export default function WalletManagePage() {
               <div className="flex items-center gap-2">
                 <button onClick={() => { setAdjustModal({ user_id: walletModal.user.user_id, ...walletModal.user }); setAdjustForm({ amount: '', reason: '' }) }}
                   className="px-3 py-1.5 bg-amber-50 text-amber-600 rounded-xl text-xs font-medium hover:bg-amber-100">ปรับยอด</button>
-                <button onClick={() => handleFreeze(walletModal.user.user_id, walletModal.user.wallet_frozen)}
+                <button onClick={() => setConfirmFreeze({ userId: walletModal.user.user_id, frozen: walletModal.user.wallet_frozen })}
                   className={`px-3 py-1.5 rounded-xl text-xs font-medium ${walletModal.user.wallet_frozen ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-500'}`}>
                   {walletModal.user.wallet_frozen ? 'ปลดระงับ' : 'ระงับ Wallet'}
                 </button>
@@ -409,6 +419,35 @@ export default function WalletManagePage() {
                   {adjustSaving ? 'กำลังบันทึก...' : 'ยืนยัน'}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirm Freeze/Unfreeze Modal */}
+      {confirmFreeze && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 space-y-4">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mx-auto ${confirmFreeze.frozen ? 'bg-green-100' : 'bg-red-100'}`}>
+              <FaLock size={18} className={confirmFreeze.frozen ? 'text-green-500' : 'text-red-500'} />
+            </div>
+            <div className="text-center">
+              <h3 className="font-bold text-gray-900 text-lg">
+                {confirmFreeze.frozen ? 'ยืนยันปลดระงับ Wallet' : 'ยืนยันระงับ Wallet'}
+              </h3>
+              <p className="text-gray-500 text-sm mt-1">
+                {confirmFreeze.frozen ? 'ผู้ใช้จะสามารถใช้งาน wallet ได้ตามปกติ' : 'ผู้ใช้จะไม่สามารถใช้งาน wallet ได้ชั่วคราว'}
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button onClick={() => setConfirmFreeze(null)}
+                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50 font-medium">
+                ยกเลิก
+              </button>
+              <button onClick={handleFreeze}
+                className={`flex-1 py-2.5 rounded-xl text-sm font-semibold text-white ${confirmFreeze.frozen ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
+                {confirmFreeze.frozen ? 'ปลดระงับ' : 'ระงับ Wallet'}
+              </button>
             </div>
           </div>
         </div>
