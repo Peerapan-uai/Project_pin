@@ -62,9 +62,86 @@
 | # | หน้าที่ต้องทำ | API ที่พร้อมแล้ว | หมายเหตุ |
 |---|--------------|-----------------|---------|
 | 1 | **Wallet Management UI** — ดูยอด/ประวัติ/ปรับยอด/freeze wallet ของ user | 6 endpoints ใน `routes/admin/wallet.js` | ยังไม่มีหน้า admin เลย |
-| 2 | **Refund Approval UI** — admin เห็นรายการขอ refund แล้วกดอนุมัติ/ปฏิเสธ | `POST /payments/:id/refund` + `GET /:id/refunds` (nem ทำ backend ให้แล้ว) | ยังไม่มีหน้า admin |
+| 2 | **Refund Approval UI** — ✅ **เสร็จแล้ว** `frontend/src/pages/admin/RefundManagePage.jsx` | `GET/POST /api/admin/refunds` | ดู section "ระบบ Refund Request" ด้านล่าง |
 | 3 | **Reports / CSV Export UI** — แสดงกราฟรายได้ สถิติ + ปุ่ม export CSV/PDF | 6 endpoints ใน `routes/admin/reports.js` | ยังไม่มีหน้า admin |
 | 4 | **PDF Invoice ปุ่มดาวน์โหลด** — เพิ่มปุ่มใน PaymentsPage ให้ admin กดดาวน์โหลด invoice | `GET /admin/payments/:id/invoice` | ยังไม่มีปุ่มใน UI |
+
+---
+
+## ✅ ระบบ Refund Request — เสร็จแล้ว (อัปเดต 2026-04-18)
+
+### ⚠️ DB ที่ต้องรัน ALTER TABLE ก่อน (lalla ต้องทำ)
+```sql
+ALTER TABLE refund_requests
+  ADD COLUMN title VARCHAR(255) NOT NULL DEFAULT '' AFTER user_id,
+  MODIFY COLUMN reason TEXT DEFAULT NULL;
+```
+
+### โครงสร้างตาราง refund_requests (ปัจจุบัน)
+| column | type | หมายเหตุ |
+|--------|------|---------|
+| request_id | INT PK AUTO_INCREMENT | |
+| payment_id | INT FK → payments | |
+| user_id | INT FK → users | |
+| title | VARCHAR(255) NOT NULL | **ใหม่** — หัวข้อการขอคืนเงิน |
+| reason | TEXT DEFAULT NULL | รายละเอียดเพิ่มเติม (ไม่บังคับ) |
+| image_url | VARCHAR(500) | JSON array ของ path รูป เช่น `["/uploads/refunds/xxx.jpg"]` |
+| status | ENUM('pending','approved','rejected') | default 'pending' |
+| reviewed_by | INT FK → users | admin ที่ approve/reject |
+| reviewed_at | TIMESTAMP NULL | |
+| created_at | TIMESTAMP | |
+
+### Backend (nem ทำ — ห้ามแก้)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| POST | `/api/payments/:id/refund-request` | user ส่งขอคืนเงิน รับ `{ title, reason?, images?: [base64] }` |
+| GET | `/api/admin/refunds?status=pending` | admin ดูรายการ (filter ด้วย status) |
+| POST | `/api/admin/refunds/:id/approve` | approve → คืนเงินเข้า wallet + notification |
+| POST | `/api/admin/refunds/:id/reject` | reject รับ `{ reason? }` + notification |
+
+### Response จาก GET /api/admin/refunds
+```json
+{
+  "refund_request": [
+    {
+      "request_id": 1,
+      "user_id": 5,
+      "title": "ตู้ชาร์จไม่ทำงาน / ชาร์จไม่ได้",
+      "reason": "กดชาร์จแล้วตู้ไม่ตอบสนองเลย",
+      "image_url": "[\"/uploads/refunds/refund_5_xxx.jpg\"]",
+      "status": "pending",
+      "payment_id": 12,
+      "amount": "250.00",
+      "method": "credit_card",
+      "first_name": "สมชาย",
+      "last_name": "ใจดี",
+      "email": "user@example.com",
+      "created_at": "2026-04-18T..."
+    }
+  ]
+}
+```
+
+### Frontend ที่ทำแล้ว
+| ไฟล์ | หน้าที่ | สถานะ |
+|------|---------|-------|
+| `pages/user/PaymentHistoryPage.jsx` | user กดปุ่ม "ขอคืนเงิน" → modal เลือกหัวข้อ + รายละเอียด + รูป | ✅ |
+| `pages/admin/RefundManagePage.jsx` | admin เห็นรายการ + approve/reject + ดูรูป | ✅ |
+
+### หัวข้อที่ user เลือกได้ (dropdown)
+1. ตู้ชาร์จไม่ทำงาน / ชาร์จไม่ได้
+2. ถูกเก็บเงินผิดจำนวน
+3. ชาร์จไม่เสร็จ / หยุดกลางคัน
+4. จองแล้วใช้งานไม่ได้
+5. ยกเลิกการจองแต่ยังถูกตัดเงิน
+6. อื่นๆ (พิมพ์เอง)
+
+### รูปภาพแนบ
+- เก็บที่ `backend/uploads/refunds/` (static serve อยู่แล้ว)
+- `image_url` ใน DB เป็น JSON string เช่น `["/uploads/refunds/file.jpg", ...]`
+- ใน RefundManagePage ใช้ `JSON.parse(rr.image_url)` แล้ว render ด้วย `BASE_URL + path`
+
+---
 
 ### ⏳ งานจิปาถะ
 | # | งาน | สถานะ |

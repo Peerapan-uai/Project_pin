@@ -12,8 +12,18 @@ export default function PaymentHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  const REFUND_TITLES = [
+    'ตู้ชาร์จไม่ทำงาน / ชาร์จไม่ได้',
+    'ถูกเก็บเงินผิดจำนวน',
+    'ชาร์จไม่เสร็จ / หยุดกลางคัน',
+    'จองแล้วใช้งานไม่ได้',
+    'ยกเลิกการจองแต่ยังถูกตัดเงิน',
+    'อื่นๆ',
+  ]
+
   const [modal, setModal] = useState(null) // payment object
   const [title, setTitle] = useState('')
+  const [customTitle, setCustomTitle] = useState('')
   const [reason, setReason] = useState('')
   const [images, setImages] = useState([]) // base64 strings
   const [submitting, setSubmitting] = useState(false)
@@ -35,6 +45,7 @@ export default function PaymentHistoryPage() {
   const openModal = (p) => {
     setModal(p)
     setTitle('')
+    setCustomTitle('')
     setReason('')
     setImages([])
     setSubmitError('')
@@ -43,6 +54,7 @@ export default function PaymentHistoryPage() {
   const closeModal = () => {
     setModal(null)
     setTitle('')
+    setCustomTitle('')
     setReason('')
     setImages([])
     setSubmitError('')
@@ -61,13 +73,16 @@ export default function PaymentHistoryPage() {
 
   const removeImage = (idx) => setImages(prev => prev.filter((_, i) => i !== idx))
 
+  const finalTitle = title === 'อื่นๆ' ? customTitle.trim() : title
+
   const handleSubmit = async () => {
-    if (!title.trim()) { setSubmitError('กรุณาระบุหัวข้อ'); return }
+    if (!title) { setSubmitError('กรุณาเลือกหัวข้อ'); return }
+    if (title === 'อื่นๆ' && !customTitle.trim()) { setSubmitError('กรุณาระบุหัวข้อ'); return }
     setSubmitting(true)
     setSubmitError('')
     try {
       await api.post(`/api/payments/${modal.payment_id}/refund-request`, {
-        title: title.trim(),
+        title: finalTitle,
         reason: reason.trim() || undefined,
         images: images.length > 0 ? images : undefined,
       })
@@ -158,13 +173,25 @@ export default function PaymentHistoryPage() {
                 <label className="block text-xs font-medium text-gray-600 mb-1.5">
                   หัวข้อ <span className="text-red-500">*</span>
                 </label>
-                <input
-                  type="text"
+                <select
                   value={title}
-                  onChange={e => setTitle(e.target.value)}
-                  placeholder="เช่น ได้รับบริการไม่ครบตามที่จ่ายไป"
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                  onChange={e => { setTitle(e.target.value); setCustomTitle('') }}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
+                >
+                  <option value="">-- เลือกหัวข้อ --</option>
+                  {REFUND_TITLES.map(t => (
+                    <option key={t} value={t}>{t}</option>
+                  ))}
+                </select>
+                {title === 'อื่นๆ' && (
+                  <input
+                    type="text"
+                    value={customTitle}
+                    onChange={e => setCustomTitle(e.target.value)}
+                    placeholder="ระบุหัวข้อของคุณ..."
+                    className="mt-2 w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                )}
               </div>
 
               {/* รายละเอียด */}
