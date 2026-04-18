@@ -15,7 +15,7 @@ const { startExpireJob } = require('./jobs/expireBookings');
 const { startExpirePaymentsJob } = require('./jobs/expirePayments');
 
 // Route imports
-const authRoutes = require('./routes   auth');
+const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
 const vehicleRoutes = require('./routes/vehicles');
 const stationRoutes = require('./routes/stations');
