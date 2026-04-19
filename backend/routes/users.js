@@ -32,7 +32,7 @@ const roleCheck = require('../middleware/roleCheck');
 router.get('/profile', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT user_id, first_name, last_name ,email, phone, role, created_at FROM users WHERE user_id = ? and u.deleted_at IS NULL',
+      'SELECT user_id, first_name, last_name, email, phone, role, created_at FROM users WHERE user_id = ? AND deleted_at IS NULL',
       [req.user.user_id]
     );
 
