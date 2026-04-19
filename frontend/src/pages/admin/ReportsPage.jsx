@@ -5,6 +5,26 @@ import CalendarPicker from '../../components/ui/CalendarPicker'
 import Select from '../../components/ui/Select'
 import { FaDownload } from 'react-icons/fa'
 
+const MONTH_TH = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
+
+function formatPeriodDate(dateStr, period) {
+  if (!dateStr) return '-'
+  if (period === 'monthly') {
+    const [y, m] = dateStr.split('-')
+    return `${MONTH_TH[parseInt(m, 10) - 1]} ${y}`
+  }
+  if (period === 'daily') {
+    return new Date(dateStr + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
+  if (period === 'yearly') return `ปี ${dateStr}`
+  return dateStr
+}
+
+function fmtDate(d) {
+  if (!d) return ''
+  return new Date(d + 'T00:00:00').toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' })
+}
+
 export default function ReportsPage() {
   const toast = useToast()
   const [tab, setTab]                 = useState('revenue')
@@ -195,7 +215,15 @@ export default function ReportsPage() {
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-100">
                 <tr>
-                  <th className="text-left px-5 py-3 font-semibold text-gray-600">ช่วงเวลา</th>
+                  <th className="text-left px-5 py-3 font-semibold text-gray-600" colSpan={3}>
+                    <span className="text-gray-600">{period === 'monthly' ? 'รายเดือน' : period === 'daily' ? 'รายวัน' : 'รายปี'}</span>
+                    <span className="font-normal text-gray-400 ml-2 text-xs">ตั้งแต่ {fmtDate(fromDate)} ถึง {fmtDate(toDate)}</span>
+                  </th>
+                </tr>
+                <tr>
+                  <th className="text-left px-5 py-3 font-semibold text-gray-600">
+                    {period === 'monthly' ? 'เดือน' : period === 'daily' ? 'วันที่' : 'ปี'}
+                  </th>
                   <th className="text-right px-5 py-3 font-semibold text-gray-600">รายได้ (฿)</th>
                   <th className="text-right px-5 py-3 font-semibold text-gray-600">รายการ</th>
                 </tr>
@@ -203,7 +231,7 @@ export default function ReportsPage() {
               <tbody className="divide-y divide-gray-50">
                 {revenue.map((r, i) => (
                   <tr key={i} className="hover:bg-gray-50">
-                    <td className="px-5 py-3 text-gray-700">{r.period_date ?? r.period ?? r.date ?? '-'}</td>
+                    <td className="px-5 py-3 text-gray-700">{formatPeriodDate(r.period_date ?? r.period ?? r.date, period)}</td>
                     <td className="px-5 py-3 text-right font-semibold text-primary">{Number(r.revenue ?? 0).toFixed(2)}</td>
                     <td className="px-5 py-3 text-right text-gray-500">{r.transaction_count ?? '-'}</td>
                   </tr>
@@ -221,7 +249,9 @@ export default function ReportsPage() {
                   <th className="text-left px-5 py-3 font-semibold text-gray-600">สถานี</th>
                   <th className="text-right px-5 py-3 font-semibold text-gray-600">ตู้ชาร์จ</th>
                   <th className="text-right px-5 py-3 font-semibold text-gray-600">Sessions</th>
-                  <th className="text-right px-5 py-3 font-semibold text-gray-600">รายได้ (฿)</th>
+                  <th className="text-right px-5 py-3 font-semibold text-gray-600">
+                    รายได้ (฿) <span className="font-normal text-gray-400 text-xs">(ยอดสะสมทุกช่วงเวลา)</span>
+                  </th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-50">

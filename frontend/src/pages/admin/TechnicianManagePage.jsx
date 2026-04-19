@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import { useToast } from '../../context/ToastContext'
 import Select from '../../components/ui/Select'
-import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch, FaTrash } from 'react-icons/fa'
+import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch, FaTrash, FaKey } from 'react-icons/fa'
 
 const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '', primary_skill: '' }
 
@@ -260,15 +260,32 @@ export default function TechnicianManagePage() {
                   placeholder="0812345678"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)</label>
-                <input
-                  type="password"
-                  value={editForm.password}
-                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="รหัสผ่านใหม่"
-                />
+              <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 space-y-3">
+                <p className="text-xs font-semibold text-blue-700">เปลี่ยนรหัสผ่าน (ไม่บังคับ)</p>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่านใหม่</label>
+                  <input
+                    type="password"
+                    value={editForm.password}
+                    onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                    placeholder="เว้นว่างถ้าไม่ต้องการเปลี่ยน"
+                    autoComplete="new-password"
+                  />
+                </div>
+                {editForm.password && (
+                  <div>
+                    <label className="text-xs font-medium text-gray-600 mb-1 block">ยืนยันรหัสผ่านใหม่</label>
+                    <input
+                      type="password"
+                      value={editForm.confirm_password}
+                      onChange={(e) => setEditForm({ ...editForm, confirm_password: e.target.value })}
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-300"
+                      placeholder="ยืนยันรหัสผ่านใหม่"
+                      autoComplete="new-password"
+                    />
+                  </div>
+                )}
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
@@ -373,6 +390,46 @@ export default function TechnicianManagePage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Double-Confirm Password Change Modal */}
+      {confirmPwdChange && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[70] p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">ยืนยันเปลี่ยนรหัสผ่าน</h2>
+              <button onClick={() => setConfirmPwdChange(null)} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div className="flex items-center gap-3 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3">
+                <FaKey size={16} className="text-amber-500 flex-shrink-0" />
+                <div>
+                  <p className="text-sm font-semibold text-gray-900">
+                    {confirmPwdChange.tech.first_name} {confirmPwdChange.tech.last_name}
+                  </p>
+                  <p className="text-xs text-gray-500">{confirmPwdChange.tech.email}</p>
+                </div>
+              </div>
+              <p className="text-sm text-gray-600">
+                รหัสผ่านของช่างจะถูกเปลี่ยนทันที ช่างจะต้องใช้รหัสผ่านใหม่ในการ login ครั้งถัดไป
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setConfirmPwdChange(null)}
+                  className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  onClick={handleEditConfirmed}
+                  className="flex-1 py-2.5 bg-amber-500 text-white rounded-xl text-sm font-semibold hover:bg-amber-600"
+                >
+                  ยืนยันเปลี่ยนรหัสผ่าน
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

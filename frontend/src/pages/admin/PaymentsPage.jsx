@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import { useToast } from '../../context/ToastContext'
 import Select from '../../components/ui/Select'
+import CalendarPicker from '../../components/ui/CalendarPicker'
 import { FaMoneyBillWave, FaSearch, FaFileDownload } from 'react-icons/fa'
 
 export default function PaymentsPage() {
@@ -84,12 +85,9 @@ export default function PaymentsPage() {
               { value: 'promptpay', label: 'พร้อมเพย์ (QR)' },
             ]}
           />
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          />
+          <div className="w-44">
+            <CalendarPicker value={filterDate} onChange={setFilterDate} placeholder="กรองวันที่" />
+          </div>
         </div>
       </div>
 

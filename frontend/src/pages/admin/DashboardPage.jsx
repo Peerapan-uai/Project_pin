@@ -4,6 +4,7 @@ import { FaBolt, FaBuilding, FaUsers, FaTicketAlt, FaClipboardList, FaExclamatio
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
 import Select from '../../components/ui/Select'
+import CalendarPicker from '../../components/ui/CalendarPicker'
 
 const POLL_INTERVAL = 10000
 
@@ -114,12 +115,9 @@ export default function DashboardPage() {
             onChange={(v) => setFilterStation(v)}
             options={[{ value: 'all', label: 'ทุกสถานี' }, ...stations.map((s) => ({ value: s.station_id, label: s.name }))]}
           />
-          <input
-            type="date"
-            value={filterDate}
-            onChange={(e) => setFilterDate(e.target.value)}
-            className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white"
-          />
+          <div className="w-44">
+            <CalendarPicker value={filterDate} onChange={setFilterDate} placeholder="กรองวันที่" />
+          </div>
           {(filterStation !== 'all' || filterDate) && (
             <button
               onClick={() => { setFilterStation('all'); setFilterDate('') }}
