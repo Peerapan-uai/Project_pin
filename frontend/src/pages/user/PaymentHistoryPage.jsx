@@ -83,8 +83,8 @@ export default function PaymentHistoryPage() {
     try {
       await api.post(`/api/payments/${modal.payment_id}/refund-request`, {
         title: finalTitle,
-        reason: reason.trim() || undefined,
-        images: images.length > 0 ? images : undefined,
+        reason: reason.trim(),
+        images: images.length > 0 ? images : [],
       })
       setPayments(prev => prev.map(p =>
         p.payment_id === modal.payment_id

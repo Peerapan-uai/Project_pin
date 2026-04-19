@@ -809,7 +809,7 @@ router.get('/:id/refunds', auth, async (req, res) => {
  */
 // #48  POST /:id/refund-request  — nem
 router.post('/:id/refund-request', auth, async (req, res) => {
-  const { title, reason, images } = req.body;
+  const { title, reason = '', images } = req.body;
   const paymentId = req.params.id;
   const userId = req.user.user_id;
 

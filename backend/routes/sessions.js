@@ -220,6 +220,23 @@ router.patch('/:id/stop', auth, async (req, res) => {
       try {
         await conn.beginTransaction();
 
+        const [existingPayment] = await conn.query(
+          `SELECT payment_id, method, status FROM payments WHERE session_id = ? LIMIT 1 FOR UPDATE`,
+          [req.params.id]
+        );
+        if (existingPayment.length > 0) {
+          await conn.rollback();
+          conn.release();
+          return res.status(200).json({
+            message: 'Charging session already paid.',
+            energy_kwh: energy_kwh,
+            total_cost: totalCost,
+            wallet_deducted: existingPayment[0].method === 'wallet',
+            payment_method: existingPayment[0].method,
+            payment_id: existingPayment[0].payment_id,
+          });
+        }
+
         const [userRows] = await conn.query(
           'SELECT wallet_balance, wallet_frozen, omise_customer_id FROM users WHERE user_id = ? FOR UPDATE',
           [req.user.user_id]
@@ -245,23 +262,44 @@ router.patch('/:id/stop', auth, async (req, res) => {
           await conn.rollback();
           conn.release();
 
-          const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
-          const charge = await Omise.charges.create({
-            amount: Math.round(totalCost * 100),
-            currency: 'thb',
-            customer: user.omise_customer_id,
-            metadata: { session_id: req.params.id, type: 'charging_fee' },
+          const basicAuth = Buffer.from(`${process.env.OMISE_SECRET_KEY}:`).toString('base64');
+          const chargeRes = await fetch('https://api.omise.co/charges', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Basic ${basicAuth}`,
+              'Content-Type': 'application/json',
+              'Omise-Idempotency-Key': `session-${req.params.id}-stop`,
+            },
+            body: JSON.stringify({
+              amount: Math.round(totalCost * 100),
+              currency: 'thb',
+              customer: user.omise_customer_id,
+              metadata: { session_id: req.params.id, type: 'charging_fee' },
+            }),
           });
+          const charge = await chargeRes.json();
 
           if (charge.status === 'successful') {
             const conn2 = await pool.getConnection();
             try {
-              const [payResult] = await conn2.query(
-                `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at) VALUES (?, ?, ?, 'credit_card', 'completed', ?, NOW())`,
-                [req.user.user_id, req.params.id, totalCost, charge.id]
+              await conn2.beginTransaction();
+              const [existingPayment2] = await conn2.query(
+                `SELECT payment_id FROM payments WHERE session_id = ? LIMIT 1 FOR UPDATE`,
+                [req.params.id]
               );
-              walletPaymentId = payResult.insertId;
-              paymentMethod = 'credit_card';
+              if (existingPayment2.length > 0) {
+                await conn2.rollback();
+                walletPaymentId = existingPayment2[0].payment_id;
+                paymentMethod = 'credit_card';
+              } else {
+                const [payResult] = await conn2.query(
+                  `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at) VALUES (?, ?, ?, 'credit_card', 'completed', ?, NOW())`,
+                  [req.user.user_id, req.params.id, totalCost, charge.id]
+                );
+                await conn2.commit();
+                walletPaymentId = payResult.insertId;
+                paymentMethod = 'credit_card';
+              }
             } finally {
               conn2.release();
             }

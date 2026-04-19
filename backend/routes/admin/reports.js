@@ -58,7 +58,7 @@ router.get('/revenue', auth, roleCheck('admin'), async (req, res) => {
             return res.status(400).json({ message: 'period must be: daily, monthly, or yearly' });
         }
         const toDate = to_date ? new Date(to_date) : new Date();
-        const fromDate =  from_date ? new Date(from_date) : new Date(toDate.getTime() - 30 * 24 * 60 * 1000);
+        const fromDate =  from_date ? new Date(from_date) : new Date(toDate.getTime() - 30 * 24 * 60 * 60 * 1000);
         let groupByClause;
         if (period === 'daily') {
             groupByClause = 'DATE(p.paid_at)';
@@ -161,7 +161,7 @@ router.get('/revenue', auth, roleCheck('admin'), async (req, res) => {
 router.get('/usage', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { from_date, to_date } = req.query;
-    const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 1000);
+    const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
     const toDate = to_date ? new Date(to_date) : new Date();
     const [usageData] = await pool.query(
         `SELECT

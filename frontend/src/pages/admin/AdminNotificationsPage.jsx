@@ -35,7 +35,10 @@ export default function AdminNotificationsPage() {
         setNotifications((prev) => prev.map((n) => n.notification_id === id ? { ...n, is_read: true } : n))
         refreshBadge()
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('markRead failed', err)
+        toast.error('ไม่สามารถทำเครื่องหมายอ่านได้')
+      })
   }
 
   const markAllRead = () => {
@@ -44,7 +47,10 @@ export default function AdminNotificationsPage() {
         setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
         refreshBadge()
       })
-      .catch(() => {})
+      .catch((err) => {
+        console.error('markAllRead failed', err)
+        toast.error('ไม่สามารถทำเครื่องหมายอ่านทั้งหมดได้')
+      })
   }
   // list ใน page นี้ใช้ /api/admin/notifications/all (ทุกคนในระบบ)
   const [notifications, setNotifications] = useState([])
@@ -60,7 +66,7 @@ export default function AdminNotificationsPage() {
   const [filterPeriod, setFilterPeriod]   = useState('all')
 
   const fetchAdminNotifs = () => {
-    api.get('/api/admin/notifications/all')
+    api.get('/api/notifications')
       .then((res) => setNotifications(res.data.notifications ?? []))
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
@@ -68,7 +74,7 @@ export default function AdminNotificationsPage() {
 
   useEffect(() => {
     Promise.all([
-      api.get('/api/admin/notifications/all'),
+      api.get('/api/notifications'),
       api.get('/api/users'),
     ])
       .then(([notifRes, usersRes]) => {
@@ -336,7 +342,7 @@ export default function AdminNotificationsPage() {
                 </div>
                 <p className="text-xs text-gray-500 mt-0.5">{n.message}</p>
                 <p className="text-xs text-gray-400 mt-1">
-                  ถึง: {user?.first_name} {user?.last_name} · {new Date(n.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
+                  {new Date(n.created_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
             </div>

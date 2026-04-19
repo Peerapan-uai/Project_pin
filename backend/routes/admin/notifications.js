@@ -312,7 +312,7 @@ router.post('/schedule', auth, roleCheck('admin'), async (req, res) => {
 router.get('/analytics', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { from_date, to_date } = req.query;
-    const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 1000);
+    const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
     const toDate = to_date ? new Date(to_date) : new Date();
 
     // 🔴 TODO H: Query notification stats (total, read, unread)
