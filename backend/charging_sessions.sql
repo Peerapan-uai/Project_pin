@@ -112,3 +112,188 @@ COMMIT;
 /*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
 /*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
+
+
+
+
+/** ตาราง ปัจจุบัน
+
+
+CREATE TABLE `users` (
+  `user_id` int UNSIGNED NOT NULL,
+  `email` varchar(255) NOT NULL,
+  `password_hash` varchar(255) NOT NULL,
+  `first_name` varchar(100) NOT NULL,
+  `last_name` varchar(100) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `profile_image` varchar(500) DEFAULT NULL,
+  `role` enum('user','admin','technician') NOT NULL DEFAULT 'user',
+  `wallet_balance` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `is_banned` tinyint(1) NOT NULL DEFAULT '0',
+  `ban_reason` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `omise_customer_id` varchar(50) DEFAULT NULL,
+  `wallet_frozen` tinyint(1) DEFAULT '0',
+  `freeze_reason` text,
+  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE `users`
+  ADD PRIMARY KEY (`user_id`),
+  ADD UNIQUE KEY `email` (`email`);
+
+ALTER TABLE `users`
+  MODIFY `user_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+COMMIT;
+
+
+
+
+
+
+CREATE TABLE `tech_profiles` (
+  `tech_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `work_mode` enum('FIELD','REMOTE','HYBRID') NOT NULL,
+  `primary_skill` enum('ELECTRICAL','SOFTWARE','MECHANICAL') NOT NULL,
+  `status` enum('AVAILABLE','BUSY','OFFLINE') NOT NULL DEFAULT 'OFFLINE'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE `tech_profiles`
+  ADD PRIMARY KEY (`tech_id`),
+  ADD UNIQUE KEY `user_id` (`user_id`);
+
+ALTER TABLE `tech_profiles`
+  MODIFY `tech_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=6;
+
+ALTER TABLE `tech_profiles`
+  ADD CONSTRAINT `tech_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+COMMIT;
+
+
+
+CREATE TABLE `stations` (
+  `station_id` int UNSIGNED NOT NULL,
+  `name` varchar(255) NOT NULL,
+  `address` text NOT NULL,
+  `latitude` decimal(10,8) NOT NULL,
+  `longitude` decimal(11,8) NOT NULL,
+  `floor` varchar(50) DEFAULT NULL,
+  `open_time` time DEFAULT NULL,
+  `close_time` time DEFAULT NULL,
+  `image` varchar(500) DEFAULT NULL,
+  `status` enum('active','inactive') NOT NULL DEFAULT 'active',
+  `scheduled_status` enum('active','inactive') DEFAULT NULL,
+  `scheduled_status_at` datetime DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+ALTER TABLE `stations`
+  ADD PRIMARY KEY (`station_id`);
+
+ALTER TABLE `stations`
+  MODIFY `station_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+COMMIT;
+
+
+
+
+CREATE TABLE `scheduled_notifications` (
+  `id` int UNSIGNED NOT NULL,
+  `title` varchar(255) NOT NULL,
+  `message` text NOT NULL,
+  `scheduled_at` datetime NOT NULL,
+  `target_type` enum('all','role','user_ids') NOT NULL,
+  `target_value` varchar(255) DEFAULT NULL,
+  `type` enum('booking','charging','payment','maintenance','system') NOT NULL DEFAULT 'system',
+  `created_by` int UNSIGNED NOT NULL,
+  `is_sent` tinyint(1) NOT NULL DEFAULT '0',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+ALTER TABLE `scheduled_notifications`
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `fk_sched_user` (`created_by`);
+
+ALTER TABLE `scheduled_notifications`
+  MODIFY `id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `scheduled_notifications`
+  ADD CONSTRAINT `fk_sched_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`user_id`);
+COMMIT;
+
+
+
+CREATE TABLE `reviews` (
+  `review_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `station_id` int UNSIGNED NOT NULL,
+  `rating` tinyint NOT NULL,
+  `comment` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ;
+
+ALTER TABLE `reviews`
+  ADD PRIMARY KEY (`review_id`),
+  ADD KEY `fk_reviews_user` (`user_id`),
+  ADD KEY `fk_reviews_station` (`station_id`);
+
+ALTER TABLE `reviews`
+  MODIFY `review_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `reviews`
+  ADD CONSTRAINT `fk_reviews_station` FOREIGN KEY (`station_id`) REFERENCES `stations` (`station_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_reviews_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+COMMIT;
+
+
+
+
+CREATE TABLE `refund_requests` (
+  `request_id` int UNSIGNED NOT NULL,
+  `payment_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `title` varchar(255) NOT NULL DEFAULT '',
+  `reason` text,
+  `image_url` text,
+  `status` enum('pending','approved','rejected') NOT NULL DEFAULT 'pending',
+  `reviewed_by` int UNSIGNED DEFAULT NULL,
+  `reviewed_at` timestamp NULL DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CREATE TABLE `wallet_transactions` (
+  `txn_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `type` enum('topup','deduct','refund','adjust') DEFAULT NULL,
+  `ref` varchar(100) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `reason` varchar(255) DEFAULT NULL,
+  `adjusted_by` int UNSIGNED DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+
+
+
