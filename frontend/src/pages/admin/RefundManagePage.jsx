@@ -27,8 +27,13 @@ export default function RefundManagePage() {
 
   const fetchRefunds = () => {
     setLoading(true)
-    api.get(`/api/admin/refunds?status=${filterStatus}`)
-      .then((res) => setRefunds(res.data.refund_request ?? []))
+    const url = filterStatus === 'all' ? '/api/admin/refunds' : `/api/admin/refunds?status=${filterStatus}`
+    api.get(url)
+      .then((res) => {
+        const data = res.data.refund_request ?? []
+        data.sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+        setRefunds(data)
+      })
       .catch((err) => console.error(err))
       .finally(() => setLoading(false))
   }
@@ -72,6 +77,7 @@ export default function RefundManagePage() {
           value={filterStatus}
           onChange={(v) => setFilterStatus(v)}
           options={[
+            { value: 'all', label: 'ทั้งหมด' },
             { value: 'pending', label: 'รอดำเนินการ' },
             { value: 'approved', label: 'อนุมัติแล้ว' },
             { value: 'rejected', label: 'ปฏิเสธแล้ว' },
@@ -116,7 +122,7 @@ export default function RefundManagePage() {
                 </div>
 
                 {/* ปุ่ม approve/reject */}
-                {filterStatus === 'pending' && (
+                {(filterStatus === 'pending' || filterStatus === 'all') && rr.status === 'pending' && (
                   <div className="flex gap-2 flex-shrink-0">
                     <button
                       onClick={() => setApproveModal(rr)}

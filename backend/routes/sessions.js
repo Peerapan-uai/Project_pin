@@ -87,6 +87,18 @@ router.post('/start', auth, async (req, res) => {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
 
+    // C — บังคับเติมเงินขั้นต่ำก่อนเริ่มชาร์จ
+    const MIN_BALANCE = 20; // บาท
+    const walletBalance = parseFloat(userRows[0].wallet_balance) || 0;
+    if (walletBalance < MIN_BALANCE) {
+      return res.status(400).json({
+        message: `ยอดเงินในกระเป๋าไม่เพียงพอ ต้องมีอย่างน้อย ${MIN_BALANCE} บาท (ปัจจุบัน ${walletBalance.toFixed(2)} บาท)`,
+        code: 'INSUFFICIENT_BALANCE',
+        min_balance: MIN_BALANCE,
+        current_balance: walletBalance,
+      });
+    }
+
     // ใช้ transaction ป้องกัน partial update (session created แต่ booking ไม่ update)
     const conn = await pool.getConnection();
     let sessionId;
@@ -319,6 +331,8 @@ router.patch('/:id/stop', auth, async (req, res) => {
     }
 
     // อัพเดท battery (best effort)
+    let batteryAfter = null;
+    let batteryCapacity = null;
     try {
       const [vehicleRows] = await pool.query(
         `SELECT v.vehicle_id, v.battery_current_kwh, v.battery_capacity_kwh
@@ -339,6 +353,8 @@ router.patch('/:id/stop', auth, async (req, res) => {
           `UPDATE vehicles SET battery_current_kwh = ? WHERE vehicle_id = ?`,
           [updated, v.vehicle_id]
         );
+        batteryAfter = updated;
+        batteryCapacity = v.battery_capacity_kwh;
       }
     } catch (batteryErr) {
       console.warn('Battery update skipped:', batteryErr.message);
@@ -362,6 +378,8 @@ router.patch('/:id/stop', auth, async (req, res) => {
       wallet_deducted: walletDeducted,
       payment_method: paymentMethod,
       payment_id: walletPaymentId,
+      battery_after_kwh: batteryAfter,
+      battery_capacity_kwh: batteryCapacity,
     });
   } catch (error) {
     console.error('Stop session error:', error);
@@ -445,7 +463,86 @@ router.get('/:id/status', auth, async (req, res) => {
       return res.status(404).json({ message: 'Session not found.' });
     }
 
-    return res.status(200).json({ session: rows[0] });
+    const session = rows[0];
+
+    // A — auto stop: ถ้ากำลังชาร์จอยู่ + estimated cost >= wallet balance → หยุดอัตโนมัติ
+    if (session.status === 'charging') {
+      const durationMin = (session.duration_seconds || 0) / 60;
+      const estimatedKwh = parseFloat(((session.power_kw * durationMin) / 60).toFixed(3));
+      const estimatedCost = parseFloat((estimatedKwh * session.price_per_kwh).toFixed(2));
+
+      const [userRows] = await pool.query(
+        'SELECT wallet_balance FROM users WHERE user_id = ?',
+        [req.user.user_id]
+      );
+      const walletBalance = parseFloat(userRows[0]?.wallet_balance) || 0;
+
+      if (estimatedCost > 0 && estimatedCost >= walletBalance) {
+        // auto stop — ใช้ energy ที่คำนวณ ณ ตอนนี้
+        const energyKwh = estimatedKwh > 0 ? estimatedKwh : 0.001;
+        const totalCost = parseFloat((energyKwh * session.price_per_kwh).toFixed(2));
+
+        await Promise.all([
+          pool.query(`UPDATE charging_sessions SET end_time = NOW(), status = 'completed', energy_kwh = ? WHERE session_id = ?`, [energyKwh, session.session_id]),
+          pool.query(`UPDATE chargers SET status = 'available' WHERE charger_id = ?`, [session.charger_id]),
+          pool.query(`UPDATE bookings SET status = 'completed' WHERE booking_id = ?`, [session.booking_id]),
+        ]);
+
+        // หัก wallet เท่าที่มี
+        let paymentMethod = 'pending';
+        if (walletBalance > 0 && walletBalance >= totalCost) {
+          await pool.query('UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?', [totalCost, req.user.user_id]);
+          await pool.query('INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)', [req.user.user_id, totalCost, 'deduct', `session_${session.session_id}`]);
+          await pool.query(`INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at) VALUES (?, ?, ?, 'wallet', 'completed', ?, NOW())`,
+            [req.user.user_id, session.session_id, totalCost, `AUTOSTOP${Date.now()}`]);
+          paymentMethod = 'wallet';
+        }
+
+        // อัพเดท battery ของรถ (best effort)
+        let batteryAfter = null;
+        let batteryCapacity = null;
+        try {
+          const [vRows] = await pool.query(
+            `SELECT v.vehicle_id, v.battery_current_kwh, v.battery_capacity_kwh
+             FROM vehicles v
+             JOIN chargers c ON c.connector_type = v.connector_type
+             WHERE v.user_id = ? AND c.charger_id = ?
+             LIMIT 1`,
+            [req.user.user_id, session.charger_id]
+          );
+          if (vRows.length > 0) {
+            const v = vRows[0];
+            const updated = Math.min(
+              parseFloat(((v.battery_current_kwh ?? 0) + energyKwh).toFixed(2)),
+              v.battery_capacity_kwh
+            );
+            await pool.query(`UPDATE vehicles SET battery_current_kwh = ? WHERE vehicle_id = ?`, [updated, v.vehicle_id]);
+            batteryAfter = updated;
+            batteryCapacity = v.battery_capacity_kwh;
+          }
+        } catch (_) {}
+
+        try {
+          await pool.query(
+            `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'charging')`,
+            [req.user.user_id, 'หยุดชาร์จอัตโนมัติ', `ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จอัตโนมัติ ชาร์จไป ${energyKwh} kWh คิดเป็น ${totalCost} บาท`]
+          );
+        } catch (_) {}
+
+        return res.status(200).json({
+          session: { ...session, status: 'completed', energy_kwh: energyKwh },
+          auto_stopped: true,
+          reason: 'wallet_insufficient',
+          total_cost: totalCost,
+          energy_kwh: energyKwh,
+          payment_method: paymentMethod,
+          battery_after_kwh: batteryAfter,
+          battery_capacity_kwh: batteryCapacity,
+        });
+      }
+    }
+
+    return res.status(200).json({ session });
   } catch (error) {
     console.error('Get session status error:', error);
     return res.status(500).json({ message: 'Server error fetching session status.' });

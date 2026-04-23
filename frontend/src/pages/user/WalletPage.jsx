@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash } from 'react-icons/fa'
+import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash, FaBan } from 'react-icons/fa'
 import api from '../../utils/api'
 
 const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
@@ -11,6 +11,8 @@ const TYPE_COLOR = { topup: 'text-green-600', deduct: 'text-red-500', refund: 't
 export default function WalletPage() {
   const navigate = useNavigate()
   const [balance, setBalance] = useState(null)
+  const [walletFrozen, setWalletFrozen] = useState(false)
+  const [freezeReason, setFreezeReason] = useState(null)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
 
@@ -38,6 +40,8 @@ export default function WalletPage() {
     api.get('/api/wallet/balance')
       .then(res => {
         setBalance(res.data.balance)
+        setWalletFrozen(!!res.data.wallet_frozen)
+        setFreezeReason(res.data.freeze_reason || null)
         setTransactions(res.data.recent_transactions || [])
       })
       .catch(() => {})
@@ -170,11 +174,24 @@ export default function WalletPage() {
     <div className="flex flex-col min-h-screen bg-gray-50 pb-20 relative overflow-hidden">
       <Navbar title="กระเป๋าเงิน" showBack onBack={() => navigate(-1)} />
 
+      {/* Frozen banner */}
+      {walletFrozen && (
+        <div className="bg-red-500 px-4 py-3 flex items-center gap-3">
+          <FaBan size={18} className="text-white shrink-0" />
+          <div>
+            <p className="text-white text-sm font-bold">กระเป๋าเงินถูกระงับ</p>
+            <p className="text-red-100 text-xs">
+              {freezeReason || 'ไม่สามารถเติมเงิน จอง หรือชาร์จได้ กรุณาติดต่อแอดมิน'}
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Balance card */}
-      <div className="bg-gradient-to-br from-green-500 to-green-600 px-4 pt-6 pb-8">
+      <div className={`${walletFrozen ? 'bg-gradient-to-br from-gray-400 to-gray-500' : 'bg-gradient-to-br from-green-500 to-green-600'} px-4 pt-6 pb-8`}>
         <div className="flex flex-col items-center gap-2">
           <FaWallet size={32} className="text-white/80" />
-          <p className="text-green-100 text-sm">ยอดเงินคงเหลือ</p>
+          <p className={`${walletFrozen ? 'text-gray-200' : 'text-green-100'} text-sm`}>ยอดเงินคงเหลือ</p>
           <p className="text-white text-4xl font-bold">
             ฿{formatAmount(balance ?? 0)}
           </p>
@@ -184,8 +201,9 @@ export default function WalletPage() {
       {/* Topup buttons */}
       <div className="px-4 -mt-4 grid grid-cols-2 gap-3 mb-4">
         <button
-          onClick={() => openModal('promptpay')}
-          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          onClick={() => !walletFrozen && openModal('promptpay')}
+          disabled={walletFrozen}
+          className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-2 transition-shadow ${walletFrozen ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
         >
           <div className="w-10 h-10 bg-blue-50 rounded-full flex items-center justify-center">
             <FaQrcode size={18} className="text-blue-500" />
@@ -193,8 +211,9 @@ export default function WalletPage() {
           <span className="text-sm font-semibold text-gray-700">PromptPay QR</span>
         </button>
         <button
-          onClick={() => openModal('card')}
-          className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-2 hover:shadow-md transition-shadow"
+          onClick={() => !walletFrozen && openModal('card')}
+          disabled={walletFrozen}
+          className={`bg-white rounded-2xl p-4 shadow-sm border border-gray-100 flex flex-col items-center gap-2 transition-shadow ${walletFrozen ? 'opacity-50 cursor-not-allowed' : 'hover:shadow-md'}`}
         >
           <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center">
             <FaCreditCard size={18} className="text-purple-500" />
@@ -410,7 +429,6 @@ export default function WalletPage() {
                           className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary font-mono" />
                       </div>
                     </div>
-                    <p className="text-xs text-gray-400 text-center">ทดสอบใช้เลขบัตร 4242 4242 4242 4242</p>
                     <button
                       onClick={handleCardTopup}
                       disabled={processing}

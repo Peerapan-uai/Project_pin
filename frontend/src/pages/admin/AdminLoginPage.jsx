@@ -168,19 +168,6 @@ export default function AdminLoginPage() {
               </button>
             </form>
 
-            <div className="mt-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
-              <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">บัญชีทดสอบ</p>
-              <div className="space-y-1.5 text-xs text-gray-600">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Admin:</span>
-                  <span className="font-mono">admin@evcharge.com / password123</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">ช่าง:</span>
-                  <span className="font-mono">tech@evcharge.com / password123</span>
-                </div>
-              </div>
-            </div>
           </div>
         </div>
       </div>

@@ -443,6 +443,38 @@ router.patch('/:id/ban', auth, roleCheck('admin'), async (req, res) => {
  *       500:
  *         description: Server error
  */
+/// POST /api/users  — admin สร้าง user ใหม่
+router.post('/', auth, roleCheck('admin'), async (req, res) => {
+  const { first_name, last_name, email, password, phone } = req.body;
+
+  if (!first_name || !last_name || !email || !password) {
+    return res.status(400).json({ message: 'กรุณากรอกชื่อ นามสกุล อีเมล และรหัสผ่าน' });
+  }
+
+  try {
+    const [existing] = await pool.query('SELECT user_id FROM users WHERE email = ?', [email]);
+    if (existing.length > 0) {
+      return res.status(400).json({ message: 'อีเมลนี้ถูกใช้งานแล้ว' });
+    }
+
+    const password_hash = await bcrypt.hash(password, 10);
+
+    const [result] = await pool.query(
+      'INSERT INTO users (first_name, last_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
+      [first_name, last_name, email, password_hash, phone || null, 'user']
+    );
+
+    return res.status(201).json({
+      success: true,
+      message: 'เพิ่มผู้ใช้สำเร็จ',
+      data: { user_id: result.insertId }
+    });
+  } catch (error) {
+    console.error('Create user error:', error);
+    return res.status(500).json({ message: 'เกิดข้อผิดพลาดในการสร้างผู้ใช้' });
+  }
+});
+
 ///lalla  POST /api/users/technician
 router.post('/technician', auth, roleCheck('admin'), async (req, res) => {
   const { first_name, last_name, email, password, phone, primary_skill } = req.body;

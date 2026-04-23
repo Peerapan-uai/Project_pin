@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { FaMapMarkerAlt, FaStar, FaClock, FaBolt, FaDirections } from 'react-icons/fa'
+import { FaMapMarkerAlt, FaStar, FaClock, FaBolt, FaDirections, FaBan } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import StatusBadge from '../../components/StatusBadge'
@@ -14,17 +14,20 @@ export default function StationDetailPage() {
   const [reviews, setReviews] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [walletFrozen, setWalletFrozen] = useState(false)
 
   useEffect(() => {
     Promise.all([
       api.get(`/api/stations/${id}`),
       api.get(`/api/chargers/station/${id}`),
-      api.get(`/api/reviews/station/${id}`)
+      api.get(`/api/reviews/station/${id}`),
+      api.get('/api/wallet/balance')
     ])
-      .then(([stationRes, chargersRes, reviewsRes]) => {
+      .then(([stationRes, chargersRes, reviewsRes, walletRes]) => {
         setStation(stationRes.data.station || stationRes.data)
         setChargers(Array.isArray(chargersRes.data) ? chargersRes.data : chargersRes.data.chargers || [])
         setReviews(reviewsRes.data.reviews || reviewsRes.data || [])
+        setWalletFrozen(!!walletRes.data.wallet_frozen)
       })
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
@@ -76,9 +79,9 @@ export default function StationDetailPage() {
                 </>
               )}
             </span>
-            <span className="flex items-center gap-1 text-sm text-gray-500">
-              <FaClock size={13} className="text-gray-400" />
-              {station.open_time}–{station.close_time}
+            <span className={`flex items-center gap-1 text-sm font-medium ${station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'text-green-600' : 'text-gray-500'}`}>
+              <FaClock size={13} className={station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'text-green-500' : 'text-gray-400'} />
+              {station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'เปิด 24 ชม.' : `${station.open_time}–${station.close_time}`}
             </span>
           </div>
           {station.latitude && station.longitude && (
@@ -91,6 +94,14 @@ export default function StationDetailPage() {
           )}
         </div>
 
+        {/* Wallet frozen warning */}
+        {walletFrozen && (
+          <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-center gap-3">
+            <FaBan size={16} className="text-red-500 shrink-0" />
+            <p className="text-sm text-red-700">กระเป๋าเงินถูกระงับ — ไม่สามารถจองตู้ชาร์จได้ กรุณาติดต่อแอดมิน</p>
+          </div>
+        )}
+
         {/* Chargers */}
         <div>
           <h3 className="font-semibold text-gray-800 mb-2">ตู้ชาร์จ ({chargers.length})</h3>
@@ -98,8 +109,8 @@ export default function StationDetailPage() {
             {chargers.map((c) => (
               <button
                 key={c.charger_id}
-                onClick={() => c.status === 'available' && navigate(`/booking/${c.charger_id}`)}
-                disabled={c.status !== 'available'}
+                onClick={() => c.status === 'available' && !walletFrozen && navigate(`/booking/${c.charger_id}`)}
+                disabled={c.status !== 'available' || walletFrozen}
                 className="w-full bg-white rounded-xl p-3.5 shadow-sm border border-gray-100 text-left flex items-center justify-between hover:shadow-md transition-all disabled:opacity-70"
               >
                 <div>
@@ -108,10 +119,13 @@ export default function StationDetailPage() {
                 </div>
                 <div className="flex flex-col items-end gap-1.5">
                   <StatusBadge status={c.status} />
-                  {c.status === 'available' && (
+                  {c.status === 'available' && !walletFrozen && (
                     <span className="text-xs text-primary font-medium flex items-center gap-1">
                       <FaBolt size={10} /> จองเลย
                     </span>
+                  )}
+                  {c.status === 'available' && walletFrozen && (
+                    <span className="text-xs text-red-500 font-medium">ถูกระงับ</span>
                   )}
                 </div>
               </button>

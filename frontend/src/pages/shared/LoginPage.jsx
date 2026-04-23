@@ -158,24 +158,6 @@ export default function LoginPage() {
             </Link>
           </p>
 
-          {/* Demo accounts */}
-          <div className="mt-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-            <p className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wide">บัญชีทดสอบ</p>
-            <div className="space-y-1.5 text-xs text-gray-600">
-              <div className="flex justify-between">
-                <span className="text-gray-500">Admin:</span>
-                <span className="font-mono">admin@evcharger.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">ช่าง:</span>
-                <span className="font-mono">tech1@evcharger.com</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-500">ผู้ใช้:</span>
-                <span className="font-mono">user1@gmail.com</span>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
     </div>

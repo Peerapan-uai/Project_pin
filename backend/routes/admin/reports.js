@@ -160,9 +160,17 @@ router.get('/revenue', auth, roleCheck('admin'), async (req, res) => {
 // lalla GET /api/admin/reports/usage
 router.get('/usage', auth, roleCheck('admin'), async (req, res) => {
   try {
-    const { from_date, to_date } = req.query;
+    const { from_date, to_date, status } = req.query;
     const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
     const toDate = to_date ? new Date(to_date) : new Date();
+
+    let statusCondition = '';
+    const params = [fromDate, toDate];
+    if (status && ['completed', 'charging', 'failed', 'stopped'].includes(status)) {
+      statusCondition = ' AND cs.status = ?';
+      params.push(status);
+    }
+
     const [usageData] = await pool.query(
         `SELECT
         c.charger_id, c.charger_name, c.station_id,
@@ -172,9 +180,9 @@ router.get('/usage', auth, roleCheck('admin'), async (req, res) => {
         MAX(c.temperature_celsius) as max_temperature
         FROM chargers c
         LEFT JOIN charging_sessions cs ON c.charger_id = cs.charger_id
-        AND cs.start_time >= ? AND cs.start_time <= ?
+        AND cs.start_time >= ? AND cs.start_time <= ?${statusCondition}
         GROUP BY c.charger_id`,
-        [ fromDate, toDate]
+        params
     );
 
     return res.status(200).json({
@@ -205,20 +213,25 @@ router.get('/usage', auth, roleCheck('admin'), async (req, res) => {
 // lalla GET /api/admin/reports/stations
 router.get('/stations', auth, roleCheck('admin'), async (req, res) => {
   try {
-    // 🔴 TODO B: Query each station with stats
+    const { from_date, to_date } = req.query;
+    const fromDate = from_date ? new Date(from_date) : new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+    const toDate = to_date ? new Date(to_date + 'T23:59:59') : new Date();
+
     const [stationsStats] = await pool.query(
         `SELECT
          s.station_id, s.name,
          COUNT(DISTINCT b.booking_id) as total_bookings,
          COUNT(DISTINCT cs.session_id) as total_sessions,
-         SUM(p.amount) as total_revenue,
-        COUNT(DISTINCT c.charger_id) as total_chargers
+         COALESCE(SUM(CASE WHEN p.status = 'completed' THEN p.amount ELSE 0 END), 0) as total_revenue,
+         COUNT(DISTINCT c.charger_id) as total_chargers
         FROM stations s
         LEFT JOIN chargers c ON s.station_id = c.station_id
         LEFT JOIN bookings b ON c.charger_id = b.charger_id
         LEFT JOIN charging_sessions cs ON b.booking_id = cs.booking_id
+          AND cs.start_time >= ? AND cs.start_time <= ?
         LEFT JOIN payments p ON cs.session_id = p.session_id
-        GROUP BY s.station_id`
+        GROUP BY s.station_id`,
+        [fromDate, toDate]
     );
     return res.status(200).json({
       success: true,
@@ -303,7 +316,7 @@ router.get('/comparison', auth, roleCheck('admin'), async (req, res) => {
     const previousRevenue = parseFloat(previousRow.revenue || 0);
     const percentageChange = previousRevenue > 0
       ? ((currentRevenue - previousRevenue) / previousRevenue * 100).toFixed(2)
-      : 0;
+      : currentRevenue > 0 ? 100 : 0;
 
     return res.status(200).json({
       success: true,
@@ -422,81 +435,202 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
  *         description: Server error
  */
 // lalla GET /api/admin/payments/{id}/invoice
- // 🔴 TODO A: Query payment + user + session + charger + station info
 router.get('/payments/:paymentId/invoice', auth, roleCheck('admin'), async (req, res) => {
+  let browser;
   try {
     const { paymentId } = req.params;
     const [paymentData] = await pool.query(
-        `SELECT
-      p.payment_id, p.amount, p.method, p.status, p.paid_at,
-      u.first_name, u.last_name, u.email, u.phone,
-      cs.energy_kwh, cs.start_time, cs.end_time,
-      c.charger_name, c.power_kw,
-      s.name as station_name, s.address
-    FROM payments p
-    JOIN users u ON p.user_id = u.user_id
-    JOIN charging_sessions cs ON p.session_id = cs.session_id
-    JOIN chargers c ON cs.charger_id = c.charger_id
-    JOIN stations s ON c.station_id = s.station_id
-    WHERE p.payment_id = ?`,
-    [paymentId]
+      `SELECT
+        p.payment_id, p.amount, p.method, p.status, p.paid_at,
+        u.first_name, u.last_name, u.email, u.phone,
+        cs.energy_kwh, cs.start_time, cs.end_time,
+        c.charger_name, c.power_kw,
+        s.name as station_name, s.address
+      FROM payments p
+      JOIN users u ON p.user_id = u.user_id
+      JOIN charging_sessions cs ON p.session_id = cs.session_id
+      JOIN chargers c ON cs.charger_id = c.charger_id
+      JOIN stations s ON c.station_id = s.station_id
+      WHERE p.payment_id = ?`,
+      [paymentId]
     );
-   
 
-    // 🔴 TODO B: Check payment exists
-     if (paymentData.length === 0) { return res.status(404).json({message: 'Payment not found'}); }
+    if (paymentData.length === 0) {
+      return res.status(404).json({ message: 'Payment not found' });
+    }
 
-    // 🔴 TODO C: Launch Puppeteer browser
-     const browser = await puppeteer.launch({ args: ['--no-sandbox'] });
-     const page = await browser.newPage();
+    const d = paymentData[0];
+    const paidDate = d.paid_at ? new Date(d.paid_at).toLocaleDateString('th-TH', { year: 'numeric', month: 'long', day: 'numeric' }) : '-';
+    const methodLabel = { credit_card: 'บัตรเครดิต/เดบิต', wallet: 'กระเป๋าเงิน', promptpay: 'พร้อมเพย์' }[d.method] || d.method || '-';
 
-    // 🔴 TODO D: Generate HTML invoice template
+    browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+
     const htmlContent = `
       <html>
         <head>
           <meta charset="UTF-8">
           <style>
-            body { font-family: 'Sarabun', sans-serif; padding: 40px; }
-            .invoice-header { text-align: center; margin-bottom: 30px; }
-            .invoice-details { margin: 20px 0; }
-            table { width: 100%; border-collapse: collapse; }
-            th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+            @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { font-family: 'Sarabun', 'Helvetica Neue', sans-serif; padding: 50px; color: #1a1a1a; }
+            .header { text-align: center; border-bottom: 2px solid #22c55e; padding-bottom: 20px; margin-bottom: 30px; }
+            .header h1 { font-size: 24px; color: #22c55e; margin-bottom: 4px; }
+            .header p { font-size: 13px; color: #888; }
+            .info-grid { display: flex; justify-content: space-between; margin-bottom: 30px; }
+            .info-box p { font-size: 13px; line-height: 1.8; }
+            .info-box strong { color: #555; }
+            table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+            th { background: #f8f8f8; text-align: left; padding: 10px 14px; font-size: 13px; color: #555; border-bottom: 2px solid #e5e5e5; }
+            td { padding: 12px 14px; font-size: 14px; border-bottom: 1px solid #eee; }
+            .amount { text-align: right; font-weight: 700; color: #22c55e; font-size: 16px; }
+            .footer { margin-top: 40px; text-align: center; font-size: 11px; color: #aaa; }
           </style>
         </head>
         <body>
-          <div class="invoice-header">
-            <h1>ใบเสร็จการชาร์จ</h1>
-            <p>Invoice #${paymentData[0].payment_id}</p>
+          <div class="header">
+            <h1>ใบเสร็จการชาร์จ EV</h1>
+            <p>Invoice #${d.payment_id}</p>
           </div>
-          <div class="invoice-details">
-            <p><strong>ชื่อผู้ใช้:</strong> ${paymentData[0].first_name}${paymentData[0].last_name}</p>
-            <p><strong>สถานี:</strong> ${paymentData[0].station_name}</p>
-            <p><strong>พลังงาน:</strong> ${paymentData[0].energy_kwh} kWh</p>
-            <p><strong>จำนวนเงิน:</strong> ${paymentData[0].amount} บาท</p>
-            <p><strong>วันที่:</strong> ${paymentData[0].paid_at}</p>
+          <div class="info-grid">
+            <div class="info-box">
+              <p><strong>ชื่อผู้ใช้:</strong> ${d.first_name || ''} ${d.last_name || ''}</p>
+              <p><strong>อีเมล:</strong> ${d.email || '-'}</p>
+              <p><strong>เบอร์โทร:</strong> ${d.phone || '-'}</p>
+            </div>
+            <div class="info-box" style="text-align:right">
+              <p><strong>วันที่ชำระ:</strong> ${paidDate}</p>
+              <p><strong>วิธีชำระ:</strong> ${methodLabel}</p>
+            </div>
+          </div>
+          <table>
+            <thead>
+              <tr>
+                <th>รายละเอียด</th>
+                <th>ข้อมูล</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>สถานี</td><td>${d.station_name || '-'}</td></tr>
+              <tr><td>ตู้ชาร์จ</td><td>${d.charger_name || '-'} (${d.power_kw || '-'} kW)</td></tr>
+              <tr><td>พลังงานที่ใช้</td><td>${d.energy_kwh != null ? Number(d.energy_kwh).toFixed(2) : '-'} kWh</td></tr>
+              <tr>
+                <td style="font-weight:600">ยอดชำระ</td>
+                <td class="amount">${d.amount != null ? Number(d.amount).toFixed(2) : '-'} ฿</td>
+              </tr>
+            </tbody>
+          </table>
+          <div class="footer">
+            <p>ขอบคุณที่ใช้บริการ EV Charging Station</p>
           </div>
         </body>
       </html>
     `;
 
-    // 🔴 TODO E: Set HTML content and generate PDF
     await page.setContent(htmlContent, { waitUntil: 'networkidle0' });
-    const pdf = await page.pdf({ format: 'A4', printBackground: true });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+    await browser.close();
+    browser = null;
 
-    // 🔴 TODO F: Close browser
-     await browser.close();
-
+    const buf = Buffer.from(pdfBuffer);
     res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', buf.length);
     res.setHeader('Content-Disposition', `attachment; filename="invoice-${paymentId}.pdf"`);
-    return res.send(pdf);
+    return res.end(buf);
 
   } catch (error) {
+    if (browser) try { await browser.close(); } catch (_) {}
     console.error('Generate invoice error:', error);
     return res.status(500).json({
       success: false,
       message: 'Failed to generate invoice',
       error: error.message
     });
+  }
+});
+
+// POST /api/admin/reports/export-pdf
+router.post('/export-pdf', auth, roleCheck('admin'), async (req, res) => {
+  let browser;
+  try {
+    const { report_type, from_date, to_date } = req.body;
+
+    if (!report_type || !['revenue', 'usage', 'stations'].includes(report_type)) {
+      return res.status(400).json({ message: 'Invalid report_type' });
+    }
+
+    const fromDate = from_date ? new Date(from_date + 'T00:00:00') : new Date();
+    const toDate = to_date ? new Date(to_date + 'T23:59:59') : new Date();
+    const fmtFrom = fromDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+    const fmtTo = toDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    let query, params = [], title, headers, mapRow;
+
+    if (report_type === 'revenue') {
+      title = 'รายงานรายได้';
+      headers = ['#', 'วันที่', 'จำนวนเงิน (฿)', 'วิธีชำระ', 'สถานะ'];
+      query = `SELECT payment_id, amount, method, status, paid_at FROM payments WHERE paid_at >= ? AND paid_at <= ? ORDER BY paid_at DESC`;
+      params = [fromDate, toDate];
+      const methodLabel = { credit_card: 'บัตรเครดิต', wallet: 'กระเป๋าเงิน', promptpay: 'พร้อมเพย์' };
+      const statusLabel = { completed: 'สำเร็จ', pending: 'รอดำเนินการ', refunded: 'คืนเงินแล้ว' };
+      mapRow = (r, i) => `<tr><td>${i + 1}</td><td>${new Date(r.paid_at).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</td><td style="text-align:right;font-weight:600">${Number(r.amount).toLocaleString('th-TH', { minimumFractionDigits: 2 })}</td><td>${methodLabel[r.method] || r.method}</td><td>${statusLabel[r.status] || r.status}</td></tr>`;
+    } else if (report_type === 'usage') {
+      title = 'รายงานการใช้งาน';
+      headers = ['#', 'ตู้ชาร์จ', 'เริ่ม', 'สิ้นสุด', 'พลังงาน (kWh)', 'สถานะ'];
+      query = `SELECT cs.session_id, c.charger_name, cs.start_time, cs.end_time, cs.energy_kwh, cs.status
+               FROM charging_sessions cs JOIN chargers c ON cs.charger_id = c.charger_id
+               WHERE cs.start_time >= ? AND cs.start_time <= ? ORDER BY cs.start_time DESC`;
+      params = [fromDate, toDate];
+      const sLabel = { completed: 'เสร็จสิ้น', charging: 'กำลังชาร์จ', failed: 'ล้มเหลว', stopped: 'หยุด' };
+      mapRow = (r, i) => `<tr><td>${i + 1}</td><td>${r.charger_name}</td><td>${r.start_time ? new Date(r.start_time).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td><td>${r.end_time ? new Date(r.end_time).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }) : '-'}</td><td style="text-align:right">${r.energy_kwh != null ? Number(r.energy_kwh).toFixed(2) : '-'}</td><td>${sLabel[r.status] || r.status}</td></tr>`;
+    } else {
+      title = 'รายงานสถานี';
+      headers = ['#', 'สถานี', 'ที่อยู่'];
+      query = `SELECT station_id, name, address FROM stations`;
+      params = [];
+      mapRow = (r, i) => `<tr><td>${i + 1}</td><td>${r.name}</td><td>${r.address || '-'}</td></tr>`;
+    }
+
+    const [data] = await pool.query(query, params);
+
+    const html = `<html><head><meta charset="UTF-8"><style>
+      @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
+      *{margin:0;padding:0;box-sizing:border-box}
+      body{font-family:'Sarabun',sans-serif;padding:40px;color:#1a1a1a;font-size:13px}
+      .header{text-align:center;border-bottom:2px solid #22c55e;padding-bottom:16px;margin-bottom:20px}
+      .header h1{font-size:20px;color:#22c55e}
+      .header p{font-size:12px;color:#888;margin-top:4px}
+      table{width:100%;border-collapse:collapse;margin-top:8px}
+      th{background:#f8f8f8;text-align:left;padding:8px 10px;font-size:12px;color:#555;border-bottom:2px solid #e5e5e5}
+      td{padding:7px 10px;border-bottom:1px solid #eee;font-size:12px}
+      tr:nth-child(even){background:#fafafa}
+      .footer{margin-top:30px;text-align:center;font-size:10px;color:#aaa}
+      .summary{margin-top:16px;text-align:right;font-size:13px;color:#333}
+    </style></head><body>
+      <div class="header"><h1>${title}</h1><p>${fmtFrom} — ${fmtTo}</p></div>
+      <table><thead><tr>${headers.map(h => `<th>${h}</th>`).join('')}</tr></thead>
+      <tbody>${data.map(mapRow).join('')}</tbody></table>
+      ${data.length === 0 ? '<p style="text-align:center;color:#999;padding:30px">ไม่มีข้อมูลในช่วงเวลาที่เลือก</p>' : ''}
+      <p class="summary">ทั้งหมด ${data.length} รายการ</p>
+      <div class="footer"><p>EV Charging Station — รายงานอัตโนมัติ</p></div>
+    </body></html>`;
+
+    browser = await puppeteer.launch({ args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+    const page = await browser.newPage();
+    await page.setContent(html, { waitUntil: 'networkidle0' });
+    const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '20px', bottom: '20px', left: '20px', right: '20px' } });
+    await browser.close();
+    browser = null;
+
+    const buf = Buffer.from(pdfBuffer);
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Length', buf.length);
+    res.setHeader('Content-Disposition', `attachment; filename="report-${report_type}-${Date.now()}.pdf"`);
+    return res.end(buf);
+  } catch (error) {
+    if (browser) try { await browser.close(); } catch (_) {}
+    console.error('Export PDF error:', error);
+    return res.status(500).json({ message: 'Server error exporting PDF.' });
   }
 });
 

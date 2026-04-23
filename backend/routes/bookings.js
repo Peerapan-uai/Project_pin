@@ -51,6 +51,15 @@ router.post('/', auth, async (req, res) => {
   }
 
   try {
+    // เช็ค wallet_frozen → ห้ามจองถ้า wallet ถูกระงับ
+    const [userRows] = await pool.query(
+      'SELECT wallet_frozen FROM users WHERE user_id = ?',
+      [req.user.user_id]
+    );
+    if (userRows.length > 0 && userRows[0].wallet_frozen) {
+      return res.status(403).json({ message: 'กระเป๋าเงินของคุณถูกระงับ ไม่สามารถจองได้ กรุณาติดต่อแอดมิน' });
+    }
+
     // เช็คว่า charger ว่างไหม
     const [chargerRows] = await pool.query(
       `SELECT status FROM chargers WHERE charger_id = ?`,
@@ -106,10 +115,12 @@ router.get('/', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT b.*, c.charger_name, c.connector_type, c.power_kw,
-              s.name AS station_name, s.latitude, s.longitude
+              s.name AS station_name, s.latitude, s.longitude,
+              cs.session_id
        FROM bookings b
        JOIN chargers c ON b.charger_id = c.charger_id
        JOIN stations s ON c.station_id = s.station_id
+       LEFT JOIN charging_sessions cs ON cs.booking_id = b.booking_id AND cs.status = 'charging'
        WHERE b.user_id = ?
        ORDER BY b.start_time DESC`,
       [req.user.user_id]
@@ -203,7 +214,7 @@ router.get('/queue/:chargerId', auth, async (req, res) => {
 router.get('/all', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [rows] = await pool.query(`
-      SELECT b.booking_id, b.status, b.start_time, b.end_time,
+      SELECT b.booking_id, b.user_id, b.status, b.start_time, b.end_time,
              u.first_name, u.last_name,
              c.charger_id, c.charger_name,
              s.station_id, s.name AS station_name,

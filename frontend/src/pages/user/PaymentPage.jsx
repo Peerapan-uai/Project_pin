@@ -275,7 +275,6 @@ export default function PaymentPage() {
               className="w-24 border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <p className="text-xs text-gray-400 text-center">* ทดสอบใช้บัตร: 4242 4242 4242 4242 / 12/28 / 123</p>
         </div>
         {error && <p className="text-red-500 text-sm text-center">{error}</p>}
         <button

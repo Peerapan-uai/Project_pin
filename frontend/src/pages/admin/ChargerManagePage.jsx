@@ -13,9 +13,7 @@ const CONNECTOR_TYPES = [
   { value: 'Type1',   label: 'Type 1 (AC)' },
 ]
 const STATUSES = [
-  { value: 'available',     label: 'ว่าง' },
-  { value: 'reserved',      label: 'จองแล้ว' },
-  { value: 'charging',      label: 'กำลังชาร์จ' },
+  { value: 'available',      label: 'ว่าง' },
   { value: 'out_of_service', label: 'ปิดซ่อม' },
 ]
 
@@ -100,6 +98,9 @@ export default function ChargerManagePage() {
       .finally(() => setSaving(false))
   }
 
+  const PER_PAGE = 20
+  const [page, setPage] = useState(1)
+
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
   // derive station options จาก chargers ที่มีอยู่ (ป้องกันกรณี stations API ว่าง)
@@ -111,6 +112,8 @@ export default function ChargerManagePage() {
   const filtered = filterStation === 'all'
     ? chargers
     : chargers.filter((c) => c.station_id === Number(filterStation))
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PER_PAGE))
+  const paginated = filtered.slice((page - 1) * PER_PAGE, page * PER_PAGE)
 
   const ChargerForm = ({ onSubmit, title }) => (
     <form onSubmit={onSubmit} className="p-6 space-y-4">
@@ -186,7 +189,7 @@ export default function ChargerManagePage() {
         <div className="flex items-center gap-2 flex-wrap">
           <Select
             value={filterStation}
-            onChange={(v) => setFilterStation(v)}
+            onChange={(v) => { setFilterStation(v); setPage(1) }}
             options={[{ value: 'all', label: 'ทุกสถานี' }, ...stationOptions.map((s) => ({ value: s.station_id, label: s.name }))]}
           />
           <button onClick={openAdd} className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200">
@@ -204,13 +207,12 @@ export default function ChargerManagePage() {
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ประเภท</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">กำลัง</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ราคา/kWh</th>
-              <th className="text-center px-5 py-3.5 font-semibold text-gray-600">อุณหภูมิ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">สถานะ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">จัดการ</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {filtered.map((c) => {
+            {paginated.map((c) => {
               const station = stationOptions.find((s) => s.station_id === c.station_id)
               return (
                 <tr key={c.charger_id} className="hover:bg-gray-50 transition-colors">
@@ -226,12 +228,6 @@ export default function ChargerManagePage() {
                   <td className="px-5 py-4 text-center text-gray-600">{c.connector_type}</td>
                   <td className="px-5 py-4 text-center font-medium text-gray-800">{c.power_kw} kW</td>
                   <td className="px-5 py-4 text-center text-gray-600">{c.price_per_kwh} ฿</td>
-                  <td className="px-5 py-4 text-center text-gray-600">
-                    {c.temperature_celsius == null ? '-'
-                      : c.temperature_celsius >= 60
-                      ? <span className="bg-red-100 text-red-600 text-xs font-medium px-2 py-0.5 rounded-full">{c.temperature_celsius}°C ร้อนเกิน</span>
-                      : <span className="text-gray-600 text-sm">{c.temperature_celsius}°C</span>}
-                  </td>
                   <td className="px-5 py-4 text-center"><StatusBadge status={c.status} /></td>
                   <td className="px-5 py-4">
                     <div className="flex items-center justify-center gap-2">
@@ -248,6 +244,15 @@ export default function ChargerManagePage() {
             })}
           </tbody>
         </table>
+        {totalPages > 1 && (
+          <div className="flex justify-center items-center gap-2 px-5 py-3 border-t border-gray-100">
+            <button disabled={page === 1} onClick={() => setPage((p) => p - 1)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">‹</button>
+            <span className="px-2 text-sm text-gray-500">{page} / {totalPages}</span>
+            <button disabled={page === totalPages} onClick={() => setPage((p) => p + 1)}
+              className="px-3 py-1.5 border border-gray-200 rounded-lg text-sm disabled:opacity-40 hover:bg-gray-50">›</button>
+          </div>
+        )}
       </div>
 
       {/* Edit Modal */}
@@ -285,7 +290,7 @@ export default function ChargerManagePage() {
             </div>
             <div className="text-center">
               <h3 className="font-bold text-gray-900 text-lg">ยืนยันการลบ</h3>
-              <p className="text-gray-500 text-sm mt-1">ตู้ชาร์จนี้จะถูกลบออกจากระบบถาวร</p>
+              <p className="text-gray-500 text-sm mt-1">คุณต้องการลบตู้ชาร์จนี้จริงๆ ใช่ไหม? สามารถกู้คืนได้ที่ Recycle ภายใน 30 วัน</p>
             </div>
             <div className="flex gap-3">
               <button onClick={() => setConfirmDeleteId(null)}

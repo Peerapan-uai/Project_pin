@@ -3,7 +3,7 @@ import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
 import { useToast } from '../../context/ToastContext'
 import CalendarPicker from '../../components/ui/CalendarPicker'
-import { FaCalendarAlt, FaBan, FaTimes } from 'react-icons/fa'
+import { FaCalendarAlt, FaBan } from 'react-icons/fa'
 
 export default function BookingManagePage() {
   const toast = useToast()
@@ -34,9 +34,15 @@ export default function BookingManagePage() {
 
   const statuses = ['all', 'confirmed', 'completed', 'cancelled']
 
+  const toLocalDate = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   const filtered = bookings.filter((b) => {
     const matchStatus = filterStatus === 'all' || b.status === filterStatus
-    const matchDate   = !filterDate || (b.start_time && b.start_time.startsWith(filterDate))
+    const matchDate   = !filterDate || toLocalDate(b.start_time) === filterDate
     return matchStatus && matchDate
   })
 
@@ -53,9 +59,7 @@ export default function BookingManagePage() {
             {filtered.length} รายการ
             {totalRevenue > 0 && (
               <span> · รายได้ <span className="text-primary font-semibold">{totalRevenue.toFixed(2)} ฿</span>
-                <span className="text-xs text-gray-400 ml-1">
-                  {filterDate ? `(${filterDate})` : filterStatus !== 'all' ? `(${filterStatus})` : '(ตลอดเวลา — เฉพาะที่ชำระแล้ว)'}
-                </span>
+                <span className="text-xs text-gray-400 ml-1">(เฉพาะที่ชำระแล้ว)</span>
               </span>
             )}
           </p>
@@ -113,21 +117,25 @@ export default function BookingManagePage() {
                 <td className="px-5 py-4 text-center hidden md:table-cell">
                   {b.payment_method
                     ? <span className="text-xs text-gray-600">{b.payment_method}</span>
-                    : b.status === 'completed'
-                      ? <span className="text-gray-300 text-xs">-</span>
-                      : <span className="text-xs text-amber-400">รอชำระ</span>
+                    : b.status === 'cancelled'
+                      ? <span className="text-xs text-gray-400">ยกเลิกแล้ว</span>
+                      : <span className="text-xs text-amber-500">รอชำระ</span>
                   }
                 </td>
                 <td className="px-5 py-4 text-right font-semibold text-primary">
                   {b.total_amount
                     ? `${Number(b.total_amount).toFixed(2)} ฿`
-                    : b.status === 'completed'
-                      ? <span className="text-gray-300 text-xs">-</span>
-                      : <span className="text-xs text-amber-400 font-normal">รอชำระ</span>
+                    : b.status === 'cancelled'
+                      ? <span className="text-gray-400 text-xs font-normal">ยกเลิกแล้ว</span>
+                      : <span className="text-xs text-amber-500 font-normal">รอชำระ</span>
                   }
                 </td>
                 <td className="px-5 py-4 text-center">
-                  {b.status !== 'cancelled' && b.status !== 'completed' && (
+                  {b.status === 'cancelled' ? (
+                    <span className="text-xs text-gray-400">ยกเลิกแล้ว</span>
+                  ) : b.status === 'completed' ? (
+                    <span className="text-xs text-green-500">เสร็จสิ้น</span>
+                  ) : (
                     <button
                       onClick={() => setConfirmCancelId(b.booking_id)}
                       className="flex items-center gap-1 mx-auto px-2.5 py-1.5 rounded-lg text-xs font-medium bg-red-50 text-red-500 hover:bg-red-100 transition-colors"

@@ -9,12 +9,14 @@ export default function UpdateTicketPage() {
 
   const [ticket, setTicket]   = useState(null)
   const [loading, setLoading] = useState(true)
-  const [status, setStatus]   = useState('in_progress')
-  const [notes, setNotes]     = useState('')
-  const [image, setImage]         = useState(null)
+  const [status, setStatus]     = useState('in_progress')
+  const [workType, setWorkType] = useState('onsite')  // onsite | remote
+  const [notes, setNotes]       = useState('')
+  const [image, setImage]           = useState(null)
   const [imagePreview, setImagePreview] = useState(null)
-  const [saving, setSaving]   = useState(false)
-  const [saved, setSaved]     = useState(false)
+  const [saving, setSaving]     = useState(false)
+  const [saved, setSaved]       = useState(false)
+  const [imageError, setImageError] = useState('')
 
   useEffect(() => {
     api.get('/api/tickets')
@@ -55,7 +57,14 @@ export default function UpdateTicketPage() {
     { value: 'completed',   label: 'เสร็จสิ้น' },
   ]
 
+  const photoRequired = status === 'completed' && workType === 'onsite'
+
   const handleSave = async () => {
+    if (photoRequired && !image) {
+      setImageError('กรุณาแนบรูปภาพหลักฐานสำหรับงานลงพื้นที่')
+      return
+    }
+    setImageError('')
     setSaving(true)
     try {
       await api.patch(`/api/tickets/${id}/status`, { status, repair_notes: notes })
@@ -114,9 +123,23 @@ export default function UpdateTicketPage() {
           </div>
 
           <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">ประเภทงาน</label>
+            <div className="grid grid-cols-2 gap-2">
+              {[{ value: 'onsite', label: 'ลงพื้นที่', desc: 'ต้องแนบรูปหลักฐาน' }, { value: 'remote', label: 'ออนไลน์ / รีโมท', desc: 'ไม่ต้องมีรูป' }].map((opt) => (
+                <button key={opt.value} type="button" onClick={() => setWorkType(opt.value)}
+                  className={`p-3 rounded-xl border text-left transition-all ${workType === opt.value ? 'border-primary bg-primary/5' : 'border-gray-200 text-gray-600'}`}>
+                  <p className={`text-sm font-semibold ${workType === opt.value ? 'text-primary' : ''}`}>{opt.label}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">{opt.desc}</p>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
             <label className="block text-sm font-semibold text-gray-700 mb-2">
-              แนบรูปภาพ {status === 'completed' ? <span className="text-red-400 font-normal">(แนะนำให้แนบหลักฐาน)</span> : <span className="text-gray-400 font-normal">(ไม่บังคับ)</span>}
+              แนบรูปภาพ {photoRequired ? <span className="text-red-500 font-normal">* (บังคับสำหรับงานลงพื้นที่)</span> : <span className="text-gray-400 font-normal">(ไม่บังคับ)</span>}
             </label>
+            {imageError && <p className="text-xs text-red-500 mb-2">{imageError}</p>}
             <input
               type="file"
               accept="image/*"

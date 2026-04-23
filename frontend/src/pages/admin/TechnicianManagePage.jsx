@@ -1,23 +1,9 @@
 import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import { useToast } from '../../context/ToastContext'
-import Select from '../../components/ui/Select'
 import { FaUserCog, FaPlus, FaWrench, FaTimes, FaEdit, FaSearch, FaTrash, FaKey } from 'react-icons/fa'
 
-const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '', primary_skill: '' }
-
-const SKILL_OPTIONS = [
-  { value: '',            label: '-- เลือกความเชี่ยวชาญ --' },
-  { value: 'ELECTRICAL',  label: 'ELECTRICAL — ระบบไฟฟ้า' },
-  { value: 'SOFTWARE',    label: 'SOFTWARE — ซอฟต์แวร์' },
-  { value: 'MECHANICAL',  label: 'MECHANICAL — เครื่องกล' },
-]
-
-const SKILL_BADGE = {
-  ELECTRICAL: 'bg-yellow-100 text-yellow-700',
-  SOFTWARE:   'bg-blue-100 text-blue-700',
-  MECHANICAL: 'bg-orange-100 text-orange-700',
-}
+const EMPTY_FORM = { first_name: '', last_name: '', email: '', password: '', phone: '' }
 
 const TECH_STATUS_CONFIG = {
   AVAILABLE: { label: 'พร้อมทำงาน', dot: 'bg-green-500', badge: 'bg-green-100 text-green-700' },
@@ -62,7 +48,7 @@ export default function TechnicianManagePage() {
 
   const openEdit = (tech) => {
     setEditTech(tech)
-    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '', confirm_password: '', primary_skill: tech.primary_skill ?? '' })
+    setEditForm({ first_name: tech.first_name, last_name: tech.last_name, phone: tech.phone ?? '', password: '', confirm_password: '' })
     setEditError('')
   }
 
@@ -92,7 +78,6 @@ export default function TechnicianManagePage() {
       first_name: editForm.first_name,
       last_name: editForm.last_name,
       phone: editForm.phone,
-      primary_skill: editForm.primary_skill,
       ...(editForm.password ? { password: editForm.password } : {}),
     }
     if (editForm.password) {
@@ -177,11 +162,6 @@ export default function TechnicianManagePage() {
                   <p className="text-xs text-gray-500">{t.email}</p>
                   <p className="text-xs text-gray-400">{t.phone}</p>
                   <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                    {t.primary_skill && (
-                      <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_BADGE[t.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
-                        {t.primary_skill}
-                      </span>
-                    )}
                     {(() => {
                       const cfg = TECH_STATUS_CONFIG[t.tech_status] ?? TECH_STATUS_CONFIG.OFFLINE
                       return (
@@ -287,17 +267,6 @@ export default function TechnicianManagePage() {
                   </div>
                 )}
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
-                <Select
-                  value={editForm.primary_skill}
-                  onChange={(v) => setEditForm({ ...editForm, primary_skill: v })}
-                  options={SKILL_OPTIONS}
-                />
-                {!editForm.primary_skill && (
-                  <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
-                )}
-              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeEdit} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                   ยกเลิก
@@ -370,17 +339,6 @@ export default function TechnicianManagePage() {
                   placeholder="0812345678"
                 />
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">ความเชี่ยวชาญ</label>
-                <Select
-                  value={form.primary_skill}
-                  onChange={(v) => setForm({ ...form, primary_skill: v })}
-                  options={SKILL_OPTIONS}
-                />
-                {!form.primary_skill && (
-                  <p className="text-xs text-amber-500 mt-1">กรุณาระบุก่อน assign งาน</p>
-                )}
-              </div>
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                   ยกเลิก
@@ -444,8 +402,7 @@ export default function TechnicianManagePage() {
             <div className="text-center">
               <h3 className="font-bold text-gray-900 text-lg">ยืนยันลบช่าง</h3>
               <p className="text-gray-500 text-sm mt-1">
-                <span className="font-semibold text-gray-700">{confirmDeleteTech.first_name} {confirmDeleteTech.last_name}</span>
-                {' '}จะถูกลบออกจากระบบถาวร
+                คุณต้องการลบ <span className="font-semibold text-gray-700">{confirmDeleteTech.first_name} {confirmDeleteTech.last_name}</span> จริงๆ ใช่ไหม? สามารถกู้คืนได้ที่ Recycle ภายใน 30 วัน
               </p>
             </div>
             <div className="flex gap-3">

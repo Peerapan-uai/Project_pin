@@ -2,9 +2,10 @@ import { useState, useEffect } from 'react'
 import api from '../../utils/api'
 import { useToast } from '../../context/ToastContext'
 import Select from '../../components/ui/Select'
-import { FaUser, FaBan, FaSearch, FaTrash, FaEdit, FaKey, FaTimes } from 'react-icons/fa'
+import { FaUser, FaBan, FaSearch, FaTrash, FaEdit, FaKey, FaTimes, FaPlus } from 'react-icons/fa'
 
 const EMPTY_EDIT_FORM = { first_name: '', last_name: '', phone: '', password: '', confirm_password: '' }
+const EMPTY_CREATE_FORM = { first_name: '', last_name: '', email: '', phone: '', password: '', confirm_password: '' }
 
 export default function UserManagePage() {
   const toast = useToast()
@@ -21,6 +22,11 @@ export default function UserManagePage() {
   const [confirmDeleteUser, setConfirmDeleteUser] = useState(null)  // user object to delete
   const [deleting, setDeleting]         = useState(false)
   const [confirmPwdChange, setConfirmPwdChange] = useState(null)   // { user, payload } — double-confirm password
+
+  const [showCreate, setShowCreate]     = useState(false)
+  const [createForm, setCreateForm]     = useState(EMPTY_CREATE_FORM)
+  const [createSaving, setCreateSaving] = useState(false)
+  const [createError, setCreateError]   = useState('')
 
   const fetchUsers = () => {
     setLoading(true)
@@ -59,6 +65,14 @@ export default function UserManagePage() {
       setEditError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
       return
     }
+    // ตรวจว่ามีการเปลี่ยนแปลงจริงมั้ย
+    const noChange =
+      editForm.first_name === (editUser.first_name ?? '') &&
+      editForm.last_name  === (editUser.last_name  ?? '') &&
+      editForm.phone      === (editUser.phone      ?? '') &&
+      !editForm.password
+    if (noChange) { closeEdit(); return }
+
     const payload = {
       first_name: editForm.first_name,
       last_name: editForm.last_name,
@@ -110,6 +124,40 @@ export default function UserManagePage() {
       .finally(() => setDeleting(false))
   }
 
+  const openCreate = () => { setShowCreate(true); setCreateForm(EMPTY_CREATE_FORM); setCreateError('') }
+  const closeCreate = () => { setShowCreate(false); setCreateError('') }
+
+  const handleCreateSubmit = (e) => {
+    e.preventDefault()
+    if (!createForm.first_name || !createForm.last_name || !createForm.email || !createForm.password) {
+      setCreateError('กรุณากรอกข้อมูลให้ครบ')
+      return
+    }
+    if (createForm.password.length < 6) {
+      setCreateError('รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร')
+      return
+    }
+    if (createForm.password !== createForm.confirm_password) {
+      setCreateError('รหัสผ่านไม่ตรงกัน')
+      return
+    }
+    setCreateSaving(true)
+    api.post('/api/users', {
+      first_name: createForm.first_name,
+      last_name: createForm.last_name,
+      email: createForm.email,
+      phone: createForm.phone,
+      password: createForm.password,
+    })
+      .then(() => {
+        closeCreate()
+        fetchUsers()
+        toast.success('เพิ่มผู้ใช้สำเร็จ')
+      })
+      .catch((err) => setCreateError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setCreateSaving(false))
+  }
+
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
   const filtered = users.filter((u) => {
@@ -126,6 +174,12 @@ export default function UserManagePage() {
           <p className="text-gray-500 text-sm mt-0.5">ผู้ใช้งานทั้งหมด {users.length} คน</p>
         </div>
         <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={openCreate}
+            className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors"
+          >
+            <FaPlus size={11} /> เพิ่มผู้ใช้
+          </button>
           <div className="relative">
             <FaSearch size={12} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
             <input
@@ -173,7 +227,7 @@ export default function UserManagePage() {
                       </div>
                       <button
                         onClick={() => openEdit(u)}
-                        className="p-1.5 text-gray-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors flex-shrink-0"
+                        className="p-1.5 text-blue-500 bg-blue-50 hover:bg-blue-100 rounded-lg transition-colors flex-shrink-0"
                         title="แก้ไขผู้ใช้"
                       >
                         <FaEdit size={12} />
@@ -259,12 +313,8 @@ export default function UserManagePage() {
 
               {/* Password change section */}
               <div className="border border-blue-100 bg-blue-50/50 rounded-xl p-4 space-y-3">
-                <div className="flex items-center gap-2">
-                  <FaKey size={12} className="text-blue-500" />
-                  <p className="text-xs font-semibold text-blue-700">เปลี่ยนรหัสผ่าน (ไม่บังคับ)</p>
-                </div>
                 <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่านใหม่</label>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่านใหม่ (ไม่บังคับ)</label>
                   <input
                     type="password"
                     value={editForm.password}
@@ -358,6 +408,98 @@ export default function UserManagePage() {
         </div>
       )}
 
+      {/* Create User Modal */}
+      {showCreate && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-md">
+            <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+              <h2 className="font-bold text-gray-900">เพิ่มผู้ใช้ใหม่</h2>
+              <button onClick={closeCreate} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
+            </div>
+            <form onSubmit={handleCreateSubmit} className="p-6 space-y-4">
+              {createError && (
+                <p className="text-sm text-red-500 bg-red-50 rounded-xl px-4 py-2">{createError}</p>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">ชื่อ *</label>
+                  <input
+                    value={createForm.first_name}
+                    onChange={(e) => setCreateForm({ ...createForm, first_name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="ชื่อ"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">นามสกุล *</label>
+                  <input
+                    value={createForm.last_name}
+                    onChange={(e) => setCreateForm({ ...createForm, last_name: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="นามสกุล"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">อีเมล *</label>
+                <input
+                  type="email"
+                  value={createForm.email}
+                  onChange={(e) => setCreateForm({ ...createForm, email: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="example@email.com"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">เบอร์โทร</label>
+                <input
+                  value={createForm.phone}
+                  onChange={(e) => setCreateForm({ ...createForm, phone: e.target.value })}
+                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="0812345678"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">รหัสผ่าน *</label>
+                  <input
+                    type="password"
+                    value={createForm.password}
+                    onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="อย่างน้อย 6 ตัว"
+                    autoComplete="new-password"
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">ยืนยันรหัสผ่าน *</label>
+                  <input
+                    type="password"
+                    value={createForm.confirm_password}
+                    onChange={(e) => setCreateForm({ ...createForm, confirm_password: e.target.value })}
+                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder="ยืนยันรหัสผ่าน"
+                    autoComplete="new-password"
+                  />
+                </div>
+              </div>
+              <div className="flex gap-3 pt-1">
+                <button type="button" onClick={closeCreate} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  disabled={createSaving}
+                  className="flex-1 py-2.5 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 disabled:opacity-50"
+                >
+                  {createSaving ? 'กำลังบันทึก...' : 'เพิ่มผู้ใช้'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
       {/* Confirm Delete User Modal */}
       {confirmDeleteUser && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-[60] p-4">
@@ -371,7 +513,7 @@ export default function UserManagePage() {
                 <p className="font-semibold text-gray-900 text-sm">{confirmDeleteUser.first_name} {confirmDeleteUser.last_name}</p>
                 <p className="text-xs text-gray-500">{confirmDeleteUser.email}</p>
               </div>
-              <p className="text-sm text-gray-600">การลบผู้ใช้ไม่สามารถยกเลิกได้ ข้อมูลทั้งหมดจะหายไปถาวร</p>
+              <p className="text-sm text-gray-600">คุณต้องการลบผู้ใช้นี้จริงๆ ใช่ไหม? สามารถกู้คืนได้ที่ Recycle ภายใน 30 วัน</p>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteUser(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
                   ยกเลิก

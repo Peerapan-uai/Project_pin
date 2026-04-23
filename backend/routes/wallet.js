@@ -29,7 +29,7 @@ const QRCode = require('qrcode');
 router.get('/balance', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT wallet_balance FROM users WHERE user_id = ?',
+      'SELECT wallet_balance, wallet_frozen, freeze_reason FROM users WHERE user_id = ?',
       [req.user.user_id]
     );
 
@@ -48,6 +48,8 @@ router.get('/balance', auth, async (req, res) => {
 
     return res.status(200).json({
       balance: rows[0].wallet_balance,
+      wallet_frozen: !!rows[0].wallet_frozen,
+      freeze_reason: rows[0].freeze_reason || null,
       recent_transactions: txns,
     });
   } catch (error) {

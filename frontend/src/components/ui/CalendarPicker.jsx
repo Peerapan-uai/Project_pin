@@ -7,7 +7,7 @@ const MONTHS_TH = ['มกราคม','กุมภาพันธ์','มี
                    'กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม']
 
 // value: "YYYY-MM-DD" | ""   onChange(val: "YYYY-MM-DD" | "")
-export default function CalendarPicker({ value, onChange, placeholder = 'เลือกวัน', minDate, disabled }) {
+export default function CalendarPicker({ value, onChange, placeholder = 'เลือกวัน', minDate, maxDate, disabled }) {
   const [open, setOpen] = useState(false)
   const [view, setView] = useState(() => {
     if (value) { const d = new Date(value); return { year: d.getFullYear(), month: d.getMonth() } }
@@ -28,6 +28,7 @@ export default function CalendarPicker({ value, onChange, placeholder = 'เล�
   const selected = value ? new Date(value + 'T00:00:00') : null
   const today    = new Date(); today.setHours(0, 0, 0, 0)
   const minD     = minDate ? new Date(minDate + 'T00:00:00') : null
+  const maxD     = maxDate ? new Date(maxDate + 'T00:00:00') : null
 
   const firstDay    = new Date(view.year, view.month, 1)
   const daysInMonth = new Date(view.year, view.month + 1, 0).getDate()
@@ -106,7 +107,7 @@ export default function CalendarPicker({ value, onChange, placeholder = 'เล�
                 const cellDate   = new Date(view.year, view.month, d)
                 const isSelected = selected && cellDate.getTime() === selected.getTime()
                 const isToday    = cellDate.getTime() === today.getTime()
-                const isDisabled = minD && cellDate < minD
+                const isDisabled = (minD && cellDate < minD) || (maxD && cellDate > maxD)
                 return (
                   <button
                     key={d}

@@ -487,7 +487,19 @@ router.get('/transactions', auth, roleCheck('admin'), async (req, res) => {
  */
 router.get('/summary', auth, roleCheck('admin'), async (req, res) => {
   try {
-    // 🔴 TODO E: Query SUM() ของแต่ละ type
+    const { from_date, to_date } = req.query;
+
+    let dateCondition = '';
+    const dateParams = [];
+    if (from_date) {
+      dateCondition += ' AND created_at >= ?';
+      dateParams.push(new Date(from_date + 'T00:00:00'));
+    }
+    if (to_date) {
+      dateCondition += ' AND created_at <= ?';
+      dateParams.push(new Date(to_date + 'T23:59:59'));
+    }
+
     const [[summary]] = await pool.query(
       `SELECT
          SUM(CASE WHEN type = 'topup' THEN amount ELSE 0 END) as total_topup,
@@ -495,15 +507,15 @@ router.get('/summary', auth, roleCheck('admin'), async (req, res) => {
          SUM(CASE WHEN type = 'refund' THEN amount ELSE 0 END) as total_refund,
          SUM(CASE WHEN type = 'adjust' THEN amount ELSE 0 END) as total_adjust,
          COUNT(*) as total_transactions
-       FROM wallet_transactions`
+       FROM wallet_transactions
+       WHERE 1=1${dateCondition}`,
+      dateParams
     );
 
-    // 🔴 TODO F: Query COUNT users ที่ wallet_frozen = 1
     const [[frozenCount]] = await pool.query(
       'SELECT COUNT(*) as frozen_wallets FROM users WHERE wallet_frozen = 1'
     );
 
-    // 🔴 TODO G: Query SUM wallet_balance
     const [[balanceSum]] = await pool.query(
       'SELECT SUM(wallet_balance) as total_wallet_balance FROM users'
     );

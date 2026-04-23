@@ -96,9 +96,9 @@ export default function HomePage() {
                     <FaStar size={11} /> {station.rating}
                     <span className="text-gray-400 font-normal">({station.review_count})</span>
                   </span>
-                  <span className="flex items-center gap-1 text-xs text-gray-500">
-                    <FaClock size={11} className="text-gray-400" />
-                    {station.open_time}–{station.close_time}
+                  <span className={`flex items-center gap-1 text-xs font-medium ${station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'text-green-600' : 'text-gray-500'}`}>
+                    <FaClock size={11} className={station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'text-green-500' : 'text-gray-400'} />
+                    {station.open_time?.slice(0,5) === '00:00' && station.close_time?.slice(0,5) === '00:00' ? 'เปิด 24 ชม.' : `${station.open_time}–${station.close_time}`}
                   </span>
                 </div>
               </div>

@@ -24,8 +24,12 @@ export default function PaymentsPage() {
   if (loading) return <div className="flex justify-center p-10 text-gray-500">กำลังโหลด...</div>
 
   const handleDownloadInvoice = (paymentId) => {
-    api.get(`/api/admin/reports/payments/${paymentId}/invoice`, { responseType: 'blob' })
+    api.get(`/api/admin/reports/payments/${paymentId}/invoice`, { responseType: 'blob', timeout: 30000 })
       .then((res) => {
+        if (res.data.type !== 'application/pdf') {
+          toast.error('ใบเสร็จไม่สามารถสร้างได้')
+          return
+        }
         const url = window.URL.createObjectURL(res.data)
         const a = document.createElement('a')
         a.href = url
@@ -40,11 +44,17 @@ export default function PaymentsPage() {
 
   const stations = [...new Set(payments.map((p) => p.station_name).filter(Boolean))]
 
+  const toLocalDate = (iso) => {
+    if (!iso) return ''
+    const d = new Date(iso)
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+  }
+
   const filtered = payments.filter((p) => {
     const matchSearch  = `${p.first_name} ${p.last_name} ${p.station_name ?? ''}`.toLowerCase().includes(search.toLowerCase())
     const matchMethod  = filterMethod === 'all'  || p.method === filterMethod
     const matchStation = filterStation === 'all' || p.station_name === filterStation
-    const matchDate    = !filterDate || (p.paid_at && p.paid_at.startsWith(filterDate))
+    const matchDate    = !filterDate || toLocalDate(p.paid_at) === filterDate
     return matchSearch && matchMethod && matchStation && matchDate
   })
 
@@ -100,7 +110,6 @@ export default function PaymentsPage() {
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">สถานี / ตู้</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">วิธีชำระ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">วันที่</th>
-              <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">หน่วย (kWh)</th>
               <th className="text-right px-5 py-3.5 font-semibold text-gray-600">ยอดเงิน</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ใบเสร็จ</th>
             </tr>
@@ -122,18 +131,20 @@ export default function PaymentsPage() {
                 <td className="px-5 py-4 text-center text-xs text-gray-500 hidden lg:table-cell">
                   {p.paid_at ? new Date(p.paid_at).toLocaleDateString('th-TH') : '-'}
                 </td>
-                <td className="px-5 py-4 text-center text-gray-600 hidden lg:table-cell">
-                  {p.energy_kwh ? `${Number(p.energy_kwh).toFixed(2)}` : '-'}
-                </td>
                 <td className="px-5 py-4 text-right font-semibold text-primary">
                   {p.amount ? `${Number(p.amount).toFixed(2)} ฿` : '-'}
                 </td>
                 <td className="px-5 py-4 text-center">
-                  {p.status === 'completed' && (
-                    <button onClick={() => handleDownloadInvoice(p.payment_id)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-green-50 rounded-lg transition-colors" title="ดาวน์โหลดใบเสร็จ">
-                      <FaFileDownload size={15} />
-                    </button>
-                  )}
+                  {p.status === 'completed'
+                    ? <button onClick={() => handleDownloadInvoice(p.payment_id)} className="p-1.5 text-gray-400 hover:text-primary hover:bg-green-50 rounded-lg transition-colors" title="ดาวน์โหลดใบเสร็จ"><FaFileDownload size={15} /></button>
+                    : p.status === 'pending'
+                      ? <span className="text-xs font-medium text-amber-500 bg-amber-50 px-2 py-1 rounded-lg">รอชำระ</span>
+                      : p.status === 'failed'
+                        ? <span className="text-xs font-medium text-red-500 bg-red-50 px-2 py-1 rounded-lg">ชำระไม่สำเร็จ</span>
+                        : p.status === 'refunded'
+                          ? <span className="text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-lg">คืนเงินแล้ว</span>
+                          : null
+                  }
                 </td>
               </tr>
             ))}

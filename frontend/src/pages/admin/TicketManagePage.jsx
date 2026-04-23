@@ -5,21 +5,12 @@ import { useToast } from '../../context/ToastContext'
 import Select from '../../components/ui/Select'
 import { FaTicketAlt, FaUserCog, FaWrench, FaSearch, FaTimes } from 'react-icons/fa'
 
-const SKILL_LABEL = { ELECTRICAL: 'ระบบไฟฟ้า', SOFTWARE: 'ซอฟต์แวร์', MECHANICAL: 'เครื่องกล' }
-const SKILL_COLOR = {
-  ELECTRICAL: 'bg-yellow-100 text-yellow-700',
-  SOFTWARE:   'bg-blue-100 text-blue-700',
-  MECHANICAL: 'bg-orange-100 text-orange-700',
-}
-const PRIORITY_LEVEL = { low: 1, medium: 2, high: 3, critical: 4 }
 
 export default function TicketManagePage() {
   const toast = useToast()
   const [tickets, setTickets]               = useState([])
   const [technicians, setTechnicians]       = useState([])
   const [filterStatus, setFilterStatus]     = useState('all')
-  const [filterPriority, setFilterPriority] = useState('all')
-  const [filterSkill, setFilterSkill]       = useState('all')
   const [search, setSearch]                 = useState('')
   const [loading, setLoading]               = useState(true)
   const [assignModal, setAssignModal]       = useState(null)
@@ -58,14 +49,9 @@ export default function TicketManagePage() {
 
   const filtered = tickets.filter((t) => {
     const matchStatus   = filterStatus === 'all'   || t.status === filterStatus
-    const matchPriority = filterPriority === 'all' || t.priority === filterPriority
-    const matchSkill    = filterSkill === 'all'    || (() => {
-      const tech = technicians.find((tc) => tc.user_id === t.assigned_to)
-      return tech?.primary_skill === filterSkill
-    })()
     const matchSearch   = !search.trim() ||
       `${t.title} ${t.description ?? ''} ${t.charger_name ?? ''} ${t.station_name ?? ''}`.toLowerCase().includes(search.toLowerCase())
-    return matchStatus && matchPriority && matchSkill && matchSearch
+    return matchStatus && matchSearch
   })
 
   const statuses   = ['all', 'reported', 'assigned', 'in_progress', 'completed']
@@ -86,27 +72,6 @@ export default function TicketManagePage() {
               placeholder="ค้นหาชื่อ, ID, สถานี..."
               className="pl-9 pr-4 py-2 w-48 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary bg-white" />
           </div>
-          <Select
-            value={filterPriority}
-            onChange={(v) => setFilterPriority(v)}
-            options={[
-              { value: 'all', label: 'ความเร่งด่วน' },
-              { value: 'low', label: 'ต่ำ' },
-              { value: 'medium', label: 'ปานกลาง' },
-              { value: 'high', label: 'สูง' },
-              { value: 'critical', label: 'วิกฤต' },
-            ]}
-          />
-          <Select
-            value={filterSkill}
-            onChange={(v) => setFilterSkill(v)}
-            options={[
-              { value: 'all', label: 'ความเชี่ยวชาญ' },
-              { value: 'ELECTRICAL', label: 'ระบบไฟฟ้า' },
-              { value: 'SOFTWARE', label: 'ซอฟต์แวร์' },
-              { value: 'MECHANICAL', label: 'เครื่องกล' },
-            ]}
-          />
         </div>
       </div>
 
@@ -129,7 +94,6 @@ export default function TicketManagePage() {
                 <div className="flex items-center gap-2 flex-wrap mb-1">
                   <FaTicketAlt size={13} className="text-gray-400" />
                   <h3 className="font-semibold text-gray-900">{t.title}</h3>
-                  <StatusBadge status={t.priority} />
                   <StatusBadge status={t.status} />
                 </div>
                 <p className="text-xs text-gray-500">{t.charger_name} · {t.station_name}</p>
@@ -243,18 +207,6 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
     return acc
   }, {})
 
-  const maxPriorityMap = technicians.reduce((acc, tech) => {
-    const active = tickets.filter(
-      (t) => t.assigned_to === tech.user_id &&
-             t.status !== 'completed' &&
-             t.assigned_at && new Date(t.assigned_at).toDateString() === todayStr
-    )
-    if (active.length === 0) { acc[tech.user_id] = null; return acc }
-    acc[tech.user_id] = active.reduce((max, t) =>
-      (PRIORITY_LEVEL[t.priority] ?? 0) > (PRIORITY_LEVEL[max.priority] ?? 0) ? t : max
-    ).priority
-    return acc
-  }, {})
 
   const filteredTechs = technicians
     .filter((tech) => {
@@ -277,7 +229,7 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
           <div>
             <h2 className="font-bold text-gray-900">เลือกช่าง</h2>
-            <p className="text-xs text-gray-500 mt-0.5">{ticket.title} · <StatusBadge status={ticket.priority} /></p>
+            <p className="text-xs text-gray-500 mt-0.5">{ticket.title}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
         </div>
@@ -296,10 +248,10 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
         <div className="overflow-y-auto flex-1 px-6 py-3 space-y-2">
           {filteredTechs.map((tech) => {
             const workload            = workloadMap[tech.user_id] ?? 0
-            const maxPriority         = maxPriorityMap[tech.user_id]
             const isCurrentlyAssigned = ticket.assigned_to === tech.user_id
             const tsCfg               = TECH_STATUS_CONFIG[tech.tech_status] ?? TECH_STATUS_CONFIG.OFFLINE
-            const isUnavailable       = tech.tech_status === 'BUSY' || tech.tech_status === 'OFFLINE'
+            const hasActiveWork       = tickets.some((t) => t.assigned_to === tech.user_id && t.status !== 'completed')
+            const isUnavailable       = hasActiveWork && !isCurrentlyAssigned
 
             return (
               <button
@@ -321,11 +273,6 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
                       {isCurrentlyAssigned && (
                         <span className="text-xs bg-primary/10 text-primary px-2 py-0.5 rounded-full font-medium">ช่างปัจจุบัน</span>
                       )}
-                      {tech.primary_skill && (
-                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${SKILL_COLOR[tech.primary_skill] ?? 'bg-gray-100 text-gray-600'}`}>
-                          {SKILL_LABEL[tech.primary_skill] ?? tech.primary_skill}
-                        </span>
-                      )}
                       {/* สถานะช่าง */}
                       {tech.tech_status && (
                         <span className={`flex items-center gap-1 text-xs font-medium ${tsCfg.text}`}>
@@ -342,9 +289,6 @@ function AssignModal({ ticket, technicians, tickets, onAssign, onUnassign, onClo
                     <p className={`text-sm font-bold ${workload === 0 ? 'text-green-500' : workload >= 3 ? 'text-red-500' : 'text-amber-500'}`}>
                       {workload} งาน
                     </p>
-                    {maxPriority && (
-                      <p className="text-xs text-gray-400 mt-0.5">สูงสุด: <StatusBadge status={maxPriority} /></p>
-                    )}
                   </div>
                 </div>
               </button>

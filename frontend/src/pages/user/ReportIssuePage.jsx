@@ -109,13 +109,19 @@ export default function ReportIssuePage() {
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">หัวข้อปัญหา</label>
-            <input
-              type="text"
+            <select
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="เช่น หน้าจอไม่แสดงผล"
               className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-            />
+            >
+              <option value="">-- เลือกหัวข้อปัญหา --</option>
+              <option value="หน้าจอไม่แสดงผล">หน้าจอไม่แสดงผล</option>
+              <option value="ชาร์จไม่เข้า">ชาร์จไม่เข้า</option>
+              <option value="ตู้ชาร์จเสียหาย">ตู้ชาร์จเสียหาย</option>
+              <option value="สายชาร์จชำรุด">สายชาร์จชำรุด</option>
+              <option value="จ่ายเงินแล้วแต่ใช้งานไม่ได้">จ่ายเงินแล้วแต่ใช้งานไม่ได้</option>
+              <option value="อื่นๆ">อื่นๆ</option>
+            </select>
           </div>
           <div>
             <label className="block text-sm font-semibold text-gray-700 mb-1.5">รายละเอียด</label>

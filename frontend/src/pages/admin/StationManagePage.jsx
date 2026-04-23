@@ -1,16 +1,25 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import api from '../../utils/api'
 import StatusBadge from '../../components/StatusBadge'
 import { useToast } from '../../context/ToastContext'
 import DateTimePicker from '../../components/ui/DateTimePicker'
 import Select from '../../components/ui/Select'
 import { FaPlus, FaEdit, FaTrash, FaMapMarkerAlt, FaBolt, FaTimes, FaSearch } from 'react-icons/fa'
+import { GoogleMap, Marker, useJsApiLoader, Autocomplete } from '@react-google-maps/api'
+
+const GMAPS_LIBRARIES = ['places']
+const BANGKOK = { lat: 13.7563, lng: 100.5018 }
+const MAP_CONTAINER = { width: '100%', height: '220px', borderRadius: '12px' }
 
 const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', scheduled_status: '', scheduled_status_at: '' }
 const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
 
 export default function StationManagePage() {
   const toast = useToast()
+  const { isLoaded } = useJsApiLoader({ googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY, libraries: GMAPS_LIBRARIES, language: 'th' })
+  const autocompleteRef = useRef(null)
+  const [mapCenter, setMapCenter] = useState(BANGKOK)
+
   const [stations, setStations]         = useState([])
   const [confirmDeleteStation, setConfirmDeleteStation] = useState(null)
   const [confirmToggleStation, setConfirmToggleStation] = useState(null)
@@ -33,6 +42,7 @@ export default function StationManagePage() {
   const [chargerError, setChargerError]     = useState('')
   const [chargerSaving, setChargerSaving]   = useState(false)
   const [revenueMap, setRevenueMap]         = useState({})  // station_id -> total_revenue
+  const [revenuePeriod, setRevenuePeriod]   = useState('today')  // today | 7days | month
 
   const fetchStations = () => {
     setLoading(true)
@@ -42,20 +52,46 @@ export default function StationManagePage() {
       .finally(() => setLoading(false))
   }
 
+  const fetchRevenue = useCallback(() => {
+    const today = new Date()
+    let fromDate = today.toISOString().slice(0, 10)
+    if (revenuePeriod === '7days') {
+      const d = new Date(today)
+      d.setDate(d.getDate() - 6)
+      fromDate = d.toISOString().slice(0, 10)
+    } else if (revenuePeriod === 'month') {
+      const d = new Date(today)
+      d.setDate(d.getDate() - 29)
+      fromDate = d.toISOString().slice(0, 10)
+    }
+    const stationIds = stations.map((s) => s.station_id)
+    if (stationIds.length === 0) { setRevenueMap({}); return }
+    Promise.all(
+      stationIds.map((sid) =>
+        api.get(`/api/admin/reports/revenue?period=daily&from_date=${fromDate}&station_id=${sid}`)
+          .then((res) => ({ sid, rev: res.data.summary?.total_revenue ?? 0 }))
+          .catch(() => ({ sid, rev: 0 }))
+      )
+    ).then((results) => {
+      const map = {}
+      results.forEach(({ sid, rev }) => { map[sid] = rev })
+      setRevenueMap(map)
+    })
+  }, [revenuePeriod, stations])
+
   useEffect(() => {
     fetchStations()
-    api.get('/api/admin/reports/stations')
-      .then((res) => {
-        const map = {}
-        ;(res.data.data ?? []).forEach((s) => { map[s.station_id] = s.total_revenue })
-        setRevenueMap(map)
-      })
-      .catch(() => {})
   }, [])
 
-  const openAdd = () => { setEditingId(null); setForm(EMPTY_FORM); setError(''); setShowModal(true) }
+  useEffect(() => {
+    fetchRevenue()
+  }, [fetchRevenue])
+
+  const openAdd = () => { setEditingId(null); setForm(EMPTY_FORM); setMapCenter(BANGKOK); setError(''); setShowModal(true) }
   const openEdit = (s) => {
     setEditingId(s.station_id)
+    const lat = Number(s.latitude) || BANGKOK.lat
+    const lng = Number(s.longitude) || BANGKOK.lng
     setForm({
       name: s.name ?? '',
       address: s.address ?? '',
@@ -68,9 +104,48 @@ export default function StationManagePage() {
       scheduled_status: s.scheduled_status ?? '',
       scheduled_status_at: s.scheduled_status_at ? s.scheduled_status_at.slice(0, 16) : '',
     })
+    setMapCenter({ lat, lng })
     setError('')
     setShowModal(true)
   }
+
+  // เมื่อเลือกสถานที่จาก Autocomplete
+  const onPlaceSelected = () => {
+    const place = autocompleteRef.current?.getPlace()
+    if (!place?.geometry) return
+    const lat = place.geometry.location.lat()
+    const lng = place.geometry.location.lng()
+    setForm((prev) => ({
+      ...prev,
+      address: place.formatted_address || place.name || prev.address,
+      latitude: lat,
+      longitude: lng,
+    }))
+    setMapCenter({ lat, lng })
+  }
+
+  // reverse geocode แล้วอัปเดต form
+  const updatePositionAndAddress = (lat, lng) => {
+    setForm((prev) => ({ ...prev, latitude: lat, longitude: lng }))
+    setMapCenter({ lat, lng })
+    if (window.google) {
+      const geocoder = new window.google.maps.Geocoder()
+      geocoder.geocode({ location: { lat, lng } }, (results, status) => {
+        console.log('Geocode status:', status, 'results:', results)
+        if (status === 'OK' && results[0]) {
+          setForm((prev) => ({ ...prev, address: results[0].formatted_address }))
+        } else {
+          console.warn('Geocode failed:', status)
+        }
+      })
+    }
+  }
+
+  // เมื่อลาก pin บนแผนที่
+  const onMarkerDragEnd = (e) => updatePositionAndAddress(e.latLng.lat(), e.latLng.lng())
+
+  // เมื่อคลิกบนแผนที่ เพื่อปักหมุด
+  const onMapClick = (e) => updatePositionAndAddress(e.latLng.lat(), e.latLng.lng())
   const closeModal = () => setShowModal(false)
 
   const handleDelete = () => {
@@ -230,6 +305,17 @@ export default function StationManagePage() {
               {label}
             </button>
           ))}
+          <div className="w-28">
+            <Select
+              value={revenuePeriod}
+              onChange={(v) => setRevenuePeriod(v)}
+              options={[
+                { value: 'today', label: 'รายได้: วันนี้' },
+                { value: '7days', label: 'รายได้: 7 วัน' },
+                { value: 'month', label: 'รายได้: 30 วัน' },
+              ]}
+            />
+          </div>
           <button
             onClick={openAdd}
             className="flex items-center gap-1.5 px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold hover:bg-green-600 transition-colors shadow-sm shadow-green-200"
@@ -245,10 +331,9 @@ export default function StationManagePage() {
             <tr>
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600">ชื่อสถานี</th>
               <th className="text-left px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">ที่อยู่</th>
+              <th className="text-center px-5 py-3.5 font-semibold text-gray-600 hidden md:table-cell">เวลาเปิด-ปิด</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">ตู้ชาร์จ</th>
-              <th className="text-right px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">
-                รายได้รวม<span className="font-normal text-xs text-gray-400 ml-1">(ยอดสะสมทุกช่วงเวลา)</span>
-              </th>
+              <th className="text-right px-5 py-3.5 font-semibold text-gray-600 hidden lg:table-cell">รายได้รวม</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">สถานะ</th>
               <th className="text-center px-5 py-3.5 font-semibold text-gray-600">จัดการ</th>
             </tr>
@@ -266,6 +351,14 @@ export default function StationManagePage() {
                     <p className="text-xs text-gray-500 line-clamp-2">{s.address}</p>
                   </div>
                 </td>
+                <td className="px-5 py-4 text-center hidden md:table-cell">
+                  {s.open_time?.slice(0,5) === '00:00' && s.close_time?.slice(0,5) === '00:00'
+                    ? <span className="text-xs font-semibold text-green-600">เปิด 24 ชม.</span>
+                    : s.open_time && s.close_time
+                      ? <span className="text-xs text-gray-500">{s.open_time?.slice(0,5)}–{s.close_time?.slice(0,5)}</span>
+                      : <span className="text-xs text-gray-400">ไม่ระบุ</span>
+                  }
+                </td>
                 <td className="px-5 py-4 text-center">
                   <span className="flex items-center justify-center gap-1 text-sm">
                     <FaBolt size={11} className="text-primary" />
@@ -274,9 +367,13 @@ export default function StationManagePage() {
                   </span>
                 </td>
                 <td className="px-5 py-4 text-right hidden lg:table-cell">
-                  <span className="font-semibold text-primary text-sm">
-                    {revenueMap[s.station_id] != null ? `${Number(revenueMap[s.station_id]).toFixed(2)} ฿` : '-'}
-                  </span>
+                  {(() => {
+                    const rev = revenueMap[s.station_id]
+                    if (rev != null && Number(rev) > 0) return <span className="font-semibold text-primary text-sm">{Number(rev).toFixed(2)} ฿</span>
+                    if (s.status === 'inactive') return <span className="text-xs text-gray-400">ปิดให้บริการ</span>
+                    if ((s.total_chargers ?? 0) === 0) return <span className="text-xs text-gray-400">ยังไม่มีตู้ชาร์จ</span>
+                    return <span className="text-xs text-gray-400">ยังไม่มีรายได้</span>
+                  })()}
                 </td>
                 <td className="px-5 py-4 text-center">
                   {(() => {
@@ -421,8 +518,6 @@ export default function StationManagePage() {
                       onChange={(v) => setChargerForm({ ...chargerForm, status: v })}
                       options={[
                         { value: 'available', label: 'ว่าง' },
-                        { value: 'reserved', label: 'จองแล้ว' },
-                        { value: 'charging', label: 'กำลังชาร์จ' },
                         { value: 'out_of_service', label: 'ปิดซ่อม' },
                       ]}
                     />
@@ -455,7 +550,7 @@ export default function StationManagePage() {
       {/* Add/Edit Station Modal */}
       {!chargerStation && showModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-2xl shadow-xl w-full max-w-xl max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
               <h2 className="font-bold text-gray-900">{editingId ? 'แก้ไขสถานี' : 'เพิ่มสถานีใหม่'}</h2>
               <button onClick={closeModal} className="text-gray-400 hover:text-gray-600"><FaTimes /></button>
@@ -471,48 +566,97 @@ export default function StationManagePage() {
                   placeholder="เช่น EV Station Central"
                 />
               </div>
+              {/* ค้นหาสถานที่ + แผนที่ */}
+              <div>
+                <label className="text-xs font-medium text-gray-600 mb-1 block">ค้นหาสถานที่ *</label>
+                {isLoaded ? (
+                  <Autocomplete
+                    onLoad={(ac) => (autocompleteRef.current = ac)}
+                    onPlaceChanged={onPlaceSelected}
+                    options={{ componentRestrictions: { country: 'th' } }}
+                  >
+                    <input
+                      type="text"
+                      className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                      placeholder="พิมพ์ชื่อสถานที่หรือที่อยู่..."
+                    />
+                  </Autocomplete>
+                ) : (
+                  <input disabled className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm bg-gray-50 text-gray-400" placeholder="กำลังโหลดแผนที่..." />
+                )}
+              </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ที่อยู่ *</label>
                 <input
                   value={form.address}
                   onChange={(e) => setForm({ ...form, address: e.target.value })}
                   className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="ที่อยู่สถานี"
+                  placeholder="ที่อยู่สถานี (จะถูกเติมอัตโนมัติเมื่อเลือกจากแผนที่)"
                 />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Latitude *</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={form.latitude}
-                    onChange={(e) => setForm({ ...form, latitude: e.target.value })}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="13.7563"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-medium text-gray-600 mb-1 block">Longitude *</label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={form.longitude}
-                    onChange={(e) => setForm({ ...form, longitude: e.target.value })}
-                    className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                    placeholder="100.5018"
-                  />
-                </div>
               </div>
               <div>
                 <label className="text-xs font-medium text-gray-600 mb-1 block">ชั้น / โซน</label>
-                <input
-                  value={form.floor}
-                  onChange={(e) => setForm({ ...form, floor: e.target.value })}
-                  className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-                  placeholder="เช่น ชั้น B1"
-                />
+                {(() => {
+                  const PRESETS = ['ชั้น B1','ชั้น B2','ชั้น 1','ชั้น 2','ชั้น 3','ชั้น 4','ชั้น 5']
+                  const isPreset = PRESETS.includes(form.floor)
+                  const isNone = !form.floor || form.floor === ''
+                  const selectVal = isNone ? '__none__' : isPreset ? form.floor : '__custom__'
+                  return (
+                    <div className="flex gap-2">
+                      <div className={selectVal === '__custom__' ? 'w-1/3' : 'w-full'}>
+                        <Select
+                          value={selectVal}
+                          onChange={(v) => {
+                            if (v === '__none__') setForm({ ...form, floor: '' })
+                            else if (v === '__custom__') setForm({ ...form, floor: ' ' })
+                            else setForm({ ...form, floor: v })
+                          }}
+                          options={[
+                            { value: '__none__', label: 'ไม่มี (กลางแจ้ง/ริมถนน)' },
+                            ...PRESETS.map((p) => ({ value: p, label: p })),
+                            { value: '__custom__', label: 'พิมพ์เอง...' },
+                          ]}
+                        />
+                      </div>
+                      {selectVal === '__custom__' && (
+                        <input
+                          value={form.floor?.trim() || ''}
+                          onChange={(e) => setForm({ ...form, floor: e.target.value || ' ' })}
+                          className="flex-1 border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                          placeholder="เช่น โซน A, ชั้น 6"
+                          autoFocus
+                        />
+                      )}
+                    </div>
+                  )
+                })()}
               </div>
+              {isLoaded && (
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">ตำแหน่งบนแผนที่ (ลาก pin เพื่อปรับตำแหน่ง)</label>
+                  <GoogleMap
+                    mapContainerStyle={MAP_CONTAINER}
+                    center={mapCenter}
+                    zoom={form.latitude ? 16 : 12}
+                    options={{ disableDefaultUI: true, zoomControl: true, gestureHandling: 'greedy' }}
+                    onClick={onMapClick}
+                  >
+                    {form.latitude && form.longitude && (
+                      <Marker
+                        position={{ lat: Number(form.latitude), lng: Number(form.longitude) }}
+                        draggable
+                        onDragEnd={onMarkerDragEnd}
+                      />
+                    )}
+                  </GoogleMap>
+                  {form.latitude && form.longitude && (
+                    <p className="text-xs text-gray-400 mt-1.5">
+                      <FaMapMarkerAlt size={10} className="inline mr-1" />
+                      {Number(form.latitude).toFixed(6)}, {Number(form.longitude).toFixed(6)}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs font-medium text-gray-600 mb-1 block">เวลาเปิด</label>
@@ -544,8 +688,8 @@ export default function StationManagePage() {
                   ]}
                 />
               </div>
-              {/* ตั้งเวลาเปลี่ยนสถานะล่วงหน้า */}
-              <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-3">
+              {/* ตั้งเวลาเปลี่ยนสถานะล่วงหน้า — แสดงเฉพาะตอนแก้ไข */}
+              {editingId && <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-3">
                 <p className="text-xs font-semibold text-amber-700">ตั้งเวลาเปลี่ยนสถานะล่วงหน้า (optional)</p>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -574,7 +718,7 @@ export default function StationManagePage() {
                     จะเปลี่ยนเป็น <strong>{form.scheduled_status}</strong> ตอน {new Date(form.scheduled_status_at).toLocaleString('th-TH')}
                   </p>
                 )}
-              </div>
+              </div>}
 
               <div className="flex gap-3 pt-2">
                 <button type="button" onClick={closeModal} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
@@ -600,7 +744,7 @@ export default function StationManagePage() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4">
                 <FaTrash size={18} className="text-red-400 flex-shrink-0" />
-                <p className="text-sm text-gray-700">การลบสถานีไม่สามารถยกเลิกได้ ข้อมูลทั้งหมดจะหายไป</p>
+                <p className="text-sm text-gray-700">คุณต้องการลบสถานีนี้จริงๆ ใช่ไหม? สามารถกู้คืนได้ที่ Recycle ภายใน 30 วัน</p>
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteStation(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
@@ -660,7 +804,7 @@ export default function StationManagePage() {
             <div className="p-6 space-y-4">
               <div className="flex items-center gap-3 bg-red-50 rounded-xl p-4">
                 <FaTrash size={18} className="text-red-400 flex-shrink-0" />
-                <p className="text-sm text-gray-700">ลบตู้ชาร์จนี้ออกจากสถานีถาวร ไม่สามารถยกเลิกได้</p>
+                <p className="text-sm text-gray-700">คุณต้องการลบตู้ชาร์จนี้จริงๆ ใช่ไหม? สามารถกู้คืนได้ที่ Recycle ภายใน 30 วัน</p>
               </div>
               <div className="flex gap-3">
                 <button onClick={() => setConfirmDeleteCharger(null)} className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50">

@@ -5,7 +5,7 @@ import {
   FaClock, FaTimes, FaLocationArrow, FaChevronUp, FaDirections,
   FaArrowLeft, FaArrowRight, FaArrowUp, FaTimesCircle,
 } from 'react-icons/fa'
-import { GoogleMap, Marker, InfoWindow, useJsApiLoader } from '@react-google-maps/api'
+import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import BottomNav from '../../components/BottomNav'
 import api from '../../utils/api'
 import { useGeolocation } from '../../hooks/useGeolocation'
@@ -207,13 +207,15 @@ export default function SearchPage() {
     ? { lat: geo.coords.latitude, lng: geo.coords.longitude }
     : BANGKOK
 
-  const handleMarkerClick = useCallback((st) => {
-    setActiveMarker(st.station_id)
-    if (mapRef.current && st.latitude && st.longitude) {
-      mapRef.current.panTo({ lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) })
-      mapRef.current.setZoom(15)
+  const infoWindowRef = useRef(null)
+
+  // ปิด InfoWindow ที่เปิดอยู่
+  const closeInfoWindow = useCallback(() => {
+    if (infoWindowRef.current) {
+      infoWindowRef.current.close()
+      infoWindowRef.current = null
     }
-    setSheetH(SNAP.peek)
+    setActiveMarker(null)
   }, [])
 
   const locateMe = () => {
@@ -390,6 +392,58 @@ export default function SearchPage() {
     setNavStepsExpanded(false)
   }, [])
 
+  // เปิด InfoWindow แบบ imperative (หลีกเลี่ยง bug ของ React <InfoWindow> component)
+  const openInfoWindow = useCallback((st) => {
+    if (!mapRef.current || !st.latitude || !st.longitude) return
+    closeInfoWindow()
+
+    const pos = { lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }
+    const avail = st.available_chargers > 0
+
+    const contentDiv = document.createElement('div')
+    contentDiv.style.cssText = 'min-width:170px;font-family:ui-sans-serif,system-ui,sans-serif;padding:2px 0'
+    contentDiv.innerHTML = `
+      <p style="font-weight:700;font-size:13px;margin-bottom:2px;color:#111827">${st.name}</p>
+      <p style="color:#9ca3af;font-size:11px;margin-bottom:6px">${st.address}</p>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+        <span style="font-size:11px;font-weight:600;color:${avail ? '#16a34a' : '#dc2626'}">
+          ⚡ ${st.available_chargers}/${st.total_chargers} ว่าง
+        </span>
+        ${st.distance_km != null ? `<span style="font-size:11px;color:#22c55e;font-weight:500">${formatDistance(st.distance_km)}</span>` : ''}
+      </div>
+      <div style="display:flex;gap:6px;margin-top:8px">
+        <button id="iw-view" style="flex:1;padding:7px 0;background:#22c55e;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer">ดูสถานี</button>
+        <button id="iw-nav" style="flex:1;padding:7px 0;background:#4285F4;color:#fff;border:none;border-radius:10px;font-weight:700;font-size:12px;cursor:pointer">นำทาง</button>
+      </div>
+    `
+    contentDiv.querySelector('#iw-view').addEventListener('click', () => {
+      navigate(`/stations/${st.station_id}`)
+    })
+    contentDiv.querySelector('#iw-nav').addEventListener('click', () => {
+      closeInfoWindow()
+      startNav(st)
+    })
+
+    const iw = new window.google.maps.InfoWindow({
+      content: contentDiv,
+      position: pos,
+      pixelOffset: new window.google.maps.Size(0, -52),
+    })
+    iw.addListener('closeclick', closeInfoWindow)
+    iw.open(mapRef.current)
+    infoWindowRef.current = iw
+  }, [closeInfoWindow, navigate, startNav]) // eslint-disable-line
+
+  const handleMarkerClick = useCallback((st) => {
+    setActiveMarker(st.station_id)
+    openInfoWindow(st)
+    if (mapRef.current && st.latitude && st.longitude) {
+      mapRef.current.panTo({ lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) })
+      mapRef.current.setZoom(15)
+    }
+    setSheetH(SNAP.peek)
+  }, [openInfoWindow])
+
   // จัดการ DirectionsRenderer โดยตรง (ไม่ใช้ React component เพื่อหลีกเลี่ยง cleanup bug)
   useEffect(() => {
     if (!isLoaded || !mapRef.current) return
@@ -409,12 +463,14 @@ export default function SearchPage() {
     }
   }, [directions, selectedRouteIdx, isLoaded])
 
-  // cleanup GPS watch + renderer + markers เมื่อ component unmount
+  // cleanup GPS watch + renderer + markers + InfoWindow เมื่อ component unmount
   useEffect(() => {
     return () => {
       if (watchIdRef.current) navigator.geolocation.clearWatch(watchIdRef.current)
       if (rerouteTimer.current) clearTimeout(rerouteTimer.current)
       rendererRef.current?.setMap(null)
+      infoWindowRef.current?.close()
+      infoWindowRef.current = null
       Object.values(stationMarkersRef.current).forEach(m => m.setMap(null))
       stationMarkersRef.current = {}
     }
@@ -486,9 +542,15 @@ export default function SearchPage() {
     if (!isLoaded || !mapRef.current) return
     const map = mapRef.current
     const existing = stationMarkersRef.current
-    const currentIds = new Set(filtered.map(st => st.station_id))
 
-    // ลบ markers ที่ไม่อยู่ใน filtered แล้ว
+    // ระหว่างนำทาง → ซ่อน marker ทั้งหมดยกเว้นสถานีปลายทาง
+    const visibleStations = navTarget
+      ? filtered.filter(st => st.station_id === navTarget.station_id)
+      : filtered
+
+    const currentIds = new Set(visibleStations.map(st => st.station_id))
+
+    // ลบ markers ที่ไม่อยู่ใน visibleStations แล้ว
     Object.keys(existing).forEach(id => {
       if (!currentIds.has(Number(id))) {
         existing[id].setMap(null)
@@ -497,7 +559,7 @@ export default function SearchPage() {
     })
 
     // สร้างหรืออัพเดท markers
-    filtered.forEach(st => {
+    visibleStations.forEach(st => {
       if (!st.latitude || !st.longitude) return
       const pos = { lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }
       const sel = activeMarker === st.station_id
@@ -523,10 +585,7 @@ export default function SearchPage() {
         existing[st.station_id] = marker
       }
     })
-  }, [filtered, activeMarker, isLoaded, handleMarkerClick])
-
-  // ── active station (for InfoWindow) ────────────────────────────────────────
-  const activeSt = activeMarker ? filtered.find(s => s.station_id === activeMarker) : null
+  }, [filtered, activeMarker, isLoaded, handleMarkerClick, navTarget])
 
   // ─────────────────────────────────────────────────────────────────────────
   return (
@@ -552,7 +611,7 @@ export default function SearchPage() {
                 startNav(t)
               }
             }}
-            onClick={() => setActiveMarker(null)}
+            onClick={closeInfoWindow}
             onDragStart={() => { followingRef.current = false; setIsFollowing(false) }}
           >
             {/* user dot */}
@@ -566,43 +625,7 @@ export default function SearchPage() {
 
             {/* station pins: จัดการผ่าน useEffect + stationMarkersRef โดยตรง */}
 
-            {/* InfoWindow */}
-            {activeSt?.latitude && activeSt?.longitude && (
-              <InfoWindow
-                position={{ lat: parseFloat(activeSt.latitude), lng: parseFloat(activeSt.longitude) }}
-                onCloseClick={() => setActiveMarker(null)}
-                options={{ pixelOffset: new window.google.maps.Size(0, -52) }}
-              >
-                <div style={{ minWidth: 170, fontFamily: 'ui-sans-serif,system-ui,sans-serif', padding: '2px 0' }}>
-                  <p style={{ fontWeight: 700, fontSize: 13, marginBottom: 2, color: '#111827' }}>{activeSt.name}</p>
-                  <p style={{ color: '#9ca3af', fontSize: 11, marginBottom: 6 }}>{activeSt.address}</p>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
-                    <span style={{ fontSize: 11, fontWeight: 600, color: activeSt.available_chargers > 0 ? '#16a34a' : '#dc2626' }}>
-                      ⚡ {activeSt.available_chargers}/{activeSt.total_chargers} ว่าง
-                    </span>
-                    {activeSt.distance_km != null && (
-                      <span style={{ fontSize: 11, color: '#22c55e', fontWeight: 500 }}>
-                        {formatDistance(activeSt.distance_km)}
-                      </span>
-                    )}
-                  </div>
-                  <div style={{ display: 'flex', gap: 6, marginTop: 8 }}>
-                    <button
-                      onClick={() => navigate(`/stations/${activeSt.station_id}`)}
-                      style={{ flex: 1, padding: '7px 0', background: '#22c55e', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                    >
-                      ดูสถานี
-                    </button>
-                    <button
-                      onClick={() => { startNav(activeSt); setActiveMarker(null) }}
-                      style={{ flex: 1, padding: '7px 0', background: '#4285F4', color: '#fff', border: 'none', borderRadius: 10, fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                    >
-                      นำทาง
-                    </button>
-                  </div>
-                </div>
-              </InfoWindow>
-            )}
+            {/* InfoWindow: จัดการผ่าน useEffect + infoWindowRef โดยตรง */}
 
             {/* route line: จัดการผ่าน useEffect + rendererRef โดยตรง */}
 
@@ -933,9 +956,9 @@ export default function SearchPage() {
                           <span className="flex items-center gap-1 text-xs text-amber-500 font-medium">
                             <FaStar size={10} /> {st.rating ?? 0}
                           </span>
-                          <span className="flex items-center gap-1 text-xs text-gray-500">
-                            <FaClock size={10} className="text-gray-400" />
-                            {st.open_time}–{st.close_time}
+                          <span className={`flex items-center gap-1 text-xs font-medium ${st.open_time?.slice(0,5) === '00:00' && st.close_time?.slice(0,5) === '00:00' ? 'text-green-600' : 'text-gray-500'}`}>
+                            <FaClock size={10} className={st.open_time?.slice(0,5) === '00:00' && st.close_time?.slice(0,5) === '00:00' ? 'text-green-500' : 'text-gray-400'} />
+                            {st.open_time?.slice(0,5) === '00:00' && st.close_time?.slice(0,5) === '00:00' ? 'เปิด 24 ชม.' : `${st.open_time}–${st.close_time}`}
                           </span>
                           {st.distance_km != null && (
                             <span className="flex items-center gap-1 text-xs text-primary font-semibold">

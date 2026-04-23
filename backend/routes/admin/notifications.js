@@ -64,6 +64,34 @@ router.get('/all', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
+// PATCH /api/admin/notifications/:id/read — admin mark any notification as read
+router.patch('/:id/read', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    const [result] = await pool.query(
+      'UPDATE notifications SET is_read = 1 WHERE notification_id = ?',
+      [req.params.id]
+    );
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ message: 'Notification not found.' });
+    }
+    return res.json({ message: 'Notification marked as read.' });
+  } catch (err) {
+    console.error('Admin markRead error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
+// PATCH /api/admin/notifications/read-all — admin mark all notifications as read
+router.patch('/read-all', auth, roleCheck('admin'), async (req, res) => {
+  try {
+    await pool.query('UPDATE notifications SET is_read = 1 WHERE is_read = 0');
+    return res.json({ message: 'All notifications marked as read.' });
+  } catch (err) {
+    console.error('Admin markAllRead error:', err);
+    return res.status(500).json({ message: 'Server error' });
+  }
+});
+
 // lalla POST /api/notifications/broadcast
 router.post('/broadcast', auth, roleCheck('admin'), async (req, res) => {
   try {

@@ -83,6 +83,15 @@ function BookingCard({ b, starting, onStart, navigate }) {
           )}
         </div>
       )}
+      {b.status === 'active' && b.session_id && (
+        <button
+          onClick={() => navigate(`/charging/${b.session_id}`)}
+          className="mt-3 w-full py-2.5 bg-blue-500 text-white text-sm font-semibold rounded-xl hover:bg-blue-600 transition-colors flex items-center justify-center gap-2 active:scale-[0.98]"
+        >
+          <FaBolt size={13} />
+          ดูการชาร์จที่กำลังดำเนินอยู่
+        </button>
+      )}
       {b.total_amount && (
         <div className="mt-2 pt-2 border-t border-gray-100 flex justify-between text-sm">
           <span className="text-gray-500">{b.energy_kwh} kWh</span>

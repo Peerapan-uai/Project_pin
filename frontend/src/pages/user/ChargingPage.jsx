@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaBolt, FaStopCircle, FaClock, FaPlug, FaWallet, FaExclamationTriangle } from 'react-icons/fa'
+import { FaBolt, FaStopCircle, FaClock, FaPlug, FaWallet, FaExclamationTriangle, FaCar } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function ChargingPage() {
@@ -23,6 +23,27 @@ export default function ChargingPage() {
     const fetchStatus = () => {
       api.get(`/api/sessions/${sessionId}/status`)
         .then(res => {
+          // BE auto stop เมื่อเงินไม่พอ
+          if (res.data.auto_stopped) {
+            clearInterval(intervalRef.current)
+            clearInterval(tickRef.current)
+            const pm = res.data.payment_method
+            if (pm === 'wallet' || pm === 'credit_card') {
+              setStopResult({
+                energy_kwh: res.data.energy_kwh,
+                total_cost: res.data.total_cost,
+                payment_method: pm,
+                auto_stopped: true,
+                battery_after_kwh: res.data.battery_after_kwh,
+                battery_capacity_kwh: res.data.battery_capacity_kwh,
+              })
+            } else {
+              navigate(`/payment/${sessionId}`, {
+                state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh }
+              })
+            }
+            return
+          }
           setSession(res.data.session)
           baseDurationRef.current = res.data.session?.duration_seconds ?? 0
           fetchedAtRef.current = Date.now()
@@ -45,7 +66,7 @@ export default function ChargingPage() {
       clearInterval(intervalRef.current)
       clearInterval(tickRef.current)
     }
-  }, [sessionId])
+  }, [sessionId]) // eslint-disable-line
 
   const durationSec = Math.max(0, elapsedSec)
   const durationMin = durationSec / 60
@@ -66,8 +87,12 @@ export default function ChargingPage() {
       .then(res => {
         const pm = res.data.payment_method
         if (pm === 'wallet' || pm === 'credit_card') {
-          // จ่ายอัตโนมัติสำเร็จแล้ว → แสดงสรุป
-          setStopResult(res.data)
+          // จ่ายอัตโนมัติสำเร็จแล้ว → แสดงสรุป (รวม battery info)
+          setStopResult({
+            ...res.data,
+            battery_after_kwh: res.data.battery_after_kwh,
+            battery_capacity_kwh: res.data.battery_capacity_kwh,
+          })
         } else {
           // ยังไม่จ่าย (pending) → ไปหน้าชำระเงินเอง
           navigate(`/payment/${sessionId}`, {
@@ -90,8 +115,12 @@ export default function ChargingPage() {
           <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <FaBolt size={40} className="text-green-500" />
           </div>
-          <h2 className="text-xl font-bold text-gray-900">ชาร์จเสร็จสิ้น!</h2>
-          <p className="text-gray-500 text-sm mt-1">ชำระเงินอัตโนมัติเรียบร้อย</p>
+          <h2 className="text-xl font-bold text-gray-900">
+            {stopResult.auto_stopped ? 'หยุดชาร์จอัตโนมัติ' : 'ชาร์จเสร็จสิ้น!'}
+          </h2>
+          <p className="text-gray-500 text-sm mt-1">
+            {stopResult.auto_stopped ? 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จให้อัตโนมัติ' : 'ชำระเงินอัตโนมัติเรียบร้อย'}
+          </p>
           <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-500">พลังงาน</span>
@@ -106,6 +135,28 @@ export default function ChargingPage() {
               <span className="font-medium">{methodLabel}</span>
             </div>
           </div>
+
+          {/* แสดง battery ที่อัพเดทแล้ว */}
+          {stopResult.battery_after_kwh != null && stopResult.battery_capacity_kwh != null && (
+            <div className="mt-3 bg-green-50 border border-green-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <FaCar size={14} className="text-green-600" />
+                <span className="text-sm font-semibold text-green-800">แบตเตอรี่รถของคุณ</span>
+              </div>
+              <div className="flex justify-between text-xs text-gray-500 mb-1">
+                <span>{stopResult.battery_after_kwh} / {stopResult.battery_capacity_kwh} kWh</span>
+                <span className="font-bold text-green-700">
+                  {Math.round((stopResult.battery_after_kwh / stopResult.battery_capacity_kwh) * 100)}%
+                </span>
+              </div>
+              <div className="w-full h-2.5 bg-gray-200 rounded-full overflow-hidden">
+                <div
+                  className="h-full rounded-full bg-green-500 transition-all duration-1000"
+                  style={{ width: `${Math.min(100, (stopResult.battery_after_kwh / stopResult.battery_capacity_kwh) * 100)}%` }}
+                />
+              </div>
+            </div>
+          )}
           <button
             onClick={() => navigate('/bookings')}
             className="mt-6 w-full py-3 bg-primary text-white font-semibold rounded-xl hover:bg-green-600 transition-colors"

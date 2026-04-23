@@ -61,7 +61,9 @@ export default function WalletManagePage() {
     api.patch(`/api/admin/wallet/users/${userId}/wallet/freeze`, { action })
       .then(() => {
         setConfirmFreeze(null)
-        if (walletModal) setWalletModal((prev) => ({ ...prev, user: { ...prev.user, wallet_frozen: action === 'freeze' ? 1 : 0 } }))
+        const newFrozen = action === 'freeze' ? 1 : 0
+        if (walletModal) setWalletModal((prev) => ({ ...prev, user: { ...prev.user, wallet_frozen: newFrozen } }))
+        setUsers((prev) => prev.map((u) => u.user_id === userId ? { ...u, wallet_frozen: newFrozen } : u))
         fetchSummary()
         toast.success(`${action === 'freeze' ? 'ระงับ' : 'ปลดระงับ'} wallet สำเร็จ`)
       })
@@ -116,11 +118,13 @@ export default function WalletManagePage() {
 
       {/* Summary cards */}
       {summary && (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-6">
           {[
-            { label: 'ยอด Wallet รวม', value: `${Number(summary.total_wallet_balance ?? 0).toFixed(2)} ฿`, color: 'text-primary' },
-            { label: 'เติมเงินรวม', value: `${Number(summary.total_topup ?? 0).toFixed(2)} ฿`, color: 'text-green-600' },
-            { label: 'ตัดเงินรวม', value: `${Number(summary.total_deduct ?? 0).toFixed(2)} ฿`, color: 'text-red-500' },
+            { label: 'ยอด Wallet รวม', value: `${Number(summary.total_wallet_balance ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿`, color: 'text-primary' },
+            { label: 'เติมเงิน', value: `${Number(summary.total_topup ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿`, color: 'text-green-600' },
+            { label: 'ใช้จ่าย', value: `${Number(summary.total_deduct ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿`, color: 'text-red-500' },
+            { label: 'คืนเงิน', value: `${Number(summary.total_refund ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿`, color: 'text-blue-600' },
+            { label: 'ปรับยอด', value: `${Number(summary.total_adjust ?? 0).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿`, color: 'text-violet-600' },
             { label: 'Wallet ถูกระงับ', value: `${summary.frozen_wallets_count} บัญชี`, color: 'text-amber-500' },
           ].map(({ label, value, color }) => (
             <div key={label} className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
