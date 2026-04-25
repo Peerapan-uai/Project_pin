@@ -123,8 +123,12 @@ export default function BookingHistoryPage() {
       charger_id: booking.charger_id
     })
       .then(res => navigate(`/charging/${res.data.session_id}`))
-      .catch(() => {
-        setError('เริ่มชาร์จไม่สำเร็จ กรุณาลองใหม่')
+      .catch(err => {
+        const code = err.response?.data?.code
+        const msg = code === 'CHARGER_OVERHEATED'
+          ? err.response.data.message
+          : (err.response?.data?.message || 'เริ่มชาร์จไม่สำเร็จ กรุณาลองใหม่')
+        setError(msg)
         setStarting(null)
       })
   }

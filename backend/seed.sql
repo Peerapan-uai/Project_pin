@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql:3306
--- Generation Time: Apr 21, 2026 at 09:16 AM
+-- Generation Time: Apr 25, 2026 at 05:52 PM
 -- Server version: 8.0.45
 -- PHP Version: 8.3.30
 
@@ -49,55 +49,70 @@ CREATE TABLE `bookings` (
   `booking_id` int UNSIGNED NOT NULL,
   `user_id` int UNSIGNED NOT NULL,
   `charger_id` int UNSIGNED NOT NULL,
+  `vehicle_id` int UNSIGNED DEFAULT NULL,
   `booking_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `start_time` timestamp NULL DEFAULT NULL,
   `end_time` timestamp NULL DEFAULT NULL,
   `status` enum('pending','confirmed','active','cancelled','completed','expired') NOT NULL DEFAULT 'pending',
-  `queue_position` int DEFAULT NULL
+  `queue_position` int DEFAULT NULL,
+  `cancelled_at` timestamp NULL DEFAULT NULL,
+  `no_show_fee_charged` decimal(10,2) NOT NULL DEFAULT '0.00'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `bookings`
 --
 
-INSERT INTO `bookings` (`booking_id`, `user_id`, `charger_id`, `booking_time`, `start_time`, `end_time`, `status`, `queue_position`) VALUES
-(8, 7, 2, '2026-04-10 05:10:26', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL),
-(11, 7, 2, '2026-04-10 05:11:18', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL),
-(14, 7, 2, '2026-04-10 05:11:35', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL),
-(15, 12, 29, '2026-04-15 13:01:45', '2026-04-15 20:01:44', '2026-04-15 20:31:44', 'completed', NULL),
-(16, 12, 1, '2026-04-15 13:02:51', '2026-04-15 20:02:51', '2026-04-15 22:02:51', 'completed', NULL),
-(17, 12, 19, '2026-04-15 13:04:21', '2026-04-15 20:04:21', '2026-04-15 20:19:21', 'completed', NULL),
-(18, 12, 15, '2026-04-15 13:05:40', '2026-04-15 20:05:40', '2026-04-15 20:20:40', 'completed', NULL),
-(19, 12, 11, '2026-04-15 16:07:06', '2026-04-15 23:07:06', '2026-04-15 23:22:06', 'completed', NULL),
-(21, 12, 2, '2026-04-16 03:03:59', '2026-04-16 10:03:59', '2026-04-16 10:18:59', 'completed', NULL),
-(22, 12, 3, '2026-04-16 03:08:25', '2026-04-16 10:08:25', '2026-04-16 10:38:25', 'completed', NULL),
-(23, 12, 4, '2026-04-16 03:20:35', '2026-04-16 10:20:35', '2026-04-16 10:50:35', 'completed', NULL),
-(24, 12, 1, '2026-04-16 04:37:21', '2026-04-16 04:37:21', '2026-04-16 05:07:21', 'expired', NULL),
-(25, 12, 1, '2026-04-16 04:50:14', '2026-04-16 04:50:14', '2026-04-16 05:20:14', 'expired', NULL),
-(26, 12, 1, '2026-04-16 06:13:04', '2026-04-16 13:13:04', '2026-04-16 13:43:04', 'completed', NULL),
-(27, 12, 1, '2026-04-16 06:33:12', '2026-04-16 13:33:12', '2026-04-16 14:18:12', 'completed', NULL),
-(28, 12, 3, '2026-04-16 06:45:32', '2026-04-16 13:45:32', '2026-04-16 14:15:32', 'completed', NULL),
-(29, 12, 1, '2026-04-16 10:19:55', '2026-04-16 10:19:55', NULL, 'completed', NULL),
-(30, 12, 1, '2026-04-16 18:31:52', '2026-04-16 18:31:52', NULL, 'cancelled', NULL),
-(31, 12, 2, '2026-04-17 05:18:06', '2026-04-17 05:18:06', NULL, 'cancelled', NULL),
-(32, 12, 12, '2026-04-17 05:27:55', '2026-04-17 05:27:55', NULL, 'cancelled', NULL),
-(33, 12, 15, '2026-04-17 05:31:18', '2026-04-17 05:31:18', NULL, 'cancelled', NULL),
-(34, 12, 25, '2026-04-17 05:36:32', '2026-04-17 05:36:32', NULL, 'cancelled', NULL),
-(35, 12, 26, '2026-04-17 05:37:17', '2026-04-17 05:37:17', NULL, 'cancelled', NULL),
-(36, 12, 4, '2026-04-17 05:41:11', '2026-04-17 05:41:11', NULL, 'cancelled', NULL),
-(37, 12, 9, '2026-04-17 05:41:54', '2026-04-17 05:41:54', NULL, 'cancelled', NULL),
-(38, 1, 3, '2026-04-18 09:40:56', '2026-04-18 09:40:56', NULL, 'expired', NULL),
-(39, 7, 11, '2026-04-18 09:42:46', '2026-04-18 09:42:46', NULL, 'cancelled', NULL),
-(40, 12, 6, '2026-04-18 09:43:46', '2026-04-18 09:43:46', NULL, 'cancelled', NULL),
-(41, 1, 13, '2026-04-18 16:59:38', '2026-04-18 16:59:38', NULL, 'expired', NULL),
-(43, 12, 3, '2026-04-19 08:02:06', '2026-04-19 08:02:06', NULL, 'cancelled', NULL),
-(44, 12, 5, '2026-04-19 08:06:16', '2026-04-19 08:06:16', NULL, 'completed', NULL),
-(45, 7, 13, '2026-04-20 07:27:39', '2026-04-20 07:27:39', NULL, 'completed', NULL),
-(46, 7, 23, '2026-04-20 07:28:54', '2026-04-20 07:28:54', NULL, 'completed', NULL),
-(47, 7, 27, '2026-04-20 07:30:36', '2026-04-20 07:30:36', NULL, 'completed', NULL),
-(48, 7, 8, '2026-04-21 06:57:26', '2026-04-21 06:57:26', NULL, 'completed', NULL),
-(49, 7, 1, '2026-04-21 08:27:03', '2026-04-21 08:27:03', NULL, 'completed', NULL),
-(50, 7, 5, '2026-04-21 08:30:23', '2026-04-21 08:30:23', NULL, 'completed', NULL);
+INSERT INTO `bookings` (`booking_id`, `user_id`, `charger_id`, `vehicle_id`, `booking_time`, `start_time`, `end_time`, `status`, `queue_position`, `cancelled_at`, `no_show_fee_charged`) VALUES
+(8, 7, 2, NULL, '2026-04-10 05:10:26', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(11, 7, 2, NULL, '2026-04-10 05:11:18', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(14, 7, 2, NULL, '2026-04-10 05:11:35', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(15, 12, 29, NULL, '2026-04-15 13:01:45', '2026-04-15 20:01:44', '2026-04-15 20:31:44', 'completed', NULL, NULL, 0.00),
+(16, 12, 1, NULL, '2026-04-15 13:02:51', '2026-04-15 20:02:51', '2026-04-15 22:02:51', 'completed', NULL, NULL, 0.00),
+(17, 12, 19, NULL, '2026-04-15 13:04:21', '2026-04-15 20:04:21', '2026-04-15 20:19:21', 'completed', NULL, NULL, 0.00),
+(18, 12, 15, NULL, '2026-04-15 13:05:40', '2026-04-15 20:05:40', '2026-04-15 20:20:40', 'completed', NULL, NULL, 0.00),
+(19, 12, 11, NULL, '2026-04-15 16:07:06', '2026-04-15 23:07:06', '2026-04-15 23:22:06', 'completed', NULL, NULL, 0.00),
+(21, 12, 2, NULL, '2026-04-16 03:03:59', '2026-04-16 10:03:59', '2026-04-16 10:18:59', 'completed', NULL, NULL, 0.00),
+(22, 12, 3, NULL, '2026-04-16 03:08:25', '2026-04-16 10:08:25', '2026-04-16 10:38:25', 'completed', NULL, NULL, 0.00),
+(23, 12, 4, NULL, '2026-04-16 03:20:35', '2026-04-16 10:20:35', '2026-04-16 10:50:35', 'completed', NULL, NULL, 0.00),
+(24, 12, 1, NULL, '2026-04-16 04:37:21', '2026-04-16 04:37:21', '2026-04-16 05:07:21', 'expired', NULL, NULL, 0.00),
+(25, 12, 1, NULL, '2026-04-16 04:50:14', '2026-04-16 04:50:14', '2026-04-16 05:20:14', 'expired', NULL, NULL, 0.00),
+(26, 12, 1, NULL, '2026-04-16 06:13:04', '2026-04-16 13:13:04', '2026-04-16 13:43:04', 'completed', NULL, NULL, 0.00),
+(27, 12, 1, NULL, '2026-04-16 06:33:12', '2026-04-16 13:33:12', '2026-04-16 14:18:12', 'completed', NULL, NULL, 0.00),
+(28, 12, 3, NULL, '2026-04-16 06:45:32', '2026-04-16 13:45:32', '2026-04-16 14:15:32', 'completed', NULL, NULL, 0.00),
+(29, 12, 1, NULL, '2026-04-16 10:19:55', '2026-04-16 10:19:55', NULL, 'completed', NULL, NULL, 0.00),
+(30, 12, 1, NULL, '2026-04-16 18:31:52', '2026-04-16 18:31:52', NULL, 'cancelled', NULL, NULL, 0.00),
+(31, 12, 2, NULL, '2026-04-17 05:18:06', '2026-04-17 05:18:06', NULL, 'cancelled', NULL, NULL, 0.00),
+(32, 12, 12, NULL, '2026-04-17 05:27:55', '2026-04-17 05:27:55', NULL, 'cancelled', NULL, NULL, 0.00),
+(33, 12, 15, NULL, '2026-04-17 05:31:18', '2026-04-17 05:31:18', NULL, 'cancelled', NULL, NULL, 0.00),
+(34, 12, 25, NULL, '2026-04-17 05:36:32', '2026-04-17 05:36:32', NULL, 'cancelled', NULL, NULL, 0.00),
+(35, 12, 26, NULL, '2026-04-17 05:37:17', '2026-04-17 05:37:17', NULL, 'cancelled', NULL, NULL, 0.00),
+(36, 12, 4, NULL, '2026-04-17 05:41:11', '2026-04-17 05:41:11', NULL, 'cancelled', NULL, NULL, 0.00),
+(37, 12, 9, NULL, '2026-04-17 05:41:54', '2026-04-17 05:41:54', NULL, 'cancelled', NULL, NULL, 0.00),
+(38, 1, 3, NULL, '2026-04-18 09:40:56', '2026-04-18 09:40:56', NULL, 'expired', NULL, NULL, 0.00),
+(39, 7, 11, NULL, '2026-04-18 09:42:46', '2026-04-18 09:42:46', NULL, 'cancelled', NULL, NULL, 0.00),
+(40, 12, 6, NULL, '2026-04-18 09:43:46', '2026-04-18 09:43:46', NULL, 'cancelled', NULL, NULL, 0.00),
+(41, 1, 13, NULL, '2026-04-18 16:59:38', '2026-04-18 16:59:38', NULL, 'expired', NULL, NULL, 0.00),
+(43, 12, 3, NULL, '2026-04-19 08:02:06', '2026-04-19 08:02:06', NULL, 'cancelled', NULL, NULL, 0.00),
+(44, 12, 5, NULL, '2026-04-19 08:06:16', '2026-04-19 08:06:16', NULL, 'completed', NULL, NULL, 0.00),
+(45, 7, 13, NULL, '2026-04-20 07:27:39', '2026-04-20 07:27:39', NULL, 'completed', NULL, NULL, 0.00),
+(46, 7, 23, NULL, '2026-04-20 07:28:54', '2026-04-20 07:28:54', NULL, 'completed', NULL, NULL, 0.00),
+(47, 7, 27, NULL, '2026-04-20 07:30:36', '2026-04-20 07:30:36', NULL, 'completed', NULL, NULL, 0.00),
+(48, 7, 8, NULL, '2026-04-21 06:57:26', '2026-04-21 06:57:26', NULL, 'completed', NULL, NULL, 0.00),
+(49, 7, 1, NULL, '2026-04-21 08:27:03', '2026-04-21 08:27:03', NULL, 'completed', NULL, NULL, 0.00),
+(50, 7, 5, NULL, '2026-04-21 08:30:23', '2026-04-21 08:30:23', NULL, 'completed', NULL, NULL, 0.00),
+(51, 7, 1, NULL, '2026-04-21 10:43:42', '2026-04-21 10:43:42', NULL, 'completed', NULL, NULL, 0.00),
+(52, 7, 3, NULL, '2026-04-21 10:47:04', '2026-04-21 10:47:04', NULL, 'completed', NULL, NULL, 0.00),
+(53, 12, 5, NULL, '2026-04-22 14:59:18', '2026-04-22 14:59:18', NULL, 'completed', NULL, NULL, 0.00),
+(54, 7, 1, NULL, '2026-04-25 07:15:17', '2026-04-25 07:15:17', NULL, 'completed', NULL, NULL, 0.00),
+(55, 7, 1, NULL, '2026-04-25 07:17:46', '2026-04-25 07:17:46', NULL, 'completed', NULL, NULL, 0.00),
+(56, 7, 1, NULL, '2026-04-25 07:38:09', '2026-04-25 07:38:09', NULL, 'completed', NULL, NULL, 0.00),
+(57, 7, 1, NULL, '2026-04-25 07:42:17', '2026-04-25 07:42:17', NULL, 'completed', NULL, NULL, 0.00),
+(58, 7, 1, NULL, '2026-04-25 07:43:02', '2026-04-25 07:43:02', NULL, 'completed', NULL, NULL, 0.00),
+(59, 7, 1, NULL, '2026-04-25 07:46:21', '2026-04-25 07:46:21', NULL, 'completed', NULL, NULL, 0.00),
+(60, 7, 5, NULL, '2026-04-25 07:59:08', '2026-04-25 07:59:08', NULL, 'completed', NULL, NULL, 0.00),
+(61, 7, 1, NULL, '2026-04-25 08:00:24', '2026-04-25 08:00:24', NULL, 'completed', NULL, NULL, 0.00),
+(62, 7, 1, 3, '2026-04-25 08:25:01', '2026-04-25 08:25:01', NULL, 'completed', NULL, NULL, 0.00);
 
 -- --------------------------------------------------------
 
@@ -113,7 +128,9 @@ CREATE TABLE `chargers` (
   `power_kw` decimal(6,2) NOT NULL,
   `price_per_kwh` decimal(6,2) NOT NULL,
   `status` enum('available','reserved','charging','out_of_service') NOT NULL DEFAULT 'available',
+  `idle_fee_enabled` tinyint(1) NOT NULL DEFAULT '0',
   `temperature_celsius` decimal(5,2) DEFAULT NULL,
+  `max_temperature_celsius` decimal(5,2) NOT NULL DEFAULT '60.00',
   `qr_code` varchar(500) DEFAULT NULL,
   `deleted_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -122,37 +139,37 @@ CREATE TABLE `chargers` (
 -- Dumping data for table `chargers`
 --
 
-INSERT INTO `chargers` (`charger_id`, `station_id`, `charger_name`, `connector_type`, `power_kw`, `price_per_kwh`, `status`, `temperature_celsius`, `qr_code`, `deleted_at`) VALUES
-(1, 1, 'SIAM-DC01', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-SIAM-DC01', NULL),
-(2, 1, 'SIAM-DC02', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-SIAM-DC02', NULL),
-(3, 1, 'SIAM-DC03', 'CHAdeMO', 50.00, 6.50, 'available', NULL, 'QR-SIAM-DC03', NULL),
-(4, 1, 'SIAM-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-SIAM-AC01', NULL),
-(5, 2, 'JJ-DC01', 'CCS', 100.00, 7.00, 'available', NULL, 'QR-JJ-DC01', NULL),
-(6, 2, 'JJ-DC02', 'CHAdeMO', 50.00, 6.50, 'available', NULL, 'QR-JJ-DC02', NULL),
-(7, 2, 'JJ-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-JJ-AC01', NULL),
-(8, 3, 'BNA-DC01', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-BNA-DC01', NULL),
-(9, 3, 'BNA-DC02', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-BNA-DC02', NULL),
-(10, 3, 'BNA-DC03', 'CHAdeMO', 50.00, 6.50, 'out_of_service', NULL, 'QR-BNA-DC03', NULL),
-(11, 3, 'BNA-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-BNA-AC01', NULL),
-(12, 4, 'LAT-DC01', 'CCS', 80.00, 6.80, 'available', NULL, 'QR-LAT-DC01', NULL),
-(13, 4, 'LAT-DC02', 'CCS', 80.00, 6.80, 'available', NULL, 'QR-LAT-DC02', NULL),
-(14, 4, 'LAT-AC01', 'Type2', 22.00, 4.80, 'available', NULL, 'QR-LAT-AC01', NULL),
-(15, 5, 'RAM-DC01', 'CCS', 60.00, 6.50, 'available', NULL, 'QR-RAM-DC01', NULL),
-(17, 6, 'PR2-DC01', 'CCS', 120.00, 7.00, 'available', NULL, 'QR-PR2-DC01', NULL),
-(18, 6, 'PR2-DC02', 'CHAdeMO', 50.00, 6.50, 'available', NULL, 'QR-PR2-DC02', NULL),
-(19, 6, 'PR2-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-PR2-AC01', NULL),
-(20, 7, 'THL-DC01', 'CCS', 150.00, 8.00, 'available', NULL, 'QR-THL-DC01', NULL),
-(21, 7, 'THL-DC02', 'CCS', 150.00, 7.00, 'available', NULL, 'QR-THL-DC02', NULL),
-(22, 7, 'THL-AC01', 'Type2', 22.00, 5.50, 'available', NULL, 'QR-THL-AC01', NULL),
-(23, 8, 'ARI-DC01', 'CCS', 60.00, 6.80, 'available', NULL, 'QR-ARI-DC01', NULL),
-(24, 8, 'ARI-AC01', 'Type2', 7.40, 4.50, 'available', NULL, 'QR-ARI-AC01', NULL),
-(25, 9, 'RST-DC01', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-RST-DC01', NULL),
-(26, 9, 'RST-DC02', 'CCS', 150.00, 7.50, 'available', NULL, 'QR-RST-DC02', NULL),
-(27, 9, 'RST-DC03', 'CHAdeMO', 50.00, 6.50, 'available', NULL, 'QR-RST-DC03', NULL),
-(28, 9, 'RST-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-RST-AC01', NULL),
-(29, 10, 'ONN-DC01', 'CCS', 80.00, 7.00, 'available', NULL, 'QR-ONN-DC01', NULL),
-(30, 10, 'ONN-AC01', 'Type2', 22.00, 5.00, 'available', NULL, 'QR-ONN-AC01', NULL),
-(31, 11, 'Charger A1', 'CCS', 45.00, 10.00, 'available', NULL, NULL, NULL);
+INSERT INTO `chargers` (`charger_id`, `station_id`, `charger_name`, `connector_type`, `power_kw`, `price_per_kwh`, `status`, `idle_fee_enabled`, `temperature_celsius`, `max_temperature_celsius`, `qr_code`, `deleted_at`) VALUES
+(1, 1, 'SIAM-DC01', 'CCS', 150.00, 7.50, 'available', 0, 28.10, 60.00, 'QR-SIAM-DC01', NULL),
+(2, 1, 'SIAM-DC02', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-SIAM-DC02', NULL),
+(3, 1, 'SIAM-DC03', 'CHAdeMO', 50.00, 7.50, 'available', 0, NULL, 60.00, 'QR-SIAM-DC03', NULL),
+(4, 1, 'SIAM-AC01', 'Type2', 22.00, 7.50, 'available', 0, NULL, 60.00, 'QR-SIAM-AC01', NULL),
+(5, 2, 'JJ-DC01', 'CCS', 100.00, 7.00, 'available', 0, NULL, 60.00, 'QR-JJ-DC01', NULL),
+(6, 2, 'JJ-DC02', 'CHAdeMO', 50.00, 7.00, 'available', 0, NULL, 60.00, 'QR-JJ-DC02', NULL),
+(7, 2, 'JJ-AC01', 'Type2', 22.00, 7.00, 'available', 0, NULL, 60.00, 'QR-JJ-AC01', NULL),
+(8, 3, 'BNA-DC01', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-BNA-DC01', NULL),
+(9, 3, 'BNA-DC02', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-BNA-DC02', NULL),
+(10, 3, 'BNA-DC03', 'CHAdeMO', 50.00, 7.50, 'out_of_service', 0, NULL, 60.00, 'QR-BNA-DC03', NULL),
+(11, 3, 'BNA-AC01', 'Type2', 22.00, 7.50, 'available', 0, NULL, 60.00, 'QR-BNA-AC01', NULL),
+(12, 4, 'LAT-DC01', 'CCS', 80.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-DC01', NULL),
+(13, 4, 'LAT-DC02', 'CCS', 80.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-DC02', NULL),
+(14, 4, 'LAT-AC01', 'Type2', 22.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-AC01', NULL),
+(15, 5, 'RAM-DC01', 'CCS', 60.00, 6.50, 'available', 0, NULL, 60.00, 'QR-RAM-DC01', NULL),
+(17, 6, 'PR2-DC01', 'CCS', 120.00, 7.00, 'available', 0, NULL, 60.00, 'QR-PR2-DC01', NULL),
+(18, 6, 'PR2-DC02', 'CHAdeMO', 50.00, 7.00, 'available', 0, NULL, 60.00, 'QR-PR2-DC02', NULL),
+(19, 6, 'PR2-AC01', 'Type2', 22.00, 7.00, 'available', 0, NULL, 60.00, 'QR-PR2-AC01', NULL),
+(20, 7, 'THL-DC01', 'CCS', 150.00, 8.00, 'available', 0, NULL, 60.00, 'QR-THL-DC01', NULL),
+(21, 7, 'THL-DC02', 'CCS', 150.00, 8.00, 'available', 0, NULL, 60.00, 'QR-THL-DC02', NULL),
+(22, 7, 'THL-AC01', 'Type2', 22.00, 8.00, 'available', 0, NULL, 60.00, 'QR-THL-AC01', NULL),
+(23, 8, 'ARI-DC01', 'CCS', 60.00, 6.80, 'available', 0, NULL, 60.00, 'QR-ARI-DC01', NULL),
+(24, 8, 'ARI-AC01', 'Type2', 7.40, 6.80, 'available', 0, NULL, 60.00, 'QR-ARI-AC01', NULL),
+(25, 9, 'RST-DC01', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-RST-DC01', NULL),
+(26, 9, 'RST-DC02', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-RST-DC02', NULL),
+(27, 9, 'RST-DC03', 'CHAdeMO', 50.00, 7.50, 'available', 0, NULL, 60.00, 'QR-RST-DC03', NULL),
+(28, 9, 'RST-AC01', 'Type2', 22.00, 7.50, 'available', 0, NULL, 60.00, 'QR-RST-AC01', NULL),
+(29, 10, 'ONN-DC01', 'CCS', 80.00, 7.00, 'available', 0, NULL, 60.00, 'QR-ONN-DC01', NULL),
+(30, 10, 'ONN-AC01', 'Type2', 22.00, 7.00, 'available', 0, NULL, 60.00, 'QR-ONN-AC01', NULL),
+(31, 11, 'Charger A1', 'CCS', 45.00, 10.00, 'available', 0, NULL, 60.00, NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -177,15 +194,6 @@ CREATE TABLE `charging_sessions` (
 --
 
 INSERT INTO `charging_sessions` (`session_id`, `booking_id`, `user_id`, `charger_id`, `start_time`, `end_time`, `energy_kwh`, `charge_percentage`, `status`) VALUES
-(21, 15, 12, 29, '2026-04-15 13:02:20', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(22, 16, 12, 1, '2026-04-15 13:03:56', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(23, 18, 12, 15, '2026-04-15 13:36:29', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(24, 17, 12, 19, '2026-04-15 13:36:31', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(25, 19, 12, 11, '2026-04-15 16:07:10', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(26, 21, 12, 2, '2026-04-16 03:04:07', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(27, 22, 12, 3, '2026-04-16 03:08:29', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(28, 23, 12, 4, '2026-04-16 03:20:38', '2026-04-16 04:35:04', NULL, NULL, 'completed'),
-(29, 24, 12, 1, '2026-04-16 04:37:31', '2026-04-16 04:42:22', NULL, NULL, 'completed'),
 (34, 26, 12, 1, '2026-04-16 06:25:59', '2026-04-16 06:26:15', 0.63, NULL, 'completed'),
 (35, 27, 12, 1, '2026-04-16 06:44:13', '2026-04-16 06:44:16', 0.08, NULL, 'completed'),
 (36, 28, 12, 3, '2026-04-16 09:04:22', '2026-04-16 09:04:24', 1.00, NULL, 'completed'),
@@ -198,7 +206,19 @@ INSERT INTO `charging_sessions` (`session_id`, `booking_id`, `user_id`, `charger
 (52, 47, 7, 27, '2026-04-20 07:30:45', '2026-04-20 07:33:11', 2.01, NULL, 'completed'),
 (53, 48, 7, 8, '2026-04-21 06:57:29', '2026-04-21 06:57:38', 0.29, NULL, 'completed'),
 (54, 49, 7, 1, '2026-04-21 08:27:08', '2026-04-21 08:29:23', 5.58, NULL, 'completed'),
-(55, 50, 7, 5, '2026-04-21 08:30:27', '2026-04-21 08:39:35', 15.17, NULL, 'completed');
+(55, 50, 7, 5, '2026-04-21 08:30:27', '2026-04-21 08:39:35', 15.17, NULL, 'completed'),
+(56, 51, 7, 1, '2026-04-21 10:43:46', '2026-04-21 10:44:32', 1.83, NULL, 'completed'),
+(57, 52, 7, 3, '2026-04-21 10:47:23', '2026-04-21 10:48:45', 1.13, NULL, 'completed'),
+(58, 53, 12, 5, '2026-04-22 14:59:31', '2026-04-22 15:18:58', 32.36, NULL, 'completed'),
+(59, 54, 7, 1, '2026-04-25 07:15:21', '2026-04-25 07:16:10', 1.96, NULL, 'completed'),
+(60, 55, 7, 1, '2026-04-25 07:17:49', '2026-04-25 07:27:53', 25.08, NULL, 'completed'),
+(61, 56, 7, 1, '2026-04-25 07:38:13', '2026-04-25 07:38:21', 0.25, NULL, 'completed'),
+(62, 57, 7, 1, '2026-04-25 07:42:21', '2026-04-25 07:42:28', 0.21, NULL, 'completed'),
+(63, 58, 7, 1, '2026-04-25 07:43:06', '2026-04-25 07:43:37', 1.25, NULL, 'completed'),
+(64, 59, 7, 1, '2026-04-25 07:46:25', '2026-04-25 07:48:23', 4.75, NULL, 'completed'),
+(65, 60, 7, 5, '2026-04-25 07:59:28', '2026-04-25 07:59:52', 0.61, NULL, 'completed'),
+(66, 61, 7, 1, '2026-04-25 08:01:36', '2026-04-25 08:01:40', 0.08, NULL, 'completed'),
+(67, 62, 7, 1, '2026-04-25 08:25:05', '2026-04-25 08:26:56', 4.63, NULL, 'completed');
 
 -- --------------------------------------------------------
 
@@ -244,7 +264,7 @@ INSERT INTO `maintenance_tickets` (`ticket_id`, `charger_id`, `reported_by`, `as
 (16, 7, 12, 2, 'จอเสีย', 'กดใช้แล้วไม่ขึ้นไรเลย', NULL, '/uploads/tickets/ticket-16-1776416578405-961688961.jpg', 'Force Restart ตัวเครื่องและทำการ Clear Cache ของระบบ ทดลองเปิดใช้งานแอปพลิเคชันทิ้งไว้ 15 นาที ไม่พบอาการจอค้างซ้ำ', 'completed', 'medium', '2026-04-16 18:32:25', NULL, NULL),
 (17, 7, 12, 2, 'จอเสีย', 'เปิดจอตู้ไม่ได้ใช้งานไม่ได้', NULL, '/uploads/tickets/ticket-17-1776415558637-686012408.png', NULL, 'completed', 'medium', '2026-04-17 08:16:25', '2026-04-17 08:39:54', NULL),
 (18, 3, 1, 13, 'หน้าจอไม่แสดงไรเลย', 'เปิดใช้งานไม่ได้', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-18 16:30:49', '2026-04-21 01:13:25', NULL),
-(19, 14, 1, 2, 'ตู้ฝาหลุด', 'ตู้ฝาหลุดเห็นข้างในตู้', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-18 16:58:54', '2026-04-21 09:06:33', NULL),
+(19, 14, 1, 2, 'ตู้ฝาหลุด', 'ตู้ฝาหลุดเห็นข้างในตู้', NULL, NULL, 'เสกกกดดดด', 'completed', 'medium', '2026-04-18 16:58:54', '2026-04-21 09:06:33', NULL),
 (20, 7, 1, 11, 'มีควันออกตู้', 'ไฟฟ้ารั่ว มีควันออก ', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-18 17:03:49', '2026-04-21 01:13:30', NULL),
 (21, 30, 1, 9, 'หัวชาร์จแตกเสียหาย', 'หัวชาร์จแตกเสียหายเราทำตกเอง', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-18 17:06:11', '2026-04-21 01:13:39', NULL),
 (22, 8, 12, 13, 'test', 'test', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-19 08:06:08', '2026-04-21 01:13:35', NULL),
@@ -252,7 +272,9 @@ INSERT INTO `maintenance_tickets` (`ticket_id`, `charger_id`, `reported_by`, `as
 (24, 8, 12, 2, 'พัง', 'พัง', NULL, '/uploads/tickets/ticket-24-1776734125105-134983615.jpg', NULL, 'completed', 'medium', '2026-04-21 00:43:03', '2026-04-21 00:45:31', NULL),
 (25, 20, 12, 13, 'teast', 'teast', NULL, NULL, NULL, 'assigned', 'medium', '2026-04-21 01:12:59', '2026-04-21 01:17:12', NULL),
 (26, 14, 7, 2, 'test', 'test', NULL, '/uploads/tickets/ticket-26-1776761580628-350391086.jpg', NULL, 'completed', 'medium', '2026-04-21 06:58:00', '2026-04-21 08:51:47', NULL),
-(27, 5, 7, 2, 'ชาร์จไม่เข้า', 'ให้ช่างมาเช็คให้หน่อยคับ มันชาทแล้วพลังงานไม่เข้า', NULL, '/uploads/tickets/ticket-27-1776762043013-746950186.jpg', 'เสดด', 'completed', 'medium', '2026-04-21 08:57:32', '2026-04-21 08:59:51', NULL);
+(27, 5, 7, 2, 'ชาร์จไม่เข้า', 'ให้ช่างมาเช็คให้หน่อยคับ มันชาทแล้วพลังงานไม่เข้า', NULL, '/uploads/tickets/ticket-27-1776762043013-746950186.jpg', 'เสดด', 'completed', 'medium', '2026-04-21 08:57:32', '2026-04-21 08:59:51', NULL),
+(28, 1, 12, 2, 'ชาร์จไม่เข้า', 'เรียกช่างมาที', NULL, NULL, NULL, 'completed', 'medium', '2026-04-22 15:00:03', '2026-04-22 15:17:07', NULL),
+(29, 1, 7, NULL, 'Charger overheating', 'อุณหภูมิ 65.00°C เกินค่าสูงสุด 60.00°C', NULL, NULL, NULL, 'reported', 'high', '2026-04-25 08:00:28', NULL, NULL);
 
 -- --------------------------------------------------------
 
@@ -454,7 +476,39 @@ INSERT INTO `notifications` (`notification_id`, `user_id`, `title`, `message`, `
 (205, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 15.167 kWh คิดเป็นเงิน 106.17 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-21 08:39:35', NULL),
 (206, 1, 'ซ่อมเสร็จแล้ว', 'test ซ่อมเสร็จโดย สมชาย เหนือใคร', 'maintenance', 1, '2026-04-21 08:53:00', NULL),
 (207, 1, 'มีแจ้งซ่อมใหม่', 'แจ้งซ่อม #27: ชาร์จไม่เข้า', 'maintenance', 1, '2026-04-21 08:57:32', NULL),
-(208, 1, 'ซ่อมเสร็จแล้ว', 'ชาร์จไม่เข้า ซ่อมเสร็จโดย สมชาย เหนือใคร', 'maintenance', 1, '2026-04-21 09:00:42', NULL);
+(208, 1, 'ซ่อมเสร็จแล้ว', 'ชาร์จไม่เข้า ซ่อมเสร็จโดย สมชาย เหนือใคร', 'maintenance', 1, '2026-04-21 09:00:42', NULL),
+(209, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-21 10:43:46', NULL),
+(210, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 1.833 kWh คิดเป็นเงิน 13.75 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-21 10:44:32', NULL),
+(211, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-21 10:47:23', NULL),
+(212, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 1.125 kWh คิดเป็นเงิน 7.31 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-21 10:48:45', NULL),
+(213, 1, 'ซ่อมเสร็จแล้ว', 'ตู้ฝาหลุด ซ่อมเสร็จโดย สมชาย เหนือใคร', 'maintenance', 1, '2026-04-21 12:00:49', NULL),
+(214, 12, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-22 14:59:31', NULL),
+(215, 1, 'มีแจ้งซ่อมใหม่', 'แจ้งซ่อม #28: ชาร์จไม่เข้า', 'maintenance', 1, '2026-04-22 15:00:03', NULL),
+(216, 1, 'ซ่อมเสร็จแล้ว', 'ชาร์จไม่เข้า ซ่อมเสร็จโดย สมชาย เหนือใคร', 'maintenance', 1, '2026-04-22 15:18:42', NULL),
+(217, 12, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 32.361 kWh คิดเป็นเงิน 226.53 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-22 15:18:58', NULL),
+(218, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:15:21', NULL),
+(219, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 1.958 kWh คิดเป็นเงิน 14.69 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 07:16:10', NULL),
+(220, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:17:49', NULL),
+(221, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 25.083 kWh คิดเป็นเงิน 188.12 บาท ตัดเงินผ่านบัตรเครดิตแล้ว', 'charging', 1, '2026-04-25 07:27:53', NULL),
+(222, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:38:13', NULL),
+(223, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 0.25 kWh คิดเป็นเงิน 1.88 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 07:38:21', NULL),
+(224, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿48.12 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 07:38:21', NULL),
+(225, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:42:21', NULL),
+(226, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 0.208 kWh คิดเป็นเงิน 1.56 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 07:42:28', NULL),
+(227, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿46.56 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 07:42:28', NULL),
+(228, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:43:06', NULL),
+(229, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 1.25 kWh คิดเป็นเงิน 9.38 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 07:43:37', NULL),
+(230, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿37.18 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 07:43:37', NULL),
+(231, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:46:25', NULL),
+(232, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 4.75 kWh คิดเป็นเงิน 35.63 บาท ตัดเงินผ่านบัตรเครดิตแล้ว', 'charging', 1, '2026-04-25 07:48:23', NULL),
+(233, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 07:59:28', NULL),
+(234, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 0.611 kWh คิดเป็นเงิน 4.28 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 07:59:52', NULL),
+(235, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿32.90 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 07:59:52', NULL),
+(236, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 08:01:36', NULL),
+(237, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 0.083 kWh คิดเป็นเงิน 0.62 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 08:01:40', NULL),
+(238, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿32.28 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 08:01:40', NULL),
+(239, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 08:25:05', NULL),
+(240, 7, 'หยุดชาร์จอัตโนมัติ', 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จอัตโนมัติ ชาร์จไป 4.625 kWh คิดเป็น 34.69 บาท', 'charging', 1, '2026-04-25 08:26:56', NULL);
 
 -- --------------------------------------------------------
 
@@ -493,10 +547,6 @@ CREATE TABLE `payments` (
 --
 
 INSERT INTO `payments` (`payment_id`, `session_id`, `user_id`, `amount`, `method`, `status`, `transaction_ref`, `paid_at`) VALUES
-(6, 21, 12, 250.00, 'credit_card', 'completed', 'TXN-004', '2026-04-16 10:30:00'),
-(7, 21, 12, 250.00, 'credit_card', 'completed', 'TXN-005', '2026-04-16 10:30:00'),
-(8, 22, 12, 500.00, 'credit_card', 'completed', 'TXN-006', '2026-04-16 10:30:00'),
-(9, 23, 12, 50.00, 'credit_card', 'refunded', 'TXN-007', '2026-04-16 10:30:00'),
 (10, 34, 12, 4.69, 'wallet', 'completed', 'DEDUCT1776320775617503', '2026-04-16 06:26:15'),
 (11, 35, 12, 0.62, 'wallet', 'completed', 'DEDUCT1776321856465715', '2026-04-16 06:44:16'),
 (12, 36, 12, 6.50, 'wallet', 'completed', 'DEDUCT1776330264505676', '2026-04-16 09:04:24'),
@@ -507,7 +557,19 @@ INSERT INTO `payments` (`payment_id`, `session_id`, `user_id`, `amount`, `method
 (17, 52, 7, 13.09, 'wallet', 'completed', 'DEDUCT1776670391519114', '2026-04-20 07:33:11'),
 (18, 53, 7, 2.19, 'wallet', 'completed', 'DEDUCT1776754658382949', '2026-04-21 06:57:38'),
 (19, 54, 7, 41.87, 'wallet', 'completed', 'DEDUCT1776760163735133', '2026-04-21 08:29:23'),
-(20, 55, 7, 106.17, 'wallet', 'completed', 'DEDUCT1776760775141824', '2026-04-21 08:39:35');
+(20, 55, 7, 106.17, 'wallet', 'completed', 'DEDUCT1776760775141824', '2026-04-21 08:39:35'),
+(21, 56, 7, 13.75, 'wallet', 'completed', 'DEDUCT1776768272052731', '2026-04-21 10:44:32'),
+(22, 57, 7, 7.31, 'wallet', 'completed', 'DEDUCT177676852566779', '2026-04-21 10:48:45'),
+(23, 58, 12, 226.53, 'wallet', 'completed', 'DEDUCT1776871138789940', '2026-04-22 15:18:58'),
+(24, 59, 7, 14.69, 'wallet', 'completed', 'DEDUCT1777101370411623', '2026-04-25 07:16:10'),
+(26, 60, 7, 188.12, 'credit_card', 'completed', 'chrg_test_67gxdr5zejoweu2624v', '2026-04-25 07:27:53'),
+(27, 61, 7, 1.88, 'wallet', 'completed', 'DEDUCT1777102701359959', '2026-04-25 07:38:21'),
+(28, 62, 7, 1.56, 'wallet', 'completed', 'DEDUCT1777102948031322', '2026-04-25 07:42:28'),
+(29, 63, 7, 9.38, 'wallet', 'completed', 'DEDUCT1777103017617777', '2026-04-25 07:43:37'),
+(30, 64, 7, 35.63, 'credit_card', 'completed', 'chrg_test_67gxkyw7teanu4000ya', '2026-04-25 07:48:23'),
+(31, 65, 7, 4.28, 'wallet', 'completed', 'DEDUCT1777103992167708', '2026-04-25 07:59:52'),
+(32, 66, 7, 0.62, 'wallet', 'completed', 'DEDUCT1777104100105930', '2026-04-25 08:01:40'),
+(33, 67, 7, 34.69, 'promptpay', 'completed', 'QR1777105723388450', '2026-04-25 08:28:44');
 
 -- --------------------------------------------------------
 
@@ -522,6 +584,34 @@ CREATE TABLE `payment_refunds` (
   `reason` text,
   `refunded_by` int UNSIGNED NOT NULL,
   `refunded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `point_balances`
+--
+
+CREATE TABLE `point_balances` (
+  `user_id` int UNSIGNED NOT NULL,
+  `balance` int NOT NULL DEFAULT '0',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `point_transactions`
+--
+
+CREATE TABLE `point_transactions` (
+  `txn_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `amount` int NOT NULL,
+  `type` enum('earn','redeem','expire','adjust') NOT NULL,
+  `ref` varchar(100) DEFAULT NULL,
+  `expires_at` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -548,10 +638,7 @@ CREATE TABLE `refund_requests` (
 --
 
 INSERT INTO `refund_requests` (`request_id`, `payment_id`, `user_id`, `title`, `reason`, `image_url`, `status`, `reviewed_by`, `reviewed_at`, `created_at`) VALUES
-(5, 9, 12, 'ชาร์จไม่เสร็จ / หยุดกลางคัน', 'ชาร์จไม่เสดก้ตัด', '[\"/uploads/refunds/refund_12_1776529701380_0.jpeg\"]', 'approved', 1, '2026-04-19 22:27:55', '2026-04-18 16:28:21'),
 (6, 14, 12, 'ยกเลิกการจองแต่ยังถูกตัดเงิน', 'test', '[\"/uploads/refunds/refund_12_1776651183424_0.jpeg\"]', 'pending', NULL, NULL, '2026-04-20 02:13:03'),
-(7, 8, 12, 'พนักงานพูดจาไม่ดี', 'test', '[\"/uploads/refunds/refund_12_1776651217525_0.jpeg\"]', 'rejected', 1, '2026-04-21 01:52:23', '2026-04-20 02:13:37'),
-(8, 7, 12, 'ถูกเก็บเงินผิดจำนวน', 'test', '[\"/uploads/refunds/refund_12_1776736881391_0.jpeg\"]', 'pending', NULL, NULL, '2026-04-21 02:01:21'),
 (9, 15, 7, 'ยกเลิกการจองแต่ยังถูกตัดเงิน', 'test', NULL, 'pending', NULL, NULL, '2026-04-21 06:57:05'),
 (10, 16, 7, 'ชาร์จไม่เสร็จ / หยุดกลางคัน', 'test', NULL, 'pending', NULL, NULL, '2026-04-21 06:57:15'),
 (11, 18, 7, 'ถูกเก็บเงินผิดจำนวน', '', NULL, 'pending', NULL, NULL, '2026-04-21 08:32:35');
@@ -569,7 +656,7 @@ CREATE TABLE `reviews` (
   `rating` tinyint NOT NULL,
   `comment` text,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
-) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
 -- Dumping data for table `reviews`
@@ -582,7 +669,8 @@ INSERT INTO `reviews` (`review_id`, `user_id`, `station_id`, `rating`, `comment`
 (6, 5, 4, 5, 'ตู้ชาร์จใช้งานได้ดีมาก ปั๊มก็สะอาด', '2026-04-14 13:28:30'),
 (7, 7, 5, 1, 'มาถึงแล้วตู้ใช้งานไม่ได้ครับ เสียเวลามาก', '2026-04-14 13:28:30'),
 (8, 8, 6, 2, 'ชาร์จเร็วดี แต่ตู้มีน้อยไปหน่อยรอนาน', '2026-04-14 13:28:30'),
-(9, 1, 3, 5, NULL, '2026-04-21 07:21:58');
+(9, 1, 3, 5, NULL, '2026-04-21 07:21:58'),
+(10, 12, 4, 5, 'ดีมากกก ตู้สะอาด จองคิวง่าย', '2026-04-22 15:00:38');
 
 -- --------------------------------------------------------
 
@@ -652,6 +740,87 @@ INSERT INTO `stations` (`station_id`, `name`, `address`, `latitude`, `longitude`
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tariffs`
+--
+
+CREATE TABLE `tariffs` (
+  `tariff_id` int UNSIGNED NOT NULL,
+  `charger_id` int UNSIGNED NOT NULL,
+  `period` enum('on_peak','off_peak') NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `price_per_kwh` decimal(6,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `tariffs`
+--
+
+INSERT INTO `tariffs` (`tariff_id`, `charger_id`, `period`, `start_time`, `end_time`, `price_per_kwh`) VALUES
+(1, 1, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(2, 2, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(3, 3, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(4, 4, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(5, 5, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(6, 6, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(7, 7, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(8, 8, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(9, 9, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(10, 10, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(11, 11, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(12, 12, 'on_peak', '09:00:00', '22:00:00', 6.80),
+(13, 13, 'on_peak', '09:00:00', '22:00:00', 6.80),
+(14, 14, 'on_peak', '09:00:00', '22:00:00', 6.80),
+(15, 15, 'on_peak', '09:00:00', '22:00:00', 6.50),
+(16, 17, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(17, 18, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(18, 19, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(19, 20, 'on_peak', '09:00:00', '22:00:00', 8.00),
+(20, 21, 'on_peak', '09:00:00', '22:00:00', 8.00),
+(21, 22, 'on_peak', '09:00:00', '22:00:00', 8.00),
+(22, 23, 'on_peak', '09:00:00', '22:00:00', 6.80),
+(23, 24, 'on_peak', '09:00:00', '22:00:00', 6.80),
+(24, 25, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(25, 26, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(26, 27, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(27, 28, 'on_peak', '09:00:00', '22:00:00', 7.50),
+(28, 29, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(29, 30, 'on_peak', '09:00:00', '22:00:00', 7.00),
+(30, 31, 'on_peak', '09:00:00', '22:00:00', 10.00),
+(32, 1, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(33, 2, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(34, 3, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(35, 4, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(36, 5, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(37, 6, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(38, 7, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(39, 8, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(40, 9, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(41, 10, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(42, 11, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(43, 12, 'off_peak', '22:00:00', '09:00:00', 4.76),
+(44, 13, 'off_peak', '22:00:00', '09:00:00', 4.76),
+(45, 14, 'off_peak', '22:00:00', '09:00:00', 4.76),
+(46, 15, 'off_peak', '22:00:00', '09:00:00', 4.55),
+(47, 17, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(48, 18, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(49, 19, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(50, 20, 'off_peak', '22:00:00', '09:00:00', 5.60),
+(51, 21, 'off_peak', '22:00:00', '09:00:00', 5.60),
+(52, 22, 'off_peak', '22:00:00', '09:00:00', 5.60),
+(53, 23, 'off_peak', '22:00:00', '09:00:00', 4.76),
+(54, 24, 'off_peak', '22:00:00', '09:00:00', 4.76),
+(55, 25, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(56, 26, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(57, 27, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(58, 28, 'off_peak', '22:00:00', '09:00:00', 5.25),
+(59, 29, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(60, 30, 'off_peak', '22:00:00', '09:00:00', 4.90),
+(61, 31, 'off_peak', '22:00:00', '09:00:00', 7.00);
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tech_profiles`
 --
 
@@ -689,6 +858,7 @@ CREATE TABLE `users` (
   `profile_image` varchar(500) DEFAULT NULL,
   `role` enum('user','admin','technician') NOT NULL DEFAULT 'user',
   `wallet_balance` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `outstanding_debt` decimal(10,2) NOT NULL DEFAULT '0.00',
   `is_banned` tinyint(1) NOT NULL DEFAULT '0',
   `ban_reason` text,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -703,19 +873,39 @@ CREATE TABLE `users` (
 -- Dumping data for table `users`
 --
 
-INSERT INTO `users` (`user_id`, `email`, `password_hash`, `first_name`, `last_name`, `phone`, `profile_image`, `role`, `wallet_balance`, `is_banned`, `ban_reason`, `created_at`, `updated_at`, `omise_customer_id`, `wallet_frozen`, `freeze_reason`, `deleted_at`) VALUES
-(1, 'admin@evcharge.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Admin', 'System', '0800000001', NULL, 'admin', 500.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-10 02:39:02', NULL, 1, NULL, NULL),
-(2, 'tech@evcharge.com', '$2a$10$tzxmTBAGoBjl3JyilbjRKuw/cNiGwpGSvdeAuwz9bLekUFOSaO7Yy', 'สมชาย', 'เหนือใคร', '0800000002', NULL, 'technician', 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-21 01:14:47', NULL, 0, NULL, NULL),
-(3, 'alice@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice', 'Wongsiri', '0811111111', NULL, 'user', 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-20 11:34:37', NULL, 0, NULL, '2026-04-20 11:34:37'),
-(4, 'bob@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob', 'Prasert', '0822222222', NULL, 'user', 6125.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-19 09:44:22', NULL, 1, NULL, '2026-04-19 09:44:22'),
-(5, 'botclaude@gmail.com', '$2a$10$AGQ4tZ3pk5ma7TJl9yoOZ.nEC2oVgKjcHBcPMHsu8ik2D7JKr7TyO', 'Bot', 'Claude', '0812345678', NULL, 'user', 0.00, 0, NULL, '2026-04-02 23:49:21', '2026-04-18 17:17:18', NULL, 0, NULL, NULL),
-(7, 'nemuser@gmail.com', '$2a$10$EaKJ2dIx8l8Mukh0bsydG.rtgGxlAVoyddc6AGJg5IPi3Ghphkm3S', 'เนม', 'เนม', '0615612345', NULL, 'user', 567.08, 0, NULL, '2026-04-03 14:22:49', '2026-04-21 08:39:35', 'cust_test_67fdle9af6i7uh2ymtw', 0, NULL, NULL),
-(8, 'Emma123@gmail.com', '$2a$10$6mwZpIr0kvr3LxWY/EBZ0e2xLSUQQfQds0ZIo4iygjP5VZfBTT3pK', 'Emma', 'Woods', '0631962204', NULL, 'user', 0.00, 0, NULL, '2026-04-08 17:37:50', '2026-04-15 17:53:53', NULL, 0, NULL, NULL),
-(9, 'tech1@evcharge.com', '$2a$10$2elQTP2byuBNBsleskW7aupyKFICc/cCCGKYsny412dQY2yUhYxdW', 'สมทบ', 'มิตรดี', '', NULL, 'technician', 0.00, 0, NULL, '2026-04-14 20:01:36', '2026-04-14 20:44:36', NULL, 0, NULL, NULL),
-(11, 'tech2@evcharge.com', '$2a$10$VWpSB4NoFSch13b2smjY4.3CyPfOFZ0MLA49QrfNEs9SIJujGMuKG', 'เทพบุตร', 'นามสมมติ', NULL, NULL, 'technician', 0.00, 0, NULL, '2026-04-15 06:16:50', '2026-04-15 06:16:50', NULL, 0, NULL, NULL),
-(12, 'dodchalalla99@gmail.com', '$2a$10$xPxPtcz2IRMtCslgiegAR.QJ48.lH2cqxvYmhwMH4bM/8/qhkc.je', 'ลัลลา', 'โดดแช', '0812345678', NULL, 'user', 3317.30, 0, NULL, '2026-04-15 12:57:23', '2026-04-19 22:30:14', 'cust_test_67dc8gpdmv30e2ekcu0', 0, NULL, NULL),
-(13, 'tech3@evcharge.com', '$2a$10$QHfVL8YO7wc6rXsJ1RG5peWEJf8m8f4PWkfwczSCVxHNEfKWjgu3G', 'มานะ', 'มาไม', '0999914556', NULL, 'technician', 0.00, 0, NULL, '2026-04-20 11:14:55', '2026-04-20 11:14:55', NULL, 0, NULL, NULL),
-(14, 'user123@gmail.com', '$2a$10$ED.QpXCyC.PTgRaVQok2D.HTj2zyH9jMU9XJ0FuEZN4bPWTi5Uruu', 'ลีนา', 'โดดแช', '1234567890', NULL, 'user', 0.00, 0, NULL, '2026-04-21 08:18:09', '2026-04-21 08:18:09', NULL, 0, NULL, NULL);
+INSERT INTO `users` (`user_id`, `email`, `password_hash`, `first_name`, `last_name`, `phone`, `profile_image`, `role`, `wallet_balance`, `outstanding_debt`, `is_banned`, `ban_reason`, `created_at`, `updated_at`, `omise_customer_id`, `wallet_frozen`, `freeze_reason`, `deleted_at`) VALUES
+(1, 'admin@evcharge.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Admin', 'System', '0800000001', NULL, 'admin', 500.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-10 02:39:02', NULL, 1, NULL, NULL),
+(2, 'tech@evcharge.com', '$2a$10$tzxmTBAGoBjl3JyilbjRKuw/cNiGwpGSvdeAuwz9bLekUFOSaO7Yy', 'สมชาย', 'เหนือใคร', '0800000002', NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-21 01:14:47', NULL, 0, NULL, NULL),
+(3, 'alice@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice', 'Wongsiri', '0811111111', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-20 11:34:37', NULL, 0, NULL, '2026-04-20 11:34:37'),
+(4, 'bob@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob', 'Prasert', '0822222222', NULL, 'user', 6125.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-19 09:44:22', NULL, 1, NULL, '2026-04-19 09:44:22'),
+(5, 'botclaude@gmail.com', '$2a$10$AGQ4tZ3pk5ma7TJl9yoOZ.nEC2oVgKjcHBcPMHsu8ik2D7JKr7TyO', 'Bot', 'Claude', '0812345678', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-02 23:49:21', '2026-04-18 17:17:18', NULL, 0, NULL, NULL),
+(7, 'nemuser@gmail.com', '$2a$10$EaKJ2dIx8l8Mukh0bsydG.rtgGxlAVoyddc6AGJg5IPi3Ghphkm3S', 'เนม', 'เนม', '0615612345', NULL, 'user', 132.28, 0.00, 0, NULL, '2026-04-03 14:22:49', '2026-04-25 15:47:20', 'cust_test_67fdle9af6i7uh2ymtw', 0, NULL, NULL),
+(8, 'Emma123@gmail.com', '$2a$10$6mwZpIr0kvr3LxWY/EBZ0e2xLSUQQfQds0ZIo4iygjP5VZfBTT3pK', 'Emma', 'Woods', '0631962204', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-08 17:37:50', '2026-04-15 17:53:53', NULL, 0, NULL, NULL),
+(9, 'tech1@evcharge.com', '$2a$10$2elQTP2byuBNBsleskW7aupyKFICc/cCCGKYsny412dQY2yUhYxdW', 'สมทบ', 'มิตรดี', '', NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-14 20:01:36', '2026-04-14 20:44:36', NULL, 0, NULL, NULL),
+(11, 'tech2@evcharge.com', '$2a$10$VWpSB4NoFSch13b2smjY4.3CyPfOFZ0MLA49QrfNEs9SIJujGMuKG', 'เทพบุตร', 'นามสมมติ', NULL, NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-15 06:16:50', '2026-04-15 06:16:50', NULL, 0, NULL, NULL),
+(12, 'dodchalalla99@gmail.com', '$2a$10$xPxPtcz2IRMtCslgiegAR.QJ48.lH2cqxvYmhwMH4bM/8/qhkc.je', 'ลัลลา', 'โดดแช', '0812345678', NULL, 'user', 8140.77, 0.00, 0, NULL, '2026-04-15 12:57:23', '2026-04-22 15:18:58', 'cust_test_67dc8gpdmv30e2ekcu0', 0, NULL, NULL),
+(13, 'tech3@evcharge.com', '$2a$10$QHfVL8YO7wc6rXsJ1RG5peWEJf8m8f4PWkfwczSCVxHNEfKWjgu3G', 'มานะ', 'มาไม', '0999914556', NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-20 11:14:55', '2026-04-20 11:14:55', NULL, 0, NULL, NULL),
+(14, 'user123@gmail.com', '$2a$10$ED.QpXCyC.PTgRaVQok2D.HTj2zyH9jMU9XJ0FuEZN4bPWTi5Uruu', 'ลีนา', 'โดดแช', '1234567890', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-21 08:18:09', '2026-04-21 08:18:09', NULL, 0, NULL, NULL);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_favorites`
+--
+
+CREATE TABLE `user_favorites` (
+  `favorite_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `station_id` int UNSIGNED NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `user_favorites`
+--
+
+INSERT INTO `user_favorites` (`favorite_id`, `user_id`, `station_id`, `created_at`) VALUES
+(1, 7, 1, '2026-04-25 08:37:12');
 
 -- --------------------------------------------------------
 
@@ -731,7 +921,7 @@ CREATE TABLE `vehicles` (
   `license_plate` varchar(50) NOT NULL,
   `connector_type` enum('CCS','CHAdeMO','Type2','Type1') NOT NULL,
   `battery_capacity_kwh` decimal(6,2) NOT NULL,
-  `battery_current_kwh` decimal(6,2) DEFAULT NULL
+  `battery_current_kwh` decimal(8,3) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 --
@@ -739,12 +929,12 @@ CREATE TABLE `vehicles` (
 --
 
 INSERT INTO `vehicles` (`vehicle_id`, `user_id`, `brand`, `model`, `license_plate`, `connector_type`, `battery_capacity_kwh`, `battery_current_kwh`) VALUES
-(2, 5, 'Toyota', 'bZ4X', 'กก 1234', 'CCS', 71.00, 10.00),
-(3, 7, 'BYD', 'Cipo', 'รวย 9331', 'CCS', 65.00, 0.38),
-(4, 12, 'Tesla', 'Model 3 (Long Range)', 'รร 9999 เชียงใหม่', 'Type2', 75.00, 37.50),
-(5, 12, 'NETA', 'V', 'ฮฮ 555 กรุงเทพ', 'CCS', 38.50, 3.85),
-(6, 12, 'GWM', 'ORA Good Cat (Ultra)', 'กข 4321 กรุงเทพมหานคร', 'CCS', 75.00, 15.00),
-(7, 1, 'BYD', 'Atto 3', 'อห  1222', 'CCS', 80.00, 16.00);
+(2, 5, 'Toyota', 'bZ4X', 'กก 1234', 'CCS', 71.00, 10.000),
+(3, 7, 'BYD', 'Cipo', 'รวย 9331', 'CCS', 65.00, 5.005),
+(4, 12, 'Tesla', 'Model 3 (Long Range)', 'รร 9999 เชียงใหม่', 'Type2', 75.00, 37.500),
+(5, 12, 'NETA', 'V', 'ฮฮ 555 กรุงเทพ', 'CCS', 38.50, 3.850),
+(6, 12, 'GWM', 'ORA Good Cat (Ultra)', 'กข 4321 กรุงเทพมหานคร', 'CCS', 75.00, 15.000),
+(7, 1, 'BYD', 'Atto 3', 'อห  1222', 'CCS', 80.00, 16.000);
 
 -- --------------------------------------------------------
 
@@ -796,7 +986,22 @@ INSERT INTO `wallet_transactions` (`txn_id`, `user_id`, `amount`, `type`, `ref`,
 (1036, 7, 300.00, 'topup', 'TOPUP1776759673101929', '2026-04-21 08:21:13', NULL, NULL),
 (1037, 7, 100.00, 'topup', 'TOPUP1776759756533287', '2026-04-21 08:22:38', NULL, NULL),
 (1038, 7, 41.87, 'deduct', 'session_54', '2026-04-21 08:29:23', NULL, NULL),
-(1039, 7, 106.17, 'deduct', 'session_55', '2026-04-21 08:39:35', NULL, NULL);
+(1039, 7, 106.17, 'deduct', 'session_55', '2026-04-21 08:39:35', NULL, NULL),
+(1040, 7, 13.75, 'deduct', 'session_56', '2026-04-21 10:44:32', NULL, NULL),
+(1041, 7, 7.31, 'deduct', 'session_57', '2026-04-21 10:48:45', NULL, NULL),
+(1042, 7, 500.00, 'topup', 'TOPUP1776772314623355', '2026-04-21 11:51:56', NULL, NULL),
+(1043, 12, 5000.00, 'topup', 'TOPUP1776869288179616', '2026-04-22 14:48:09', NULL, NULL),
+(1044, 12, 50.00, 'topup', 'TOPUP177686983327988', '2026-04-22 14:57:14', NULL, NULL),
+(1045, 12, 226.53, 'deduct', 'session_58', '2026-04-22 15:18:58', NULL, NULL),
+(1046, 7, 14.69, 'deduct', 'session_59', '2026-04-25 07:16:10', NULL, NULL),
+(1047, 7, 1.88, 'deduct', 'session_61', '2026-04-25 07:38:21', NULL, NULL),
+(1048, 7, 1.56, 'deduct', 'session_62', '2026-04-25 07:42:28', NULL, NULL),
+(1049, 7, 9.38, 'deduct', 'session_63', '2026-04-25 07:43:37', NULL, NULL),
+(1050, 7, 4.28, 'deduct', 'session_65', '2026-04-25 07:59:52', NULL, NULL),
+(1051, 7, 0.62, 'deduct', 'session_66', '2026-04-25 08:01:40', NULL, NULL),
+(1052, 7, 50.00, 'topup', 'TOPUP1777127098453107', '2026-04-25 14:24:58', NULL, NULL),
+(1053, 7, 50.00, 'deduct', 'debt_1777127100605', '2026-04-25 14:25:00', 'ชำระยอดค้าง', NULL),
+(1054, 7, 100.00, 'topup', 'TOPUP17771320408493', '2026-04-25 15:47:20', NULL, NULL);
 
 --
 -- Indexes for dumped tables
@@ -883,6 +1088,20 @@ ALTER TABLE `payment_refunds`
   ADD KEY `fk_refunds_admin` (`refunded_by`);
 
 --
+-- Indexes for table `point_balances`
+--
+ALTER TABLE `point_balances`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  ADD PRIMARY KEY (`txn_id`),
+  ADD KEY `idx_pt_user` (`user_id`,`created_at`),
+  ADD KEY `idx_pt_expires` (`expires_at`);
+
+--
 -- Indexes for table `refund_requests`
 --
 ALTER TABLE `refund_requests`
@@ -913,6 +1132,14 @@ ALTER TABLE `stations`
   ADD PRIMARY KEY (`station_id`);
 
 --
+-- Indexes for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  ADD PRIMARY KEY (`tariff_id`),
+  ADD UNIQUE KEY `uk_charger_period` (`charger_id`,`period`),
+  ADD KEY `idx_tariffs_charger` (`charger_id`,`period`);
+
+--
 -- Indexes for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
@@ -925,6 +1152,14 @@ ALTER TABLE `tech_profiles`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`user_id`),
   ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  ADD PRIMARY KEY (`favorite_id`),
+  ADD UNIQUE KEY `uk_user_station` (`user_id`,`station_id`),
+  ADD KEY `fk_fav_station` (`station_id`);
 
 --
 -- Indexes for table `vehicles`
@@ -954,7 +1189,7 @@ ALTER TABLE `admin_profiles`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=51;
+  MODIFY `booking_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
 
 --
 -- AUTO_INCREMENT for table `chargers`
@@ -966,13 +1201,13 @@ ALTER TABLE `chargers`
 -- AUTO_INCREMENT for table `charging_sessions`
 --
 ALTER TABLE `charging_sessions`
-  MODIFY `session_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=56;
+  MODIFY `session_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
 
 --
 -- AUTO_INCREMENT for table `maintenance_tickets`
 --
 ALTER TABLE `maintenance_tickets`
-  MODIFY `ticket_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=28;
+  MODIFY `ticket_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=30;
 
 --
 -- AUTO_INCREMENT for table `messages`
@@ -984,7 +1219,7 @@ ALTER TABLE `messages`
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `notification_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=209;
+  MODIFY `notification_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=241;
 
 --
 -- AUTO_INCREMENT for table `notification_logs`
@@ -996,13 +1231,19 @@ ALTER TABLE `notification_logs`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=21;
+  MODIFY `payment_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
 
 --
 -- AUTO_INCREMENT for table `payment_refunds`
 --
 ALTER TABLE `payment_refunds`
   MODIFY `refund_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
+
+--
+-- AUTO_INCREMENT for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `refund_requests`
@@ -1014,7 +1255,7 @@ ALTER TABLE `refund_requests`
 -- AUTO_INCREMENT for table `reviews`
 --
 ALTER TABLE `reviews`
-  MODIFY `review_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `review_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=11;
 
 --
 -- AUTO_INCREMENT for table `scheduled_notifications`
@@ -1029,6 +1270,12 @@ ALTER TABLE `stations`
   MODIFY `station_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=12;
 
 --
+-- AUTO_INCREMENT for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  MODIFY `tariff_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+
+--
 -- AUTO_INCREMENT for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
@@ -1041,16 +1288,22 @@ ALTER TABLE `users`
   MODIFY `user_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
 
 --
+-- AUTO_INCREMENT for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  MODIFY `favorite_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
 -- AUTO_INCREMENT for table `vehicles`
 --
 ALTER TABLE `vehicles`
-  MODIFY `vehicle_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=8;
+  MODIFY `vehicle_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=9;
 
 --
 -- AUTO_INCREMENT for table `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
-  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1040;
+  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1055;
 
 --
 -- Constraints for dumped tables
@@ -1127,6 +1380,18 @@ ALTER TABLE `payment_refunds`
   ADD CONSTRAINT `fk_refunds_payment` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`payment_id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `point_balances`
+--
+ALTER TABLE `point_balances`
+  ADD CONSTRAINT `fk_pb_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  ADD CONSTRAINT `fk_pt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `refund_requests`
 --
 ALTER TABLE `refund_requests`
@@ -1148,10 +1413,23 @@ ALTER TABLE `scheduled_notifications`
   ADD CONSTRAINT `fk_sched_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`user_id`);
 
 --
+-- Constraints for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  ADD CONSTRAINT `fk_tariff_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
   ADD CONSTRAINT `tech_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  ADD CONSTRAINT `fk_fav_station` FOREIGN KEY (`station_id`) REFERENCES `stations` (`station_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_fav_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `vehicles`

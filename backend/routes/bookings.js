@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
+const { chargeFeeOrAddDebt } = require('../utils/chargeFeeOrAddDebt');
 
 /**
  * @swagger
@@ -44,7 +45,7 @@ const roleCheck = require('../middleware/roleCheck');
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { charger_id } = req.body;
+  const { charger_id, vehicle_id } = req.body;
 
   if (!charger_id) {
     return res.status(400).json({ message: 'charger_id is required.' });
@@ -62,7 +63,7 @@ router.post('/', auth, async (req, res) => {
 
     // เช็คว่า charger ว่างไหม
     const [chargerRows] = await pool.query(
-      `SELECT status FROM chargers WHERE charger_id = ?`,
+      `SELECT status, temperature_celsius, max_temperature_celsius FROM chargers WHERE charger_id = ?`,
       [charger_id]
     );
 
@@ -74,10 +75,19 @@ router.post('/', auth, async (req, res) => {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
 
+    const ch = chargerRows[0];
+    if (ch.temperature_celsius != null && ch.max_temperature_celsius != null
+        && parseFloat(ch.temperature_celsius) > parseFloat(ch.max_temperature_celsius)) {
+      return res.status(503).json({
+        message: 'ขออภัย ตู้ชาร์จนี้ไม่พร้อมใช้งานชั่วคราว กรุณารอสักครู่หรือเลือกตู้อื่น',
+        code: 'CHARGER_OVERHEATED',
+      });
+    }
+
     const [result] = await pool.query(
-      `INSERT INTO bookings (user_id, charger_id, start_time, status)
-       VALUES (?, ?, NOW(), 'confirmed')`,
-      [req.user.user_id, charger_id]
+      `INSERT INTO bookings (user_id, charger_id, vehicle_id, start_time, status)
+       VALUES (?, ?, ?, NOW(), 'confirmed')`,
+      [req.user.user_id, charger_id, vehicle_id || null]
     );
 
     // ล็อคตู้ชาร์จทันที → คนอื่นจองไม่ได้
@@ -331,11 +341,12 @@ router.get('/:id', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-/// nem
+/// nem — Feature 11: cancel with fee logic
 router.patch('/:id/cancel', auth, async (req, res) => {
   try {
     const [bookingRows] = await pool.query(
-      `SELECT charger_id FROM bookings WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
+      `SELECT booking_id, charger_id, booking_time, scheduled_start
+       FROM bookings WHERE booking_id = ? AND user_id = ? AND status IN ('pending','confirmed')`,
       [req.params.id, req.user.user_id]
     );
 
@@ -343,18 +354,39 @@ router.patch('/:id/cancel', auth, async (req, res) => {
       return res.status(404).json({ message: 'Booking not found or cannot be cancelled.' });
     }
 
+    const b = bookingRows[0];
+    const scheduledStart = new Date(b.scheduled_start || b.booking_time);
+    const minsToStart = (scheduledStart.getTime() - Date.now()) / 60000;
+
+    let fee = 0;
+    let feeMethod = null;
+    if (minsToStart > 0 && minsToStart < 60) {
+      fee = 20;
+      feeMethod = await chargeFeeOrAddDebt(req.user.user_id, 20, `cancel_${req.params.id}`);
+      try {
+        const methodMsg = feeMethod === 'debt' ? 'ยอดค้างชำระได้รับการบันทึก' : 'หักจากกระเป๋าเงินแล้ว';
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type) VALUES (?, 'ค่าธรรมเนียมยกเลิก', ?, 'booking')`,
+          [req.user.user_id, `ยกเลิกการจองภายใน 1 ชั่วโมง ค่าธรรมเนียม ฿20 ${methodMsg}`]
+        );
+      } catch (_) {}
+    }
+
     await pool.query(
-      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ?`,
-      [req.params.id]
+      `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW(), no_show_fee_charged = ? WHERE booking_id = ?`,
+      [fee, req.params.id]
     );
 
-    // คืนตู้ชาร์จกลับว่าง
     await pool.query(
       `UPDATE chargers SET status = 'available' WHERE charger_id = ? AND status = 'reserved'`,
-      [bookingRows[0].charger_id]
+      [b.charger_id]
     );
 
-    return res.status(200).json({ message: 'Booking cancelled successfully.' });
+    return res.status(200).json({
+      message: 'Booking cancelled successfully.',
+      fee_charged: fee,
+      fee_method: feeMethod,
+    });
   } catch (error) {
     console.error('Cancel booking error:', error);
     return res.status(500).json({ message: 'Server error cancelling booking.' });

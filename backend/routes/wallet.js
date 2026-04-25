@@ -29,7 +29,7 @@ const QRCode = require('qrcode');
 router.get('/balance', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
-      'SELECT wallet_balance, wallet_frozen, freeze_reason FROM users WHERE user_id = ?',
+      'SELECT wallet_balance, wallet_frozen, freeze_reason, outstanding_debt FROM users WHERE user_id = ?',
       [req.user.user_id]
     );
 
@@ -50,6 +50,7 @@ router.get('/balance', auth, async (req, res) => {
       balance: rows[0].wallet_balance,
       wallet_frozen: !!rows[0].wallet_frozen,
       freeze_reason: rows[0].freeze_reason || null,
+      outstanding_debt: parseFloat(rows[0].outstanding_debt || 0),
       recent_transactions: txns,
     });
   } catch (error) {
@@ -295,6 +296,16 @@ router.post('/deduct', auth, async (req, res) => {
       'SELECT wallet_balance FROM users WHERE user_id = ?',
       [req.user.user_id]
     );
+
+    const newBal = parseFloat(rows[0]?.wallet_balance || 0);
+    if (newBal < 100 && newBal > 0) {
+      try {
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type) VALUES (?, 'ยอดเงินใกล้หมด', ?, 'payment')`,
+          [req.user.user_id, `ยอดเงินในกระเป๋าเหลือ ฿${newBal.toFixed(2)} กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง`]
+        );
+      } catch (_) {}
+    }
 
     return res.status(200).json({
       message: 'Deduction successful.',
@@ -560,6 +571,64 @@ router.delete('/cards/:cardId', auth, async (req, res) => {
   } catch (error) {
     console.error('Delete card error:', error);
     return res.status(500).json({ message: 'Server error removing card.' });
+  }
+});
+
+/**
+ * @swagger
+ * /api/wallet/pay-debt:
+ *   post:
+ *     summary: Pay outstanding debt from wallet balance
+ *     tags: [Wallet]
+ *     security:
+ *       - bearerAuth: []
+ */
+/// nem — Feature 11
+router.post('/pay-debt', auth, async (req, res) => {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rows] = await conn.query(
+      'SELECT wallet_balance, outstanding_debt FROM users WHERE user_id = ? FOR UPDATE',
+      [req.user.user_id]
+    );
+    const user = rows[0];
+    if (!user) { await conn.rollback(); return res.status(404).json({ message: 'User not found.' }); }
+
+    const debt = parseFloat(user.outstanding_debt);
+    if (debt <= 0) { await conn.rollback(); return res.json({ message: 'ไม่มียอดค้างชำระ', debt: 0 }); }
+
+    const balance = parseFloat(user.wallet_balance);
+    if (balance < debt) {
+      await conn.rollback();
+      return res.status(402).json({
+        message: `ยอดเงินในกระเป๋าไม่พอ (มี ฿${balance.toFixed(2)} ต้องการ ฿${debt.toFixed(2)})`,
+        code: 'INSUFFICIENT_BALANCE',
+        debt,
+        wallet_balance: balance,
+      });
+    }
+
+    await conn.query(
+      'UPDATE users SET wallet_balance = wallet_balance - ?, outstanding_debt = 0 WHERE user_id = ?',
+      [debt, req.user.user_id]
+    );
+    await conn.query(
+      "INSERT INTO wallet_transactions (user_id, amount, type, ref, reason) VALUES (?, ?, 'deduct', ?, 'ชำระยอดค้าง')",
+      [req.user.user_id, debt, `debt_${Date.now()}`]
+    );
+
+    await conn.commit();
+
+    const [newRow] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [req.user.user_id]);
+    return res.json({ message: 'ชำระยอดค้างสำเร็จ', paid: debt, new_balance: parseFloat(newRow[0].wallet_balance) });
+  } catch (error) {
+    await conn.rollback();
+    console.error('Pay debt error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  } finally {
+    conn.release();
   }
 });
 

@@ -51,7 +51,15 @@
       "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3001/api/notifications)",
       "Bash(curl -s -X POST http://localhost:5000/api/auth/login -H \"Content-Type: application/json\" -d '{\"email\":\"admin@evcharge.com\",\"password\":\"password123\"}')",
       "Bash(python -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('unread:', d.get\\('unread_count'\\), 'total:', len\\(d.get\\('notifications',[]\\)\\)\\)\")",
-      "Bash(node -c backend/routes/sessions.js)"
+      "Bash(node -c backend/routes/sessions.js)",
+      "WebFetch(domain:www.omise.co)",
+      "WebFetch(domain:www.opn.ooo)",
+      "WebFetch(domain:statrys.com)",
+      "WebFetch(domain:www.prowebcreate.com)",
+      "Bash(git pull *)"
+    ],
+    "additionalDirectories": [
+      "c:\\Users\\peekm\\Documents\\csi401\\Project"
     ]
   }
 }

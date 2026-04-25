@@ -13,6 +13,9 @@ const cron = require('node-cron')
 
 const { startExpireJob } = require('./jobs/expireBookings');
 const { startExpirePaymentsJob } = require('./jobs/expirePayments');
+const { startTemperatureSimulator } = require('./jobs/temperatureSimulator');
+const { startNoShowChecker } = require('./jobs/noShowChecker');
+const { startPointsExpireJob } = require('./jobs/pointsExpire');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -27,6 +30,8 @@ const reviewRoutes = require('./routes/reviews');
 const ticketRoutes = require('./routes/tickets');
 const notificationRoutes = require('./routes/notifications');
 const walletRoutes = require('./routes/wallet');
+const favoritesRoutes = require('./routes/favorites');
+const pointsRoutes = require('./routes/points');
 const adminWalletRoutes = require('./routes/admin/wallet');
 const adminReportsRoutes = require('./routes/admin/reports');
 const adminNotificationsRoutes = require('./routes/admin/notifications');
@@ -105,6 +110,8 @@ app.use('/api/admin/trash',   adminTrashRoutes)
 app.use('/api/admin/notifications', adminNotificationsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/points', pointsRoutes);
 
 /**
  * @swagger
@@ -239,7 +246,10 @@ const startServer = async () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     startExpireJob();
-    startExpirePaymentsJob()
+    startExpirePaymentsJob();
+    startTemperatureSimulator();
+    startNoShowChecker();
+    startPointsExpireJob();
     startScheduleNotificationsJob()
     startStationScheduleJob()
   });

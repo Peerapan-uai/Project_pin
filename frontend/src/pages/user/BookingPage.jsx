@@ -54,15 +54,19 @@ export default function BookingPage() {
     if (!vehicleId) return
     setSubmitting(true)
     api.post('/api/bookings', {
-      charger_id: Number(chargerId)
+      charger_id: Number(chargerId),
+      vehicle_id: Number(vehicleId),
     })
       .then(() => {
         setSuccess(true)
         setTimeout(() => navigate('/bookings'), 2000)
       })
       .catch(err => {
+        const code = err.response?.data?.code
         const msg = err.response?.data?.message
-        if (msg === 'Charger is not available.') {
+        if (code === 'CHARGER_OVERHEATED') {
+          setError(msg)
+        } else if (msg === 'Charger is not available.') {
           setError('ตู้ชาร์จนี้ไม่ว่างในขณะนี้')
         } else {
           setError('การจองไม่สำเร็จ กรุณาลองใหม่')
@@ -98,13 +102,6 @@ export default function BookingPage() {
               <p className="text-xs text-gray-500">{station?.name} · {charger.connector_type} · {charger.power_kw} kW</p>
             </div>
           </div>
-        </div>
-
-        {/* Price info */}
-        <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-          <p className="text-sm font-semibold text-gray-700 mb-1">ราคา</p>
-          <p className="text-2xl font-bold text-primary">{charger.price_per_kwh} <span className="text-sm font-normal text-gray-500">บาท/kWh</span></p>
-          <p className="text-xs text-gray-400 mt-1">คิดตามพลังงานที่ใช้จริง</p>
         </div>
 
         {/* Vehicle select */}
