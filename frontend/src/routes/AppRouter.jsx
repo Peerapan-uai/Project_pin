@@ -48,6 +48,7 @@ const RefundManagePage = lazy(() => import('../pages/admin/RefundManagePage'))
 const WalletManagePage = lazy(() => import('../pages/admin/WalletManagePage'))
 const ReportsPage      = lazy(() => import('../pages/admin/ReportsPage'))
 const TrashPage        = lazy(() => import('../pages/admin/TrashPage'))
+const SparePartsPage   = lazy(() => import('../pages/admin/SparePartsPage'))
 
 // Tech pages
 const TechDashboardPage = lazy(() => import('../pages/tech/TechDashboardPage'))
@@ -105,13 +106,10 @@ export default function AppRouter() {
       <Route path="/vehicles" element={<PrivateRoute><MobileLayout><VehicleManagePage /></MobileLayout></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><MobileLayout><NotificationsPage /></MobileLayout></PrivateRoute>} />
       <Route path="/wallet" element={<PrivateRoute><MobileLayout><WalletPage /></MobileLayout></PrivateRoute>} />
-<<<<<<< HEAD
       <Route path="/settings" element={<PrivateRoute><MobileLayout><SettingsPage /></MobileLayout></PrivateRoute>} />
-=======
       <Route path="/favorites" element={<PrivateRoute><MobileLayout><FavoritesPage /></MobileLayout></PrivateRoute>} />
       <Route path="/points" element={<PrivateRoute><MobileLayout><PointsPage /></MobileLayout></PrivateRoute>} />
       <Route path="/recurring" element={<PrivateRoute><MobileLayout><RecurringSchedulePage /></MobileLayout></PrivateRoute>} />
->>>>>>> 150349d00c96d75ad5b074515f2a4d5bebffcea5
 
       {/* Admin pages */}
       <Route path="/admin/dashboard" element={<RoleRoute roles={['admin']}><DesktopLayout><DashboardPage /></DesktopLayout></RoleRoute>} />
@@ -127,6 +125,7 @@ export default function AppRouter() {
       <Route path="/admin/wallet" element={<RoleRoute roles={['admin']}><DesktopLayout><WalletManagePage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/reports" element={<RoleRoute roles={['admin']}><DesktopLayout><ReportsPage /></DesktopLayout></RoleRoute>} />
       <Route path="/admin/trash" element={<RoleRoute roles={['admin']}><DesktopLayout><TrashPage /></DesktopLayout></RoleRoute>} />
+      <Route path="/admin/spare-parts" element={<RoleRoute roles={['admin']}><DesktopLayout><SparePartsPage /></DesktopLayout></RoleRoute>} />
 
 
 

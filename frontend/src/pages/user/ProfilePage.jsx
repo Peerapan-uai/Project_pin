@@ -5,11 +5,7 @@ import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
 import {
   FaUser, FaEnvelope, FaPhone, FaCar, FaHistory, FaCreditCard,
-<<<<<<< HEAD
-  FaSignOutAlt, FaChevronRight, FaEdit, FaBell, FaWallet, FaCog
-=======
-  FaSignOutAlt, FaChevronRight, FaEdit, FaTrash, FaBell, FaWallet, FaHeart, FaStar
->>>>>>> 150349d00c96d75ad5b074515f2a4d5bebffcea5
+  FaSignOutAlt, FaChevronRight, FaEdit, FaBell, FaWallet, FaCog, FaHeart, FaStar
 } from 'react-icons/fa'
 import api from '../../utils/api'
 

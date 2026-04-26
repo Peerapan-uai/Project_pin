@@ -6,6 +6,9 @@ const fs = require('fs');
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
+const { calculatePriority } = require('../utils/priorityCalculator');
+const { count } = require('console');
+
 
 /**
  * @swagger
@@ -81,22 +84,30 @@ const upload = multer({
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { title, description, charger_id, priority } = req.body;
+  const { issue_type, title, description, charger_id } = req.body;
+
+  const validTypes = ['safety','no_charge','payment','physical_damage','display','other']
+  if (!issue_type || !validTypes.includes(issue_type)) {
+    return res.status(400).json({ message: 'issue_type is required' })
+  }
 
   if (!title || !description) {
     return res.status(400).json({ message: 'Title and description are required.' });
   }
 
   try {
+    const priority = await calculatePriority(issue_type, charger_id, pool)
+
     const [result] = await pool.query(
-      `INSERT INTO maintenance_tickets (reported_by, title, description, charger_id, priority, status)
-       VALUES (?, ?, ?, ?, ?, 'reported')`,
+      `INSERT INTO maintenance_tickets (reported_by, issue_type, title, description, charger_id, priority, status)
+       VALUES (?, ?, ?, ?, ?, ?, 'reported')`,
       [
         req.user.user_id,
+        issue_type,
         title,
         description,
         charger_id || null,
-        priority || 'medium',
+        priority
       ]
     );
 
@@ -320,7 +331,7 @@ router.patch('/:id/unassign', auth, roleCheck('admin'), async (req, res) => {
  */
 ///lalla. PATCH	/api/tickets/{id}/status	Update ticket status
 router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, res) => {
-  const { status, repair_notes } = req.body;
+  const { status, repair_notes, test_notes } = req.body;
   const validStatuses = ['reported', 'assigned', 'in_progress', 'completed'];
 
   if (!status || !validStatuses.includes(status)) {
@@ -331,8 +342,8 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
 
   try {
     const [result] = await pool.query(
-      `UPDATE maintenance_tickets SET status = ?, repair_notes = ? WHERE ticket_id = ?`,
-      [status, repair_notes || null, req.params.id]
+      `UPDATE maintenance_tickets SET status = ?, repair_notes = ?, test_notes = ? WHERE ticket_id = ?`,
+      [status, repair_notes || null, test_notes || null, req.params.id]
     );
 
     if (result.affectedRows === 0) {
@@ -429,7 +440,7 @@ router.patch('/:id/status', auth, roleCheck('admin', 'technician'), async (req, 
  *         description: Server error
  */
 ///lalla  POST	/api/tickets/{id}/image	Upload repair image
-router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single('image'), async (req, res) => {
+router.post('/:id/image', auth, roleCheck('admin', 'technician', 'user'), upload.single('image'), async (req, res) => {
   if (!req.file) {
     return res.status(400).json({ message: 'No image file uploaded.' });
   }
@@ -460,5 +471,73 @@ router.post('/:id/image', auth, roleCheck('admin', 'technician'), upload.single(
     return res.status(500).json({ message: 'Server error uploading image.' });
   }
 });
+
+// test evidence image (หลังซ่อม)
+router.post('/:id/test-image', auth, roleCheck('admin', 'technician'), upload.single('image'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ message: 'No image file uploaded.' })
+  try {
+    const [ticketRows] = await pool.query(
+      'SELECT ticket_id FROM maintenance_tickets WHERE ticket_id = ?', [req.params.id]
+    )
+    if (ticketRows.length === 0) return res.status(404).json({ message: 'Ticket not found.' })
+    const imageUrl = `/uploads/tickets/${req.file.filename}`
+    await pool.query(
+      'UPDATE maintenance_tickets SET test_evidence_image = ? WHERE ticket_id = ?',
+      [imageUrl, req.params.id]
+    )
+    return res.status(200).json({ message: 'Test image uploaded.', image_url: imageUrl })
+  } catch (error) {
+    console.error('Upload test image error:', error)
+    return res.status(500).json({ message: 'Server error uploading test image.' })
+  }
+})
+
+// check-in
+router.patch('/:id/checkin', auth, roleCheck('technician'), async (req, res) => {
+  const [result] = await pool.query(
+    `UPDATE maintenance_tickets SET check_in_at = NOW(), status = 'in_progress'
+     WHERE ticket_id = ? AND assigned_to = ?`,
+    [req.params.id, req.user.user_id]
+  )
+  if (result.affectedRows === 0)
+    return res.status(404).json({ message: 'Ticket not found หรือ ไม่ใช่งานของคุณ' })
+  res.json({ message: 'เช็คอินสำเร็จ' })
+})
+
+// check-out
+router.patch('/:id/checkout', auth, roleCheck('technician'), async (req, res) => {
+  const [[ticket]] = await pool.query(
+    `select check_in_at from maintenance_tickets where ticket_id = ?`,
+    [req.params.id]
+  )
+  if (!ticket?.check_in_at)
+    return res.status(400).json({ message: 'ต้องเช็คอินก่อน' })
+  const [result] = await pool.query(
+    `update maintenance_tickets set check_out_at = now() where ticket_id = ? and assigned_to = ?`,
+    [req.params.id, req.user.user_id]
+  )
+  if (result.affectedRows === 0)
+    return res.status(404).json({ message: 'Ticket not found' })
+  res.json({ message: 'เช็คเอาท์สำเร็จ' })
+})
+
+// / 3. Admin override priority (safety lock)
+router.patch('/:id/priority', auth, roleCheck('admin'), async (req, res) => {
+  const { priority } = req.body
+  const valid = ['low','medium','high','critical']
+  if (!valid.includes(priority))
+    return res.status(400).json({ message: 'priority ไม่ถูกต้อง' })
+  const [[ticket]] = await pool.query(
+    `SELECT issue_type FROM maintenance_tickets WHERE ticket_id = ?`,
+    [req.params.id]
+  )
+  if (ticket?.issue_type === 'safety' && priority !== 'critical')
+    return res.status(403).json({ message: 'Safety ticket ลด priority ไม่ได้' })
+  await pool.query(
+    `UPDATE maintenance_tickets SET priority = ? WHERE ticket_id = ?`,
+    [priority, req.params.id]
+  )
+  res.json({ message: 'Priority updated' })
+})
 
 module.exports = router;

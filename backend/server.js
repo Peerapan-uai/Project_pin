@@ -19,6 +19,7 @@ const { startPointsExpireJob } = require('./jobs/pointsExpire');
 const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen');
 const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop');
 
+
 // Route imports
 const authRoutes = require('./routes/auth');
 const userRoutes = require('./routes/users');
@@ -42,6 +43,8 @@ const adminRefundsRoutes = require('./routes/admin/refunds')
 const adminTrashRoutes   = require('./routes/admin/trash')
 const recurringBookingsRoutes = require('./routes/recurringBookings')
 const tripPlanRoutes = require('./routes/tripPlan')
+const sparePartsRoutes = require('./routes/spareParts')
+
 
 const app = express();
 
@@ -115,6 +118,7 @@ app.use('/api/admin/notifications', adminNotificationsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/favorites', favoritesRoutes);
+app.use('/api/spare-parts', sparePartsRoutes)
 app.use('/api/points', pointsRoutes);
 app.use('/api/recurring-bookings', recurringBookingsRoutes);
 app.use('/api/trip-plan', tripPlanRoutes);
