@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql:3306
--- Generation Time: Apr 25, 2026 at 05:52 PM
+-- Generation Time: Apr 26, 2026 at 04:24 AM
 -- Server version: 8.0.45
 -- PHP Version: 8.3.30
 
@@ -51,6 +51,9 @@ CREATE TABLE `bookings` (
   `charger_id` int UNSIGNED NOT NULL,
   `vehicle_id` int UNSIGNED DEFAULT NULL,
   `booking_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `scheduled_start` timestamp NULL DEFAULT NULL,
+  `duration_min` int NOT NULL DEFAULT '60',
+  `recurring_schedule_id` int UNSIGNED DEFAULT NULL,
   `start_time` timestamp NULL DEFAULT NULL,
   `end_time` timestamp NULL DEFAULT NULL,
   `status` enum('pending','confirmed','active','cancelled','completed','expired') NOT NULL DEFAULT 'pending',
@@ -63,56 +66,72 @@ CREATE TABLE `bookings` (
 -- Dumping data for table `bookings`
 --
 
-INSERT INTO `bookings` (`booking_id`, `user_id`, `charger_id`, `vehicle_id`, `booking_time`, `start_time`, `end_time`, `status`, `queue_position`, `cancelled_at`, `no_show_fee_charged`) VALUES
-(8, 7, 2, NULL, '2026-04-10 05:10:26', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
-(11, 7, 2, NULL, '2026-04-10 05:11:18', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
-(14, 7, 2, NULL, '2026-04-10 05:11:35', '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
-(15, 12, 29, NULL, '2026-04-15 13:01:45', '2026-04-15 20:01:44', '2026-04-15 20:31:44', 'completed', NULL, NULL, 0.00),
-(16, 12, 1, NULL, '2026-04-15 13:02:51', '2026-04-15 20:02:51', '2026-04-15 22:02:51', 'completed', NULL, NULL, 0.00),
-(17, 12, 19, NULL, '2026-04-15 13:04:21', '2026-04-15 20:04:21', '2026-04-15 20:19:21', 'completed', NULL, NULL, 0.00),
-(18, 12, 15, NULL, '2026-04-15 13:05:40', '2026-04-15 20:05:40', '2026-04-15 20:20:40', 'completed', NULL, NULL, 0.00),
-(19, 12, 11, NULL, '2026-04-15 16:07:06', '2026-04-15 23:07:06', '2026-04-15 23:22:06', 'completed', NULL, NULL, 0.00),
-(21, 12, 2, NULL, '2026-04-16 03:03:59', '2026-04-16 10:03:59', '2026-04-16 10:18:59', 'completed', NULL, NULL, 0.00),
-(22, 12, 3, NULL, '2026-04-16 03:08:25', '2026-04-16 10:08:25', '2026-04-16 10:38:25', 'completed', NULL, NULL, 0.00),
-(23, 12, 4, NULL, '2026-04-16 03:20:35', '2026-04-16 10:20:35', '2026-04-16 10:50:35', 'completed', NULL, NULL, 0.00),
-(24, 12, 1, NULL, '2026-04-16 04:37:21', '2026-04-16 04:37:21', '2026-04-16 05:07:21', 'expired', NULL, NULL, 0.00),
-(25, 12, 1, NULL, '2026-04-16 04:50:14', '2026-04-16 04:50:14', '2026-04-16 05:20:14', 'expired', NULL, NULL, 0.00),
-(26, 12, 1, NULL, '2026-04-16 06:13:04', '2026-04-16 13:13:04', '2026-04-16 13:43:04', 'completed', NULL, NULL, 0.00),
-(27, 12, 1, NULL, '2026-04-16 06:33:12', '2026-04-16 13:33:12', '2026-04-16 14:18:12', 'completed', NULL, NULL, 0.00),
-(28, 12, 3, NULL, '2026-04-16 06:45:32', '2026-04-16 13:45:32', '2026-04-16 14:15:32', 'completed', NULL, NULL, 0.00),
-(29, 12, 1, NULL, '2026-04-16 10:19:55', '2026-04-16 10:19:55', NULL, 'completed', NULL, NULL, 0.00),
-(30, 12, 1, NULL, '2026-04-16 18:31:52', '2026-04-16 18:31:52', NULL, 'cancelled', NULL, NULL, 0.00),
-(31, 12, 2, NULL, '2026-04-17 05:18:06', '2026-04-17 05:18:06', NULL, 'cancelled', NULL, NULL, 0.00),
-(32, 12, 12, NULL, '2026-04-17 05:27:55', '2026-04-17 05:27:55', NULL, 'cancelled', NULL, NULL, 0.00),
-(33, 12, 15, NULL, '2026-04-17 05:31:18', '2026-04-17 05:31:18', NULL, 'cancelled', NULL, NULL, 0.00),
-(34, 12, 25, NULL, '2026-04-17 05:36:32', '2026-04-17 05:36:32', NULL, 'cancelled', NULL, NULL, 0.00),
-(35, 12, 26, NULL, '2026-04-17 05:37:17', '2026-04-17 05:37:17', NULL, 'cancelled', NULL, NULL, 0.00),
-(36, 12, 4, NULL, '2026-04-17 05:41:11', '2026-04-17 05:41:11', NULL, 'cancelled', NULL, NULL, 0.00),
-(37, 12, 9, NULL, '2026-04-17 05:41:54', '2026-04-17 05:41:54', NULL, 'cancelled', NULL, NULL, 0.00),
-(38, 1, 3, NULL, '2026-04-18 09:40:56', '2026-04-18 09:40:56', NULL, 'expired', NULL, NULL, 0.00),
-(39, 7, 11, NULL, '2026-04-18 09:42:46', '2026-04-18 09:42:46', NULL, 'cancelled', NULL, NULL, 0.00),
-(40, 12, 6, NULL, '2026-04-18 09:43:46', '2026-04-18 09:43:46', NULL, 'cancelled', NULL, NULL, 0.00),
-(41, 1, 13, NULL, '2026-04-18 16:59:38', '2026-04-18 16:59:38', NULL, 'expired', NULL, NULL, 0.00),
-(43, 12, 3, NULL, '2026-04-19 08:02:06', '2026-04-19 08:02:06', NULL, 'cancelled', NULL, NULL, 0.00),
-(44, 12, 5, NULL, '2026-04-19 08:06:16', '2026-04-19 08:06:16', NULL, 'completed', NULL, NULL, 0.00),
-(45, 7, 13, NULL, '2026-04-20 07:27:39', '2026-04-20 07:27:39', NULL, 'completed', NULL, NULL, 0.00),
-(46, 7, 23, NULL, '2026-04-20 07:28:54', '2026-04-20 07:28:54', NULL, 'completed', NULL, NULL, 0.00),
-(47, 7, 27, NULL, '2026-04-20 07:30:36', '2026-04-20 07:30:36', NULL, 'completed', NULL, NULL, 0.00),
-(48, 7, 8, NULL, '2026-04-21 06:57:26', '2026-04-21 06:57:26', NULL, 'completed', NULL, NULL, 0.00),
-(49, 7, 1, NULL, '2026-04-21 08:27:03', '2026-04-21 08:27:03', NULL, 'completed', NULL, NULL, 0.00),
-(50, 7, 5, NULL, '2026-04-21 08:30:23', '2026-04-21 08:30:23', NULL, 'completed', NULL, NULL, 0.00),
-(51, 7, 1, NULL, '2026-04-21 10:43:42', '2026-04-21 10:43:42', NULL, 'completed', NULL, NULL, 0.00),
-(52, 7, 3, NULL, '2026-04-21 10:47:04', '2026-04-21 10:47:04', NULL, 'completed', NULL, NULL, 0.00),
-(53, 12, 5, NULL, '2026-04-22 14:59:18', '2026-04-22 14:59:18', NULL, 'completed', NULL, NULL, 0.00),
-(54, 7, 1, NULL, '2026-04-25 07:15:17', '2026-04-25 07:15:17', NULL, 'completed', NULL, NULL, 0.00),
-(55, 7, 1, NULL, '2026-04-25 07:17:46', '2026-04-25 07:17:46', NULL, 'completed', NULL, NULL, 0.00),
-(56, 7, 1, NULL, '2026-04-25 07:38:09', '2026-04-25 07:38:09', NULL, 'completed', NULL, NULL, 0.00),
-(57, 7, 1, NULL, '2026-04-25 07:42:17', '2026-04-25 07:42:17', NULL, 'completed', NULL, NULL, 0.00),
-(58, 7, 1, NULL, '2026-04-25 07:43:02', '2026-04-25 07:43:02', NULL, 'completed', NULL, NULL, 0.00),
-(59, 7, 1, NULL, '2026-04-25 07:46:21', '2026-04-25 07:46:21', NULL, 'completed', NULL, NULL, 0.00),
-(60, 7, 5, NULL, '2026-04-25 07:59:08', '2026-04-25 07:59:08', NULL, 'completed', NULL, NULL, 0.00),
-(61, 7, 1, NULL, '2026-04-25 08:00:24', '2026-04-25 08:00:24', NULL, 'completed', NULL, NULL, 0.00),
-(62, 7, 1, 3, '2026-04-25 08:25:01', '2026-04-25 08:25:01', NULL, 'completed', NULL, NULL, 0.00);
+INSERT INTO `bookings` (`booking_id`, `user_id`, `charger_id`, `vehicle_id`, `booking_time`, `scheduled_start`, `duration_min`, `recurring_schedule_id`, `start_time`, `end_time`, `status`, `queue_position`, `cancelled_at`, `no_show_fee_charged`) VALUES
+(8, 7, 2, NULL, '2026-04-10 05:10:26', NULL, 60, NULL, '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(11, 7, 2, NULL, '2026-04-10 05:11:18', NULL, 60, NULL, '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(14, 7, 2, NULL, '2026-04-10 05:11:35', NULL, 60, NULL, '2026-04-03 14:00:00', '2026-04-03 15:45:00', 'completed', NULL, NULL, 0.00),
+(15, 12, 29, NULL, '2026-04-15 13:01:45', NULL, 60, NULL, '2026-04-15 20:01:44', '2026-04-15 20:31:44', 'completed', NULL, NULL, 0.00),
+(16, 12, 1, NULL, '2026-04-15 13:02:51', NULL, 60, NULL, '2026-04-15 20:02:51', '2026-04-15 22:02:51', 'completed', NULL, NULL, 0.00),
+(17, 12, 19, NULL, '2026-04-15 13:04:21', NULL, 60, NULL, '2026-04-15 20:04:21', '2026-04-15 20:19:21', 'completed', NULL, NULL, 0.00),
+(18, 12, 15, NULL, '2026-04-15 13:05:40', NULL, 60, NULL, '2026-04-15 20:05:40', '2026-04-15 20:20:40', 'completed', NULL, NULL, 0.00),
+(19, 12, 11, NULL, '2026-04-15 16:07:06', NULL, 60, NULL, '2026-04-15 23:07:06', '2026-04-15 23:22:06', 'completed', NULL, NULL, 0.00),
+(21, 12, 2, NULL, '2026-04-16 03:03:59', NULL, 60, NULL, '2026-04-16 10:03:59', '2026-04-16 10:18:59', 'completed', NULL, NULL, 0.00),
+(22, 12, 3, NULL, '2026-04-16 03:08:25', NULL, 60, NULL, '2026-04-16 10:08:25', '2026-04-16 10:38:25', 'completed', NULL, NULL, 0.00),
+(23, 12, 4, NULL, '2026-04-16 03:20:35', NULL, 60, NULL, '2026-04-16 10:20:35', '2026-04-16 10:50:35', 'completed', NULL, NULL, 0.00),
+(24, 12, 1, NULL, '2026-04-16 04:37:21', NULL, 60, NULL, '2026-04-16 04:37:21', '2026-04-16 05:07:21', 'expired', NULL, NULL, 0.00),
+(25, 12, 1, NULL, '2026-04-16 04:50:14', NULL, 60, NULL, '2026-04-16 04:50:14', '2026-04-16 05:20:14', 'expired', NULL, NULL, 0.00),
+(26, 12, 1, NULL, '2026-04-16 06:13:04', NULL, 60, NULL, '2026-04-16 13:13:04', '2026-04-16 13:43:04', 'completed', NULL, NULL, 0.00),
+(27, 12, 1, NULL, '2026-04-16 06:33:12', NULL, 60, NULL, '2026-04-16 13:33:12', '2026-04-16 14:18:12', 'completed', NULL, NULL, 0.00),
+(28, 12, 3, NULL, '2026-04-16 06:45:32', NULL, 60, NULL, '2026-04-16 13:45:32', '2026-04-16 14:15:32', 'completed', NULL, NULL, 0.00),
+(29, 12, 1, NULL, '2026-04-16 10:19:55', NULL, 60, NULL, '2026-04-16 10:19:55', NULL, 'completed', NULL, NULL, 0.00),
+(30, 12, 1, NULL, '2026-04-16 18:31:52', NULL, 60, NULL, '2026-04-16 18:31:52', NULL, 'cancelled', NULL, NULL, 0.00),
+(31, 12, 2, NULL, '2026-04-17 05:18:06', NULL, 60, NULL, '2026-04-17 05:18:06', NULL, 'cancelled', NULL, NULL, 0.00),
+(32, 12, 12, NULL, '2026-04-17 05:27:55', NULL, 60, NULL, '2026-04-17 05:27:55', NULL, 'cancelled', NULL, NULL, 0.00),
+(33, 12, 15, NULL, '2026-04-17 05:31:18', NULL, 60, NULL, '2026-04-17 05:31:18', NULL, 'cancelled', NULL, NULL, 0.00),
+(34, 12, 25, NULL, '2026-04-17 05:36:32', NULL, 60, NULL, '2026-04-17 05:36:32', NULL, 'cancelled', NULL, NULL, 0.00),
+(35, 12, 26, NULL, '2026-04-17 05:37:17', NULL, 60, NULL, '2026-04-17 05:37:17', NULL, 'cancelled', NULL, NULL, 0.00),
+(36, 12, 4, NULL, '2026-04-17 05:41:11', NULL, 60, NULL, '2026-04-17 05:41:11', NULL, 'cancelled', NULL, NULL, 0.00),
+(37, 12, 9, NULL, '2026-04-17 05:41:54', NULL, 60, NULL, '2026-04-17 05:41:54', NULL, 'cancelled', NULL, NULL, 0.00),
+(38, 1, 3, NULL, '2026-04-18 09:40:56', NULL, 60, NULL, '2026-04-18 09:40:56', NULL, 'expired', NULL, NULL, 0.00),
+(39, 7, 11, NULL, '2026-04-18 09:42:46', NULL, 60, NULL, '2026-04-18 09:42:46', NULL, 'cancelled', NULL, NULL, 0.00),
+(40, 12, 6, NULL, '2026-04-18 09:43:46', NULL, 60, NULL, '2026-04-18 09:43:46', NULL, 'cancelled', NULL, NULL, 0.00),
+(41, 1, 13, NULL, '2026-04-18 16:59:38', NULL, 60, NULL, '2026-04-18 16:59:38', NULL, 'expired', NULL, NULL, 0.00),
+(43, 12, 3, NULL, '2026-04-19 08:02:06', NULL, 60, NULL, '2026-04-19 08:02:06', NULL, 'cancelled', NULL, NULL, 0.00),
+(44, 12, 5, NULL, '2026-04-19 08:06:16', NULL, 60, NULL, '2026-04-19 08:06:16', NULL, 'completed', NULL, NULL, 0.00),
+(45, 7, 13, NULL, '2026-04-20 07:27:39', NULL, 60, NULL, '2026-04-20 07:27:39', NULL, 'completed', NULL, NULL, 0.00),
+(46, 7, 23, NULL, '2026-04-20 07:28:54', NULL, 60, NULL, '2026-04-20 07:28:54', NULL, 'completed', NULL, NULL, 0.00),
+(47, 7, 27, NULL, '2026-04-20 07:30:36', NULL, 60, NULL, '2026-04-20 07:30:36', NULL, 'completed', NULL, NULL, 0.00),
+(48, 7, 8, NULL, '2026-04-21 06:57:26', NULL, 60, NULL, '2026-04-21 06:57:26', NULL, 'completed', NULL, NULL, 0.00),
+(49, 7, 1, NULL, '2026-04-21 08:27:03', NULL, 60, NULL, '2026-04-21 08:27:03', NULL, 'completed', NULL, NULL, 0.00),
+(50, 7, 5, NULL, '2026-04-21 08:30:23', NULL, 60, NULL, '2026-04-21 08:30:23', NULL, 'completed', NULL, NULL, 0.00),
+(51, 7, 1, NULL, '2026-04-21 10:43:42', NULL, 60, NULL, '2026-04-21 10:43:42', NULL, 'completed', NULL, NULL, 0.00),
+(52, 7, 3, NULL, '2026-04-21 10:47:04', NULL, 60, NULL, '2026-04-21 10:47:04', NULL, 'completed', NULL, NULL, 0.00),
+(53, 12, 5, NULL, '2026-04-22 14:59:18', NULL, 60, NULL, '2026-04-22 14:59:18', NULL, 'completed', NULL, NULL, 0.00),
+(54, 7, 1, NULL, '2026-04-25 07:15:17', NULL, 60, NULL, '2026-04-25 07:15:17', NULL, 'completed', NULL, NULL, 0.00),
+(55, 7, 1, NULL, '2026-04-25 07:17:46', NULL, 60, NULL, '2026-04-25 07:17:46', NULL, 'completed', NULL, NULL, 0.00),
+(56, 7, 1, NULL, '2026-04-25 07:38:09', NULL, 60, NULL, '2026-04-25 07:38:09', NULL, 'completed', NULL, NULL, 0.00),
+(57, 7, 1, NULL, '2026-04-25 07:42:17', NULL, 60, NULL, '2026-04-25 07:42:17', NULL, 'completed', NULL, NULL, 0.00),
+(58, 7, 1, NULL, '2026-04-25 07:43:02', NULL, 60, NULL, '2026-04-25 07:43:02', NULL, 'completed', NULL, NULL, 0.00),
+(59, 7, 1, NULL, '2026-04-25 07:46:21', NULL, 60, NULL, '2026-04-25 07:46:21', NULL, 'completed', NULL, NULL, 0.00),
+(60, 7, 5, NULL, '2026-04-25 07:59:08', NULL, 60, NULL, '2026-04-25 07:59:08', NULL, 'completed', NULL, NULL, 0.00),
+(61, 7, 1, NULL, '2026-04-25 08:00:24', NULL, 60, NULL, '2026-04-25 08:00:24', NULL, 'completed', NULL, NULL, 0.00),
+(62, 7, 1, 3, '2026-04-25 08:25:01', NULL, 60, NULL, '2026-04-25 08:25:01', NULL, 'completed', NULL, NULL, 0.00),
+(63, 7, 1, 3, '2026-04-25 18:45:57', '2026-04-26 20:30:00', 60, NULL, '2026-04-25 18:45:57', NULL, 'expired', NULL, NULL, 20.00),
+(64, 7, 2, 3, '2026-04-25 18:47:03', '2026-04-26 05:30:00', 60, NULL, '2026-04-25 18:47:03', NULL, 'expired', NULL, NULL, 20.00),
+(65, 7, 12, 3, '2026-04-25 18:50:24', '2026-04-28 01:30:00', 30, NULL, '2026-04-25 18:50:24', NULL, 'completed', NULL, NULL, 0.00);
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `booking_skip_dates`
+--
+
+CREATE TABLE `booking_skip_dates` (
+  `skip_id` int UNSIGNED NOT NULL,
+  `schedule_id` int UNSIGNED NOT NULL,
+  `skip_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -151,7 +170,7 @@ INSERT INTO `chargers` (`charger_id`, `station_id`, `charger_name`, `connector_t
 (9, 3, 'BNA-DC02', 'CCS', 150.00, 7.50, 'available', 0, NULL, 60.00, 'QR-BNA-DC02', NULL),
 (10, 3, 'BNA-DC03', 'CHAdeMO', 50.00, 7.50, 'out_of_service', 0, NULL, 60.00, 'QR-BNA-DC03', NULL),
 (11, 3, 'BNA-AC01', 'Type2', 22.00, 7.50, 'available', 0, NULL, 60.00, 'QR-BNA-AC01', NULL),
-(12, 4, 'LAT-DC01', 'CCS', 80.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-DC01', NULL),
+(12, 4, 'LAT-DC01', 'CCS', 80.00, 6.80, 'available', 0, 32.40, 60.00, 'QR-LAT-DC01', NULL),
 (13, 4, 'LAT-DC02', 'CCS', 80.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-DC02', NULL),
 (14, 4, 'LAT-AC01', 'Type2', 22.00, 6.80, 'available', 0, NULL, 60.00, 'QR-LAT-AC01', NULL),
 (15, 5, 'RAM-DC01', 'CCS', 60.00, 6.50, 'available', 0, NULL, 60.00, 'QR-RAM-DC01', NULL),
@@ -184,6 +203,10 @@ CREATE TABLE `charging_sessions` (
   `charger_id` int UNSIGNED NOT NULL,
   `start_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `end_time` timestamp NULL DEFAULT NULL,
+  `full_charge_time` timestamp NULL DEFAULT NULL,
+  `idle_start_time` timestamp NULL DEFAULT NULL,
+  `idle_end_time` timestamp NULL DEFAULT NULL,
+  `idle_fee` decimal(10,2) NOT NULL DEFAULT '0.00',
   `energy_kwh` decimal(8,2) DEFAULT NULL,
   `charge_percentage` decimal(5,2) DEFAULT NULL,
   `status` enum('charging','completed','failed','stopped') NOT NULL DEFAULT 'charging'
@@ -193,32 +216,33 @@ CREATE TABLE `charging_sessions` (
 -- Dumping data for table `charging_sessions`
 --
 
-INSERT INTO `charging_sessions` (`session_id`, `booking_id`, `user_id`, `charger_id`, `start_time`, `end_time`, `energy_kwh`, `charge_percentage`, `status`) VALUES
-(34, 26, 12, 1, '2026-04-16 06:25:59', '2026-04-16 06:26:15', 0.63, NULL, 'completed'),
-(35, 27, 12, 1, '2026-04-16 06:44:13', '2026-04-16 06:44:16', 0.08, NULL, 'completed'),
-(36, 28, 12, 3, '2026-04-16 09:04:22', '2026-04-16 09:04:24', 1.00, NULL, 'completed'),
-(37, 29, 12, 1, '2026-04-16 10:22:32', '2026-04-16 10:23:33', 2.50, NULL, 'completed'),
-(47, 40, 12, 6, '2026-04-18 09:43:50', '2026-04-21 08:45:53', NULL, NULL, 'stopped'),
-(48, 43, 12, 3, '2026-04-19 08:02:10', '2026-04-21 08:45:53', NULL, NULL, 'stopped'),
-(49, 44, 12, 5, '2026-04-19 08:06:19', '2026-04-19 08:06:31', 0.31, NULL, 'completed'),
-(50, 45, 7, 13, '2026-04-20 07:27:43', '2026-04-20 07:28:01', 0.38, NULL, 'completed'),
-(51, 46, 7, 23, '2026-04-20 07:29:01', '2026-04-20 07:29:31', 0.48, NULL, 'completed'),
-(52, 47, 7, 27, '2026-04-20 07:30:45', '2026-04-20 07:33:11', 2.01, NULL, 'completed'),
-(53, 48, 7, 8, '2026-04-21 06:57:29', '2026-04-21 06:57:38', 0.29, NULL, 'completed'),
-(54, 49, 7, 1, '2026-04-21 08:27:08', '2026-04-21 08:29:23', 5.58, NULL, 'completed'),
-(55, 50, 7, 5, '2026-04-21 08:30:27', '2026-04-21 08:39:35', 15.17, NULL, 'completed'),
-(56, 51, 7, 1, '2026-04-21 10:43:46', '2026-04-21 10:44:32', 1.83, NULL, 'completed'),
-(57, 52, 7, 3, '2026-04-21 10:47:23', '2026-04-21 10:48:45', 1.13, NULL, 'completed'),
-(58, 53, 12, 5, '2026-04-22 14:59:31', '2026-04-22 15:18:58', 32.36, NULL, 'completed'),
-(59, 54, 7, 1, '2026-04-25 07:15:21', '2026-04-25 07:16:10', 1.96, NULL, 'completed'),
-(60, 55, 7, 1, '2026-04-25 07:17:49', '2026-04-25 07:27:53', 25.08, NULL, 'completed'),
-(61, 56, 7, 1, '2026-04-25 07:38:13', '2026-04-25 07:38:21', 0.25, NULL, 'completed'),
-(62, 57, 7, 1, '2026-04-25 07:42:21', '2026-04-25 07:42:28', 0.21, NULL, 'completed'),
-(63, 58, 7, 1, '2026-04-25 07:43:06', '2026-04-25 07:43:37', 1.25, NULL, 'completed'),
-(64, 59, 7, 1, '2026-04-25 07:46:25', '2026-04-25 07:48:23', 4.75, NULL, 'completed'),
-(65, 60, 7, 5, '2026-04-25 07:59:28', '2026-04-25 07:59:52', 0.61, NULL, 'completed'),
-(66, 61, 7, 1, '2026-04-25 08:01:36', '2026-04-25 08:01:40', 0.08, NULL, 'completed'),
-(67, 62, 7, 1, '2026-04-25 08:25:05', '2026-04-25 08:26:56', 4.63, NULL, 'completed');
+INSERT INTO `charging_sessions` (`session_id`, `booking_id`, `user_id`, `charger_id`, `start_time`, `end_time`, `full_charge_time`, `idle_start_time`, `idle_end_time`, `idle_fee`, `energy_kwh`, `charge_percentage`, `status`) VALUES
+(34, 26, 12, 1, '2026-04-16 06:25:59', '2026-04-16 06:26:15', NULL, NULL, NULL, 0.00, 0.63, NULL, 'completed'),
+(35, 27, 12, 1, '2026-04-16 06:44:13', '2026-04-16 06:44:16', NULL, NULL, NULL, 0.00, 0.08, NULL, 'completed'),
+(36, 28, 12, 3, '2026-04-16 09:04:22', '2026-04-16 09:04:24', NULL, NULL, NULL, 0.00, 1.00, NULL, 'completed'),
+(37, 29, 12, 1, '2026-04-16 10:22:32', '2026-04-16 10:23:33', NULL, NULL, NULL, 0.00, 2.50, NULL, 'completed'),
+(47, 40, 12, 6, '2026-04-18 09:43:50', '2026-04-21 08:45:53', NULL, NULL, NULL, 0.00, NULL, NULL, 'stopped'),
+(48, 43, 12, 3, '2026-04-19 08:02:10', '2026-04-21 08:45:53', NULL, NULL, NULL, 0.00, NULL, NULL, 'stopped'),
+(49, 44, 12, 5, '2026-04-19 08:06:19', '2026-04-19 08:06:31', NULL, NULL, NULL, 0.00, 0.31, NULL, 'completed'),
+(50, 45, 7, 13, '2026-04-20 07:27:43', '2026-04-20 07:28:01', NULL, NULL, NULL, 0.00, 0.38, NULL, 'completed'),
+(51, 46, 7, 23, '2026-04-20 07:29:01', '2026-04-20 07:29:31', NULL, NULL, NULL, 0.00, 0.48, NULL, 'completed'),
+(52, 47, 7, 27, '2026-04-20 07:30:45', '2026-04-20 07:33:11', NULL, NULL, NULL, 0.00, 2.01, NULL, 'completed'),
+(53, 48, 7, 8, '2026-04-21 06:57:29', '2026-04-21 06:57:38', NULL, NULL, NULL, 0.00, 0.29, NULL, 'completed'),
+(54, 49, 7, 1, '2026-04-21 08:27:08', '2026-04-21 08:29:23', NULL, NULL, NULL, 0.00, 5.58, NULL, 'completed'),
+(55, 50, 7, 5, '2026-04-21 08:30:27', '2026-04-21 08:39:35', NULL, NULL, NULL, 0.00, 15.17, NULL, 'completed'),
+(56, 51, 7, 1, '2026-04-21 10:43:46', '2026-04-21 10:44:32', NULL, NULL, NULL, 0.00, 1.83, NULL, 'completed'),
+(57, 52, 7, 3, '2026-04-21 10:47:23', '2026-04-21 10:48:45', NULL, NULL, NULL, 0.00, 1.13, NULL, 'completed'),
+(58, 53, 12, 5, '2026-04-22 14:59:31', '2026-04-22 15:18:58', NULL, NULL, NULL, 0.00, 32.36, NULL, 'completed'),
+(59, 54, 7, 1, '2026-04-25 07:15:21', '2026-04-25 07:16:10', NULL, NULL, NULL, 0.00, 1.96, NULL, 'completed'),
+(60, 55, 7, 1, '2026-04-25 07:17:49', '2026-04-25 07:27:53', NULL, NULL, NULL, 0.00, 25.08, NULL, 'completed'),
+(61, 56, 7, 1, '2026-04-25 07:38:13', '2026-04-25 07:38:21', NULL, NULL, NULL, 0.00, 0.25, NULL, 'completed'),
+(62, 57, 7, 1, '2026-04-25 07:42:21', '2026-04-25 07:42:28', NULL, NULL, NULL, 0.00, 0.21, NULL, 'completed'),
+(63, 58, 7, 1, '2026-04-25 07:43:06', '2026-04-25 07:43:37', NULL, NULL, NULL, 0.00, 1.25, NULL, 'completed'),
+(64, 59, 7, 1, '2026-04-25 07:46:25', '2026-04-25 07:48:23', NULL, NULL, NULL, 0.00, 4.75, NULL, 'completed'),
+(65, 60, 7, 5, '2026-04-25 07:59:28', '2026-04-25 07:59:52', NULL, NULL, NULL, 0.00, 0.61, NULL, 'completed'),
+(66, 61, 7, 1, '2026-04-25 08:01:36', '2026-04-25 08:01:40', NULL, NULL, NULL, 0.00, 0.08, NULL, 'completed'),
+(67, 62, 7, 1, '2026-04-25 08:25:05', '2026-04-25 08:26:56', NULL, NULL, NULL, 0.00, 4.63, NULL, 'completed'),
+(68, 65, 7, 12, '2026-04-25 18:58:37', '2026-04-25 19:00:44', NULL, NULL, NULL, 0.00, 1.89, NULL, 'completed');
 
 -- --------------------------------------------------------
 
@@ -508,7 +532,11 @@ INSERT INTO `notifications` (`notification_id`, `user_id`, `title`, `message`, `
 (237, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 0.083 kWh คิดเป็นเงิน 0.62 บาท ตัดเงินจาก wallet แล้ว', 'charging', 1, '2026-04-25 08:01:40', NULL),
 (238, 7, 'ยอดเงินใกล้หมด', 'ยอดเงินในกระเป๋าเหลือ ฿32.28 กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง', 'payment', 1, '2026-04-25 08:01:40', NULL),
 (239, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 1, '2026-04-25 08:25:05', NULL),
-(240, 7, 'หยุดชาร์จอัตโนมัติ', 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จอัตโนมัติ ชาร์จไป 4.625 kWh คิดเป็น 34.69 บาท', 'charging', 1, '2026-04-25 08:26:56', NULL);
+(240, 7, 'หยุดชาร์จอัตโนมัติ', 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จอัตโนมัติ ชาร์จไป 4.625 kWh คิดเป็น 34.69 บาท', 'charging', 1, '2026-04-25 08:26:56', NULL),
+(241, 7, 'เริ่มชาร์จแล้ว', 'เริ่มการชาร์จเรียบร้อยแล้ว กดหยุดชาร์จเมื่อต้องการสิ้นสุด Session', 'charging', 0, '2026-04-25 18:58:37', NULL),
+(242, 7, 'ชาร์จเสร็จสิ้น', 'ชาร์จไป 1.889 kWh คิดเป็นเงิน 8.99 บาท ตัดเงินจาก wallet แล้ว', 'charging', 0, '2026-04-25 19:00:44', NULL),
+(243, 7, 'ไม่มาชาร์จตามเวลา', 'การจอง #63 ถูกยกเลิกเนื่องจากไม่มาชาร์จภายใน 15 นาที ค่าธรรมเนียม ฿20 หักจากกระเป๋าเงินแล้ว', 'booking', 0, '2026-04-25 19:05:00', NULL),
+(244, 7, 'ไม่มาชาร์จตามเวลา', 'การจอง #64 ถูกยกเลิกเนื่องจากไม่มาชาร์จภายใน 15 นาที ค่าธรรมเนียม ฿20 หักจากกระเป๋าเงินแล้ว', 'booking', 0, '2026-04-25 19:05:00', NULL);
 
 -- --------------------------------------------------------
 
@@ -569,7 +597,8 @@ INSERT INTO `payments` (`payment_id`, `session_id`, `user_id`, `amount`, `method
 (30, 64, 7, 35.63, 'credit_card', 'completed', 'chrg_test_67gxkyw7teanu4000ya', '2026-04-25 07:48:23'),
 (31, 65, 7, 4.28, 'wallet', 'completed', 'DEDUCT1777103992167708', '2026-04-25 07:59:52'),
 (32, 66, 7, 0.62, 'wallet', 'completed', 'DEDUCT1777104100105930', '2026-04-25 08:01:40'),
-(33, 67, 7, 34.69, 'promptpay', 'completed', 'QR1777105723388450', '2026-04-25 08:28:44');
+(33, 67, 7, 34.69, 'promptpay', 'completed', 'QR1777105723388450', '2026-04-25 08:28:44'),
+(34, 68, 7, 8.99, 'wallet', 'completed', 'DEDUCT1777143644949583', '2026-04-25 19:00:44');
 
 -- --------------------------------------------------------
 
@@ -598,6 +627,13 @@ CREATE TABLE `point_balances` (
   `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
+--
+-- Dumping data for table `point_balances`
+--
+
+INSERT INTO `point_balances` (`user_id`, `balance`, `updated_at`) VALUES
+(7, 8, '2026-04-25 19:00:44');
+
 -- --------------------------------------------------------
 
 --
@@ -613,6 +649,38 @@ CREATE TABLE `point_transactions` (
   `expires_at` date DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `point_transactions`
+--
+
+INSERT INTO `point_transactions` (`txn_id`, `user_id`, `amount`, `type`, `ref`, `expires_at`, `created_at`) VALUES
+(1, 7, 8, 'earn', 'session_68', '2028-04-25', '2026-04-25 19:00:44');
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `recurring_schedules`
+--
+
+CREATE TABLE `recurring_schedules` (
+  `schedule_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `charger_id` int UNSIGNED NOT NULL,
+  `days_of_week` set('mon','tue','wed','thu','fri','sat','sun') NOT NULL,
+  `start_time` time NOT NULL,
+  `duration_min` int NOT NULL DEFAULT '60',
+  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `weeks_ahead` int NOT NULL DEFAULT '4',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+--
+-- Dumping data for table `recurring_schedules`
+--
+
+INSERT INTO `recurring_schedules` (`schedule_id`, `user_id`, `charger_id`, `days_of_week`, `start_time`, `duration_min`, `active`, `weeks_ahead`, `created_at`) VALUES
+(1, 7, 12, 'wed,thu', '18:00:00', 30, 1, 4, '2026-04-25 18:53:13');
 
 -- --------------------------------------------------------
 
@@ -879,7 +947,7 @@ INSERT INTO `users` (`user_id`, `email`, `password_hash`, `first_name`, `last_na
 (3, 'alice@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Alice', 'Wongsiri', '0811111111', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-20 11:34:37', NULL, 0, NULL, '2026-04-20 11:34:37'),
 (4, 'bob@example.com', '$2a$10$beSwIFkMj8RMmNfQdhxF0uTZ28AvB72gwcyiyid/Hhqf.z/RJaNAu', 'Bob', 'Prasert', '0822222222', NULL, 'user', 6125.00, 0.00, 0, NULL, '2026-04-02 23:46:51', '2026-04-19 09:44:22', NULL, 1, NULL, '2026-04-19 09:44:22'),
 (5, 'botclaude@gmail.com', '$2a$10$AGQ4tZ3pk5ma7TJl9yoOZ.nEC2oVgKjcHBcPMHsu8ik2D7JKr7TyO', 'Bot', 'Claude', '0812345678', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-02 23:49:21', '2026-04-18 17:17:18', NULL, 0, NULL, NULL),
-(7, 'nemuser@gmail.com', '$2a$10$EaKJ2dIx8l8Mukh0bsydG.rtgGxlAVoyddc6AGJg5IPi3Ghphkm3S', 'เนม', 'เนม', '0615612345', NULL, 'user', 132.28, 0.00, 0, NULL, '2026-04-03 14:22:49', '2026-04-25 15:47:20', 'cust_test_67fdle9af6i7uh2ymtw', 0, NULL, NULL),
+(7, 'nemuser@gmail.com', '$2a$10$EaKJ2dIx8l8Mukh0bsydG.rtgGxlAVoyddc6AGJg5IPi3Ghphkm3S', 'เนม', 'เนม', '0615612345', NULL, 'user', 83.29, 0.00, 0, NULL, '2026-04-03 14:22:49', '2026-04-25 19:05:00', 'cust_test_67fdle9af6i7uh2ymtw', 0, NULL, NULL),
 (8, 'Emma123@gmail.com', '$2a$10$6mwZpIr0kvr3LxWY/EBZ0e2xLSUQQfQds0ZIo4iygjP5VZfBTT3pK', 'Emma', 'Woods', '0631962204', NULL, 'user', 0.00, 0.00, 0, NULL, '2026-04-08 17:37:50', '2026-04-15 17:53:53', NULL, 0, NULL, NULL),
 (9, 'tech1@evcharge.com', '$2a$10$2elQTP2byuBNBsleskW7aupyKFICc/cCCGKYsny412dQY2yUhYxdW', 'สมทบ', 'มิตรดี', '', NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-14 20:01:36', '2026-04-14 20:44:36', NULL, 0, NULL, NULL),
 (11, 'tech2@evcharge.com', '$2a$10$VWpSB4NoFSch13b2smjY4.3CyPfOFZ0MLA49QrfNEs9SIJujGMuKG', 'เทพบุตร', 'นามสมมติ', NULL, NULL, 'technician', 0.00, 0.00, 0, NULL, '2026-04-15 06:16:50', '2026-04-15 06:16:50', NULL, 0, NULL, NULL),
@@ -930,7 +998,7 @@ CREATE TABLE `vehicles` (
 
 INSERT INTO `vehicles` (`vehicle_id`, `user_id`, `brand`, `model`, `license_plate`, `connector_type`, `battery_capacity_kwh`, `battery_current_kwh`) VALUES
 (2, 5, 'Toyota', 'bZ4X', 'กก 1234', 'CCS', 71.00, 10.000),
-(3, 7, 'BYD', 'Cipo', 'รวย 9331', 'CCS', 65.00, 5.005),
+(3, 7, 'BYD', 'Cipo', 'รวย 9331', 'CCS', 65.00, 6.894),
 (4, 12, 'Tesla', 'Model 3 (Long Range)', 'รร 9999 เชียงใหม่', 'Type2', 75.00, 37.500),
 (5, 12, 'NETA', 'V', 'ฮฮ 555 กรุงเทพ', 'CCS', 38.50, 3.850),
 (6, 12, 'GWM', 'ORA Good Cat (Ultra)', 'กข 4321 กรุงเทพมหานคร', 'CCS', 75.00, 15.000),
@@ -1001,7 +1069,10 @@ INSERT INTO `wallet_transactions` (`txn_id`, `user_id`, `amount`, `type`, `ref`,
 (1051, 7, 0.62, 'deduct', 'session_66', '2026-04-25 08:01:40', NULL, NULL),
 (1052, 7, 50.00, 'topup', 'TOPUP1777127098453107', '2026-04-25 14:24:58', NULL, NULL),
 (1053, 7, 50.00, 'deduct', 'debt_1777127100605', '2026-04-25 14:25:00', 'ชำระยอดค้าง', NULL),
-(1054, 7, 100.00, 'topup', 'TOPUP17771320408493', '2026-04-25 15:47:20', NULL, NULL);
+(1054, 7, 100.00, 'topup', 'TOPUP17771320408493', '2026-04-25 15:47:20', NULL, NULL),
+(1055, 7, 8.99, 'deduct', 'session_68', '2026-04-25 19:00:44', NULL, NULL),
+(1056, 7, 20.00, 'deduct', 'noshow_63', '2026-04-25 19:05:00', 'ค่าธรรมเนียม', NULL),
+(1057, 7, 20.00, 'deduct', 'noshow_64', '2026-04-25 19:05:00', 'ค่าธรรมเนียม', NULL);
 
 --
 -- Indexes for dumped tables
@@ -1020,7 +1091,15 @@ ALTER TABLE `admin_profiles`
 ALTER TABLE `bookings`
   ADD PRIMARY KEY (`booking_id`),
   ADD KEY `fk_bookings_user` (`user_id`),
-  ADD KEY `fk_bookings_charger` (`charger_id`);
+  ADD KEY `fk_bookings_charger` (`charger_id`),
+  ADD KEY `fk_bookings_recurring` (`recurring_schedule_id`);
+
+--
+-- Indexes for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  ADD PRIMARY KEY (`skip_id`),
+  ADD UNIQUE KEY `uk_schedule_date` (`schedule_id`,`skip_date`);
 
 --
 -- Indexes for table `chargers`
@@ -1100,6 +1179,14 @@ ALTER TABLE `point_transactions`
   ADD PRIMARY KEY (`txn_id`),
   ADD KEY `idx_pt_user` (`user_id`,`created_at`),
   ADD KEY `idx_pt_expires` (`expires_at`);
+
+--
+-- Indexes for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  ADD PRIMARY KEY (`schedule_id`),
+  ADD KEY `fk_rs_user` (`user_id`),
+  ADD KEY `fk_rs_charger` (`charger_id`);
 
 --
 -- Indexes for table `refund_requests`
@@ -1189,7 +1276,13 @@ ALTER TABLE `admin_profiles`
 -- AUTO_INCREMENT for table `bookings`
 --
 ALTER TABLE `bookings`
-  MODIFY `booking_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=63;
+  MODIFY `booking_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=66;
+
+--
+-- AUTO_INCREMENT for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  MODIFY `skip_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `chargers`
@@ -1201,7 +1294,7 @@ ALTER TABLE `chargers`
 -- AUTO_INCREMENT for table `charging_sessions`
 --
 ALTER TABLE `charging_sessions`
-  MODIFY `session_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=68;
+  MODIFY `session_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=69;
 
 --
 -- AUTO_INCREMENT for table `maintenance_tickets`
@@ -1219,7 +1312,7 @@ ALTER TABLE `messages`
 -- AUTO_INCREMENT for table `notifications`
 --
 ALTER TABLE `notifications`
-  MODIFY `notification_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=241;
+  MODIFY `notification_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=245;
 
 --
 -- AUTO_INCREMENT for table `notification_logs`
@@ -1231,7 +1324,7 @@ ALTER TABLE `notification_logs`
 -- AUTO_INCREMENT for table `payments`
 --
 ALTER TABLE `payments`
-  MODIFY `payment_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=34;
+  MODIFY `payment_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=35;
 
 --
 -- AUTO_INCREMENT for table `payment_refunds`
@@ -1243,7 +1336,13 @@ ALTER TABLE `payment_refunds`
 -- AUTO_INCREMENT for table `point_transactions`
 --
 ALTER TABLE `point_transactions`
-  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
+
+--
+-- AUTO_INCREMENT for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  MODIFY `schedule_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=2;
 
 --
 -- AUTO_INCREMENT for table `refund_requests`
@@ -1303,7 +1402,7 @@ ALTER TABLE `vehicles`
 -- AUTO_INCREMENT for table `wallet_transactions`
 --
 ALTER TABLE `wallet_transactions`
-  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1055;
+  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=1058;
 
 --
 -- Constraints for dumped tables
@@ -1320,7 +1419,14 @@ ALTER TABLE `admin_profiles`
 --
 ALTER TABLE `bookings`
   ADD CONSTRAINT `fk_bookings_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_bookings_recurring` FOREIGN KEY (`recurring_schedule_id`) REFERENCES `recurring_schedules` (`schedule_id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bookings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  ADD CONSTRAINT `fk_bsd_schedule` FOREIGN KEY (`schedule_id`) REFERENCES `recurring_schedules` (`schedule_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `chargers`
@@ -1390,6 +1496,13 @@ ALTER TABLE `point_balances`
 --
 ALTER TABLE `point_transactions`
   ADD CONSTRAINT `fk_pt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  ADD CONSTRAINT `fk_rs_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `refund_requests`

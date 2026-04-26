@@ -30,6 +30,7 @@ const SearchPage = lazy(() => import('../pages/user/SearchPage'))
 const WalletPage = lazy(() => import('../pages/user/WalletPage'))
 const FavoritesPage = lazy(() => import('../pages/user/FavoritesPage'))
 const PointsPage = lazy(() => import('../pages/user/PointsPage'))
+const RecurringSchedulePage = lazy(() => import('../pages/user/RecurringSchedulePage'))
 
 // Admin pages
 const AdminLoginPage = lazy(() => import('../pages/admin/AdminLoginPage'))
@@ -105,6 +106,7 @@ export default function AppRouter() {
       <Route path="/wallet" element={<PrivateRoute><MobileLayout><WalletPage /></MobileLayout></PrivateRoute>} />
       <Route path="/favorites" element={<PrivateRoute><MobileLayout><FavoritesPage /></MobileLayout></PrivateRoute>} />
       <Route path="/points" element={<PrivateRoute><MobileLayout><PointsPage /></MobileLayout></PrivateRoute>} />
+      <Route path="/recurring" element={<PrivateRoute><MobileLayout><RecurringSchedulePage /></MobileLayout></PrivateRoute>} />
 
       {/* Admin pages */}
       <Route path="/admin/dashboard" element={<RoleRoute roles={['admin']}><DesktopLayout><DashboardPage /></DesktopLayout></RoleRoute>} />

@@ -56,7 +56,8 @@
       "WebFetch(domain:www.opn.ooo)",
       "WebFetch(domain:statrys.com)",
       "WebFetch(domain:www.prowebcreate.com)",
-      "Bash(git pull *)"
+      "Bash(git pull *)",
+      "Bash(grep -A 30 \"CREATE TABLE \\\\`bookings\\\\`\" \"c:/Users/peekm/Documents/csi401/Project/backend/schema.sql\")"
     ],
     "additionalDirectories": [
       "c:\\Users\\peekm\\Documents\\csi401\\Project"

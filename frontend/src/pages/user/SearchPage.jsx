@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import {
   FaSearch, FaMapMarkerAlt, FaStar, FaBolt,
   FaClock, FaTimes, FaLocationArrow, FaChevronUp, FaDirections,
-  FaArrowLeft, FaArrowRight, FaArrowUp, FaTimesCircle,
+  FaArrowLeft, FaArrowRight, FaArrowUp, FaTimesCircle, FaHeart,
 } from 'react-icons/fa'
 import { GoogleMap, Marker, useJsApiLoader } from '@react-google-maps/api'
 import BottomNav from '../../components/BottomNav'
@@ -14,6 +14,18 @@ import { formatDistance } from '../../utils/formatDistance'
 // ─── constants ────────────────────────────────────────────────────────────────
 const BANGKOK       = { lat: 13.7563, lng: 100.5018 }
 const CONNECTOR_TYPES = ['ทั้งหมด', 'CCS', 'CHAdeMO', 'Type2', 'Type1']
+const STATUS_BADGE = {
+  available: { label: 'ว่าง',     cls: 'bg-green-100 text-green-700' },
+  reserved:  { label: 'ถูกจอง',   cls: 'bg-orange-100 text-orange-600' },
+  in_use:    { label: 'กำลังใช้', cls: 'bg-red-100 text-red-600' },
+}
+
+function stationStatus(st) {
+  if ((st.available_chargers ?? 0) > 0) return 'available'
+  if ((st.reserved_chargers  ?? 0) > 0) return 'reserved'
+  return 'in_use'
+}
+const GMAPS_LIBRARIES = ['places']
 
 const SNAP = {
   peek: 120,
@@ -45,9 +57,9 @@ function calcDistKm(lat1, lng1, lat2, lng2) {
 
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
-function pinSvg(available, selected = false) {
-  const c  = available ? '#22c55e' : '#ef4444'
-  const bg = available ? '#dcfce7' : '#fee2e2'
+function pinSvg(status, selected = false) {
+  const c  = status === 'available' ? '#22c55e' : status === 'reserved' ? '#f97316' : '#ef4444'
+  const bg = status === 'available' ? '#dcfce7' : status === 'reserved' ? '#fff7ed' : '#fee2e2'
   const w  = selected ? 46 : 38
   const h  = selected ? 56 : 46
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 46 56">
@@ -77,7 +89,8 @@ export default function SearchPage() {
   const [loading,          setLoading]          = useState(true)
   const [search,           setSearch]           = useState('')
   const [selectedConn,     setSelectedConn]     = useState('ทั้งหมด')
-  const [onlyAvail,        setOnlyAvail]        = useState(false)
+  const [selectedStatus,   setSelectedStatus]   = useState('all')
+  const [favorites,        setFavorites]        = useState(new Set())
   const [nearbyMode,       setNearbyMode]       = useState(false)
   const [activeMarker,     setActiveMarker]     = useState(null)
 
@@ -94,6 +107,77 @@ export default function SearchPage() {
   const followingRef  = useRef(true)
   const stepListRef   = useRef(null)   // ref สำหรับ scroll container ของ steps
 
+  // trip planning (Feature 13)
+  const [showTripPanel, setShowTripPanel] = useState(false)
+  const [tripDest, setTripDest] = useState('')
+  const [tripResult, setTripResult] = useState(null)
+  const [tripLoading, setTripLoading] = useState(false)
+  const [tripError, setTripError] = useState(null)
+  const [vehicles, setVehicles] = useState([])
+  const [tripVehicleId, setTripVehicleId] = useState('')
+  const [placeSuggestions, setPlaceSuggestions] = useState([])
+  const autocompleteRef = useRef(null)
+
+  useEffect(() => {
+    api.get('/api/vehicles')
+      .then(res => {
+        setVehicles(res.data || [])
+        if (res.data?.length > 0) setTripVehicleId(res.data[0].vehicle_id)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    api.get('/api/favorites')
+      .then(r => setFavorites(new Set((r.data.favorites || []).map(f => f.station_id))))
+      .catch(() => {})
+  }, [])
+
+  const toggleFavorite = useCallback((stationId, e) => {
+    e.stopPropagation()
+    if (favorites.has(stationId)) {
+      api.delete(`/api/favorites/${stationId}`).catch(() => {})
+      setFavorites(prev => { const s = new Set(prev); s.delete(stationId); return s })
+    } else {
+      api.post('/api/favorites', { station_id: stationId }).catch(() => {})
+      setFavorites(prev => new Set([...prev, stationId]))
+    }
+  }, [favorites])
+
+  const handleTripDestChange = (val) => {
+    setTripDest(val)
+    setPlaceSuggestions([])
+    if (!val.trim() || !isLoaded) return
+    if (!autocompleteRef.current) {
+      autocompleteRef.current = new window.google.maps.places.AutocompleteService()
+    }
+    autocompleteRef.current.getPlacePredictions(
+      { input: val, language: 'th', componentRestrictions: { country: 'th' } },
+      (predictions, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+          setPlaceSuggestions(predictions.slice(0, 5))
+        } else {
+          setPlaceSuggestions([])
+        }
+      }
+    )
+  }
+
+  const handleTripPlan = () => {
+    if (!tripDest.trim()) return
+    setPlaceSuggestions([])
+    setTripLoading(true)
+    setTripError(null)
+    setTripResult(null)
+    api.post('/api/trip-plan', {
+      destination: { address: tripDest },
+      vehicle_id: tripVehicleId || undefined,
+    })
+      .then(res => setTripResult(res.data))
+      .catch(err => setTripError(err.response?.data?.message || 'เกิดข้อผิดพลาด'))
+      .finally(() => setTripLoading(false))
+  }
+
   // bottom-sheet drag
   const [sheetH,    setSheetH]    = useState(SNAP.peek)
   const [dragging,  setDragging]  = useState(false)
@@ -107,6 +191,7 @@ export default function SearchPage() {
 
   const { isLoaded } = useJsApiLoader({
     googleMapsApiKey: import.meta.env.VITE_GOOGLE_MAPS_API_KEY,
+    libraries: GMAPS_LIBRARIES,
   })
 
   // ── data loading ────────────────────────────────────────────────────────────
@@ -193,14 +278,17 @@ export default function SearchPage() {
       const q    = search.toLowerCase()
       const hit  = s.name.toLowerCase().includes(q) || s.address.toLowerCase().includes(q)
       const conn = s.connector_types ? s.connector_types.split(',') : []
-      return hit && (selectedConn === 'ทั้งหมด' || conn.includes(selectedConn)) &&
-             (!onlyAvail || s.available_chargers > 0)
+      const statusOk = selectedStatus === 'all' ||
+        (selectedStatus === 'available' && (s.available_chargers ?? 0) > 0) ||
+        (selectedStatus === 'reserved'  && (s.reserved_chargers  ?? 0) > 0) ||
+        (selectedStatus === 'in_use'    && (s.in_use_chargers     ?? 0) > 0)
+      return hit && (selectedConn === 'ทั้งหมด' || conn.includes(selectedConn)) && statusOk
     }).sort((a, b) => {
       if (a.distance_km == null) return 1
       if (b.distance_km == null) return -1
       return a.distance_km - b.distance_km
     }),
-  [stations, search, selectedConn, onlyAvail])
+  [stations, search, selectedConn, selectedStatus])
 
   // ── map helpers ─────────────────────────────────────────────────────────────
   const mapCenter = geo.coords
@@ -398,7 +486,9 @@ export default function SearchPage() {
     closeInfoWindow()
 
     const pos = { lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }
-    const avail = st.available_chargers > 0
+    const _status = stationStatus(st)
+    const statusColor = _status === 'available' ? '#16a34a' : _status === 'reserved' ? '#ea580c' : '#dc2626'
+    const statusLabel = _status === 'available' ? 'ว่าง' : _status === 'reserved' ? 'ถูกจอง' : 'กำลังใช้'
 
     const contentDiv = document.createElement('div')
     contentDiv.style.cssText = 'min-width:170px;font-family:ui-sans-serif,system-ui,sans-serif;padding:2px 0'
@@ -406,8 +496,8 @@ export default function SearchPage() {
       <p style="font-weight:700;font-size:13px;margin-bottom:2px;color:#111827">${st.name}</p>
       <p style="color:#9ca3af;font-size:11px;margin-bottom:6px">${st.address}</p>
       <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-        <span style="font-size:11px;font-weight:600;color:${avail ? '#16a34a' : '#dc2626'}">
-          ⚡ ${st.available_chargers}/${st.total_chargers} ว่าง
+        <span style="font-size:11px;font-weight:600;color:${statusColor}">
+          ⚡ ${st.available_chargers}/${st.total_chargers} ${statusLabel}
         </span>
         ${st.distance_km != null ? `<span style="font-size:11px;color:#22c55e;font-weight:500">${formatDistance(st.distance_km)}</span>` : ''}
       </div>
@@ -563,9 +653,8 @@ export default function SearchPage() {
       if (!st.latitude || !st.longitude) return
       const pos = { lat: parseFloat(st.latitude), lng: parseFloat(st.longitude) }
       const sel = activeMarker === st.station_id
-      const avail = st.available_chargers > 0
       const icon = {
-        url: pinSvg(avail, sel),
+        url: pinSvg(stationStatus(st), sel),
         scaledSize: new window.google.maps.Size(sel ? 46 : 38, sel ? 56 : 46),
         anchor: new window.google.maps.Point(sel ? 23 : 19, sel ? 56 : 46),
       }
@@ -692,15 +781,34 @@ export default function SearchPage() {
                 {t}
               </button>
             ))}
-            <button
-              onClick={() => setOnlyAvail(v => !v)}
-              className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
-                onlyAvail ? 'bg-green-500 text-white' : 'bg-white text-gray-600'
-              }`}
-            >
-              ว่างเท่านั้น
-            </button>
+            {[
+              { key: 'available', label: '🟢 ว่าง' },
+              { key: 'reserved',  label: '🟠 ถูกจอง' },
+              { key: 'in_use',    label: '🔴 กำลังใช้' },
+            ].map(({ key, label }) => (
+              <button
+                key={key}
+                onClick={() => setSelectedStatus(v => v === key ? 'all' : key)}
+                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold shadow transition-all active:scale-95 ${
+                  selectedStatus === key
+                    ? key === 'available' ? 'bg-green-500 text-white'
+                      : key === 'reserved' ? 'bg-orange-500 text-white'
+                      : 'bg-red-500 text-white'
+                    : 'bg-white text-gray-600'
+                }`}
+              >
+                {label}
+              </button>
+            ))}
           </div>}
+          {!navTarget && (
+            <button
+              onClick={() => setShowTripPanel(true)}
+              className="pointer-events-auto w-full mt-1.5 py-1.5 rounded-2xl text-xs font-semibold shadow bg-white text-gray-700 flex items-center justify-center gap-1.5 active:scale-95 transition-all border border-gray-100"
+            >
+              🚗 วางแผนเส้นทาง EV
+            </button>
+          )}
         </div>
 
         {/* ── Zoom + Re-center buttons ────────────────────────────────── */}
@@ -897,11 +1005,17 @@ export default function SearchPage() {
                     >
                       <div className="flex items-start justify-between gap-2">
                         <p className="font-semibold text-gray-900 text-sm truncate flex-1">{st.name}</p>
-                        <span className={`flex-shrink-0 text-xs font-bold px-2 py-0.5 rounded-full ${
-                          st.available_chargers > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {st.available_chargers > 0 ? 'ว่าง' : 'เต็ม'}
-                        </span>
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[stationStatus(st)].cls}`}>
+                            {STATUS_BADGE[stationStatus(st)].label}
+                          </span>
+                          <button
+                            onClick={e => toggleFavorite(st.station_id, e)}
+                            className="p-0.5 transition-colors"
+                          >
+                            <FaHeart size={13} className={favorites.has(st.station_id) ? 'text-red-500' : 'text-gray-200'} />
+                          </button>
+                        </div>
                       </div>
                       <p className="text-xs text-gray-400 truncate mt-0.5">{st.address}</p>
                       <div className="flex items-center gap-3 mt-2.5">
@@ -968,11 +1082,17 @@ export default function SearchPage() {
                         </div>
                       </div>
                       <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
-                        <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                          st.available_chargers > 0 ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-600'
-                        }`}>
-                          {st.available_chargers > 0 ? 'ว่าง' : 'เต็ม'}
-                        </span>
+                        <div className="flex items-center gap-1.5">
+                          <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${STATUS_BADGE[stationStatus(st)].cls}`}>
+                            {STATUS_BADGE[stationStatus(st)].label}
+                          </span>
+                          <button
+                            onClick={e => toggleFavorite(st.station_id, e)}
+                            className="p-0.5 transition-colors"
+                          >
+                            <FaHeart size={13} className={favorites.has(st.station_id) ? 'text-red-500' : 'text-gray-200'} />
+                          </button>
+                        </div>
                         <span className="flex items-center gap-1 text-xs text-gray-500">
                           <FaBolt size={10} className="text-primary" />
                           {st.available_chargers}/{st.total_chargers}
@@ -1005,6 +1125,114 @@ export default function SearchPage() {
 
       {/* ── Bottom Nav ───────────────────────────────────────────────────── */}
       <BottomNav />
+
+{/* ── Trip Planning Modal ──────────────────────────────────────────── */}
+      {showTripPanel && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
+          <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+            <div className="flex items-center justify-between">
+              <p className="font-bold text-gray-900">🚗 วางแผนเส้นทาง EV</p>
+              <button onClick={() => { setShowTripPanel(false); setTripResult(null); setTripError(null) }} className="text-gray-400 text-lg">✕</button>
+            </div>
+
+            {vehicles.length > 0 && (
+              <select
+                value={tripVehicleId}
+                onChange={e => setTripVehicleId(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm"
+              >
+                {vehicles.map(v => (
+                  <option key={v.vehicle_id} value={v.vehicle_id}>{v.brand} {v.model} — {v.battery_current_kwh} kWh</option>
+                ))}
+              </select>
+            )}
+
+            <div className="relative">
+              <div className="flex gap-2">
+                <input
+                  value={tripDest}
+                  onChange={e => handleTripDestChange(e.target.value)}
+                  placeholder="ปลายทาง เช่น สนามบินสุวรรณภูมิ"
+                  className="flex-1 border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  onKeyDown={e => e.key === 'Enter' && handleTripPlan()}
+                />
+                <button
+                  onClick={handleTripPlan}
+                  disabled={tripLoading}
+                  className="px-4 py-2 bg-primary text-white rounded-xl text-sm font-semibold disabled:opacity-50"
+                >
+                  {tripLoading ? '...' : 'คำนวณ'}
+                </button>
+              </div>
+              {placeSuggestions.length > 0 && (
+                <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-lg border border-gray-100 z-10 overflow-hidden">
+                  {placeSuggestions.map(p => (
+                    <button
+                      key={p.place_id}
+                      onClick={() => { setTripDest(p.description); setPlaceSuggestions([]) }}
+                      className="w-full text-left px-3 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-b border-gray-50 last:border-0"
+                    >
+                      <span className="text-gray-400 mr-1">📍</span>{p.description}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {tripError && <p className="text-red-500 text-xs">{tripError}</p>}
+
+            {tripResult && (
+              <div className="space-y-3">
+                <div className={`rounded-2xl p-4 ${tripResult.needs_charging ? 'bg-orange-50 border border-orange-200' : 'bg-green-50 border border-green-200'}`}>
+                  <div className="flex justify-between text-sm mb-1">
+                    <span className="text-gray-500">ระยะทาง</span>
+                    <span className="font-bold">{tripResult.distance_km} km</span>
+                  </div>
+                  <div className="flex justify-between text-sm mb-2">
+                    <span className="text-gray-500">Range ปัจจุบัน</span>
+                    <span className="font-bold">{tripResult.range_km} km</span>
+                  </div>
+                  {!tripResult.needs_charging ? (
+                    <p className="text-green-700 font-semibold text-sm">✅ ไปได้ ไม่ต้องชาร์จระหว่างทาง</p>
+                  ) : (
+                    <p className="text-orange-700 font-semibold text-sm">⚠️ ต้องชาร์จระหว่างทาง (หลัง {tripResult.charging_point?.after_km} km)</p>
+                  )}
+                </div>
+
+                {tripResult.needs_charging && tripResult.suggested_stations?.length === 0 && (
+                  <p className="text-xs text-gray-400 text-center py-2">ไม่พบสถานีชาร์จใกล้เส้นทาง กรุณาวางแผนชาร์จเองก่อนออกเดินทาง</p>
+                )}
+                {tripResult.needs_charging && tripResult.suggested_stations?.length > 0 && (
+                  <div>
+                    <p className="text-sm font-semibold text-gray-700 mb-2">สถานีแนะนำ</p>
+                    {tripResult.suggested_stations.map(st => (
+                      <div key={st.station_id} className="bg-white border border-gray-200 rounded-2xl p-3 mb-2 flex items-center justify-between">
+                        <div>
+                          <p className="font-semibold text-sm text-gray-900">{st.name}</p>
+                          <p className="text-xs text-gray-400">{st.address}</p>
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            ห่างเส้นทาง {st.distance_from_path_km} km · ตู้ว่าง {st.available_chargers}
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => { navigate(`/stations/${st.station_id}`); setShowTripPanel(false) }}
+                          className="shrink-0 ml-2 px-3 py-1.5 bg-primary text-white rounded-xl text-xs font-semibold"
+                        >
+                          ดูสถานี
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                {tripResult.needs_charging && tripResult.suggested_stations?.length === 0 && (
+                  <p className="text-orange-600 text-sm text-center py-2">ไม่พบสถานีในรัศมี 5 km จากจุดที่ต้องชาร์จ</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

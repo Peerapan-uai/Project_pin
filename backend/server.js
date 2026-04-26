@@ -16,6 +16,8 @@ const { startExpirePaymentsJob } = require('./jobs/expirePayments');
 const { startTemperatureSimulator } = require('./jobs/temperatureSimulator');
 const { startNoShowChecker } = require('./jobs/noShowChecker');
 const { startPointsExpireJob } = require('./jobs/pointsExpire');
+const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen');
+const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -38,6 +40,8 @@ const adminNotificationsRoutes = require('./routes/admin/notifications');
 const logsRoutes = require('./routes/admin/logs');
 const adminRefundsRoutes = require('./routes/admin/refunds')
 const adminTrashRoutes   = require('./routes/admin/trash')
+const recurringBookingsRoutes = require('./routes/recurringBookings')
+const tripPlanRoutes = require('./routes/tripPlan')
 
 const app = express();
 
@@ -112,6 +116,8 @@ app.use('/api/notifications', notificationRoutes);
 app.use('/api/wallet', walletRoutes);
 app.use('/api/favorites', favoritesRoutes);
 app.use('/api/points', pointsRoutes);
+app.use('/api/recurring-bookings', recurringBookingsRoutes);
+app.use('/api/trip-plan', tripPlanRoutes);
 
 /**
  * @swagger
@@ -250,6 +256,8 @@ const startServer = async () => {
     startTemperatureSimulator();
     startNoShowChecker();
     startPointsExpireJob();
+    startRecurringBookingsGenJob();
+    startIdleFeeAutoStopJob();
     startScheduleNotificationsJob()
     startStationScheduleJob()
   });

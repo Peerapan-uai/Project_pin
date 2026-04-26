@@ -39,6 +39,10 @@ export default function PointsPage() {
     try {
       const res = await api.post('/api/points/redeem', { points: redeemPoints })
       setRedeemResult(res.data)
+      if (res.data.redeem_token) {
+        localStorage.setItem('ev_redeem_token', res.data.redeem_token)
+        localStorage.setItem('ev_redeem_discount', String(res.data.discount_amount))
+      }
       fetchPoints()
     } catch (e) {
       setError(e.response?.data?.message || 'เกิดข้อผิดพลาด')
@@ -198,7 +202,7 @@ export default function PointsPage() {
                 <p className="text-sm text-gray-600">
                   คุณได้รับส่วนลด <span className="font-bold text-green-600">฿{redeemResult.discount_amount}</span>
                 </p>
-                <p className="text-xs text-gray-400">จะถูกหักจากค่าชาร์จครั้งถัดไปอัตโนมัติ</p>
+                <p className="text-xs text-gray-400">จะถูกหักจากค่าชาร์จครั้งถัดไปอัตโนมัติ (ใช้ได้ 1 ครั้ง)</p>
                 <p className="text-xs text-gray-400">แต้มคงเหลือ: {redeemResult.new_balance} แต้ม</p>
                 <button
                   onClick={() => setShowModal(false)}

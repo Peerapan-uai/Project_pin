@@ -452,7 +452,7 @@ router.patch('/:id/stop', auth, async (req, res) => {
         'Omise-Idempotency-Key': `session-${req.params.id}-card-${card_id}`,
       },
       body: JSON.stringify({
-        amount: Math.round(totalCost * 100),
+        amount: Math.max(Math.round(totalCost * 100), 2000), // Omise minimum 2000 satang = ฿20
         currency: 'thb',
         customer: customerId,
         card: card_id,
@@ -462,8 +462,9 @@ router.patch('/:id/stop', auth, async (req, res) => {
     const charge = await chargeRes.json();
 
     if (charge.status !== 'successful') {
+      const omiseMsg = charge.failure_message || charge.message || 'unknown';
       console.error('Omise charge failed:', JSON.stringify(charge));
-      return res.status(402).json({ message: 'การชำระเงินผ่านบัตรไม่สำเร็จ กรุณาลองใหม่', code: 'CARD_CHARGE_FAILED' });
+      return res.status(402).json({ message: `การชำระเงินผ่านบัตรไม่สำเร็จ: ${omiseMsg}`, code: 'CARD_CHARGE_FAILED' });
     }
 
     // charge สำเร็จแล้ว → หยุด session
@@ -585,7 +586,7 @@ router.get('/:id/status', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(
       `SELECT s.session_id, s.booking_id, s.status, s.start_time, s.end_time,
-              s.energy_kwh,
+              s.energy_kwh, s.full_charge_time, s.idle_fee,
               TIMESTAMPDIFF(SECOND, s.start_time, NOW()) AS duration_seconds,
               c.charger_id, c.connector_type, c.power_kw, c.price_per_kwh,
               c.temperature_celsius, c.max_temperature_celsius, c.idle_fee_enabled,
@@ -794,12 +795,44 @@ router.get('/:id/status', auth, async (req, res) => {
           return res.status(200).json({ session: { ...session, status: 'completed', energy_kwh: energyKwh }, auto_stopped: true, reason: 'battery_full', total_cost: totalCost, energy_kwh: energyKwh, payment_method: paymentMethod });
         }
       } else {
-        // Mode B: ไม่ stop แต่ flag ให้ user ถอดสาย
+        // Mode B: idle_fee_enabled — flag ให้ user ถอดสาย + เช็คคิว + ตั้ง full_charge_time
         reachedFull = true;
+
+        // เช็คว่ามีคิวรออยู่ใน 30 นาที
+        const [queueRows] = await pool.query(
+          `SELECT booking_id FROM bookings
+           WHERE charger_id = ? AND status IN ('pending','confirmed')
+             AND scheduled_start <= DATE_ADD(NOW(), INTERVAL 30 MINUTE)
+           ORDER BY scheduled_start ASC LIMIT 1`,
+          [session.charger_id]
+        );
+        const hasQueue = queueRows.length > 0;
+
+        if (hasQueue && !session.full_charge_time) {
+          await pool.query(
+            `UPDATE charging_sessions SET full_charge_time = NOW() WHERE session_id = ?`,
+            [session.session_id]
+          );
+          session.full_charge_time = new Date();
+        }
       }
     }
 
-    return res.status(200).json({ session, estimated, ...(reachedFull ? { reached_full: true } : {}) });
+    // Feature 12: คำนวณ idle fee สะสม
+    let idleFeeData = null;
+    if (session.full_charge_time && !session.end_time && session.status === 'charging') {
+      const fullChargeTime = new Date(session.full_charge_time);
+      const totalIdleMins = (Date.now() - fullChargeTime.getTime()) / 60000;
+      const billableMins = Math.max(0, totalIdleMins - 5);
+      const idleFeeRunning = parseFloat((billableMins * 5).toFixed(2));
+      idleFeeData = { idle_fee_running: idleFeeRunning, idle_minutes: Math.floor(billableMins), full_charge_time: session.full_charge_time };
+    }
+
+    return res.status(200).json({
+      session, estimated,
+      ...(reachedFull ? { reached_full: true } : {}),
+      ...(idleFeeData || {}),
+    });
   } catch (error) {
     console.error('Get session status error:', error);
     return res.status(500).json({ message: 'Server error fetching session status.' });
@@ -841,6 +874,72 @@ router.post('/:id/notify-milestone', auth, async (req, res) => {
     return res.json({ sent: true });
   } catch (error) {
     console.error('Notify milestone error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
+/// nem — Feature 12: unplug (ถอดสาย) + commit idle fee
+router.post('/:id/unplug', auth, async (req, res) => {
+  try {
+    const [sessionRows] = await pool.query(
+      `SELECT s.session_id, s.booking_id, s.user_id, s.charger_id,
+              s.full_charge_time, s.end_time, s.status
+       FROM charging_sessions s
+       WHERE s.session_id = ? AND s.user_id = ? AND s.status = 'charging'`,
+      [req.params.id, req.user.user_id]
+    );
+    if (sessionRows.length === 0) {
+      return res.status(404).json({ message: 'Active session not found.' });
+    }
+    const session = sessionRows[0];
+
+    let idleFee = 0;
+    if (session.full_charge_time) {
+      const fullChargeTime = new Date(session.full_charge_time);
+      const billableMins = Math.max(0, (Date.now() - fullChargeTime.getTime()) / 60000 - 5);
+      idleFee = Math.round(billableMins * 5 * 100) / 100;
+    }
+
+    const conn = await pool.getConnection();
+    try {
+      await conn.beginTransaction();
+      await conn.query(
+        `UPDATE charging_sessions
+         SET idle_end_time = NOW(), idle_fee = ?, end_time = NOW(), status = 'completed'
+         WHERE session_id = ?`,
+        [idleFee, session.session_id]
+      );
+      await conn.query(
+        `UPDATE chargers SET status = 'available' WHERE charger_id = ?`,
+        [session.charger_id]
+      );
+      await conn.query(
+        `UPDATE bookings SET status = 'completed' WHERE booking_id = ?`,
+        [session.booking_id]
+      );
+      await conn.commit();
+    } catch (txErr) {
+      await conn.rollback();
+      throw txErr;
+    } finally {
+      conn.release();
+    }
+
+    // เก็บ idle fee จาก wallet/debt (best effort)
+    if (idleFee > 0) {
+      const { chargeFeeOrAddDebt } = require('../utils/chargeFeeOrAddDebt');
+      try {
+        await chargeFeeOrAddDebt(req.user.user_id, idleFee, `idle_${session.session_id}`);
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type) VALUES (?, 'ค่า Idle Fee', ?, 'charging')`,
+          [req.user.user_id, `ถอดสายแล้ว ค่า idle fee ฿${idleFee.toFixed(2)} ถูกหักจากกระเป๋าเงิน`]
+        );
+      } catch (_) {}
+    }
+
+    return res.json({ message: 'Unplugged successfully.', idle_fee: idleFee });
+  } catch (error) {
+    console.error('Unplug error:', error);
     return res.status(500).json({ message: 'Server error.' });
   }
 });

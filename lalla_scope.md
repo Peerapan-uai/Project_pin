@@ -1,41 +1,98 @@
-# lalla_scope — งานของ lalla (22 endpoints + Database)
+# lalla_scope — งานของ lalla + สิ่งที่ nem เพิ่มมา
 
 ## 🔴 Claude อ่านก่อน — ห้ามทำ 2 อย่างนี้เด็ดขาด
 
 > **ห้าม import / re-import schema.sql ใหม่ทั้งไฟล์**
 > เพราะ schema.sql มี `DROP TABLE IF EXISTS` ทุกตาราง → ข้อมูลในระบบหายหมด
 >
-> **ถ้า DB ต้องการ schema ใหม่** → ใช้ ALTER TABLE เท่านั้น (ดู section "Schema ที่ต้องรัน" ด้านล่าง)
-> schema.sql ในโปรเจคเป็นแค่ reference / เอกสาร ไม่ใช่ไฟล์ที่จะ import ซ้ำ
-
-### ✅ วิธีที่ถูกต้องถ้า schema เปลี่ยน
-1. เปิด phpMyAdmin → SQL tab
-2. รัน ALTER TABLE ที่ระบุไว้ใน section "Schema ที่ต้องรัน" ด้านล่างทีละ statement
-3. ตรวจสอบว่า query สำเร็จก่อนไปต่อ
+> **ถ้า DB ต้องการ schema ใหม่** → ใช้ไฟล์ `backend/LALLA_MIGRATION.sql` เท่านั้น (ดู section ด้านล่าง)
 
 ---
 
-## ✅ Backend เสร็จหมดแล้ว — เหลือแค่ Bug + Frontend UI
+## ⚠️ nem เพิ่ม 14 Features ใหม่ — lalla ต้องรัน migration ก่อน (สำคัญมาก)
 
-> **43 endpoints เสร็จหมดแล้ว** (อัปเดต 2026-04-12)
-> สิ่งที่เหลือ: แก้ bug 3 ตัว + ทำ Frontend Admin UI 4 หน้า (ดู section "งานที่ต้องทำต่อ")
+**อัปเดต: 2026-04-26** — nem ทำ Phase 1+2+3 เสร็จครบ 14 features
 
-## สถานะปัจจุบัน (อัปเดต 2026-04-18)
-- Database MySQL schema — **เสร็จแล้ว ✅**
-- Database MongoDB (Logs) — **เสร็จแล้ว ✅** (TTL index 90 วัน, logger middleware, logs API)
-- Backend routes admin/tech (22 endpoints) — **เสร็จแล้ว ✅**
-- Admin Logs (2 endpoints) — **เสร็จแล้ว ✅**
-- Frontend admin/tech — **เสร็จแล้ว ✅**
-- เทส Swagger ทุก endpoint — **เสร็จแล้ว ✅**
-- `POST /api/users/technician` — **แก้ bug ✅** เพิ่ม INSERT tech_profiles + primary_skill
-- `GET /api/users/:id` — **เพิ่มใหม่ ✅** admin ดู user รายคน + ประวัติทั้งหมด
-- `GET /api/users` — **แก้แล้ว ✅** เพิ่ม LEFT JOIN tech_profiles ดึง primary_skill
-- Admin Wallet (6 endpoints) — **เสร็จแล้ว ✅** เทส Swagger ผ่านหมด
-- Admin Reports (6 endpoints) — **เสร็จแล้ว ✅** เทส Swagger ผ่านหมด (แก้ bug P.amount + usage query)
-- Admin Notifications (4 endpoints) — **เสร็จแล้ว ✅** เทส Swagger ผ่านหมด
-- Schedule Notifications — **เสร็จแล้ว ✅** (2026-04-15) มี cron job จริง + table scheduled_notifications
-- FE: dropdown + badge primary_skill ใน TechnicianManagePage — **เสร็จแล้ว ✅**
-- Google Maps API — ตัดจาก 7 → 2 endpoints (nearby ✅ + stats ✅)
+### วิธีรัน migration (ทำครั้งเดียวก็พอ)
+1. เปิด phpMyAdmin → เลือก DB → SQL tab
+2. เปิดไฟล์ `backend/LALLA_MIGRATION.sql`
+3. Copy ทีละ block แล้วกด Go
+4. ถ้า error "Duplicate column" / "Table already exists" → ข้ามได้ ไม่ใช่ error จริง (ใช้ `IF NOT EXISTS` อยู่แล้ว)
+
+### Tables ใหม่ที่ nem เพิ่ม
+| Table | ใช้ทำอะไร |
+|-------|----------|
+| `user_favorites` | user กด heart บันทึกสถานีโปรด |
+| `point_balances` | ยอดแต้มสะสมของ user |
+| `point_transactions` | ประวัติได้/ใช้แต้ม (earn/redeem/expire/adjust) |
+| `tariffs` | TOU pricing (on_peak/off_peak) แต่ละตู้ |
+| `recurring_schedules` | ตารางจองประจำ (รายสัปดาห์) |
+| `booking_skip_dates` | วันที่ skip ใน recurring schedule |
+
+### Columns ใหม่ในตารางเดิม
+| ตาราง | Column ใหม่ | หมายเหตุ |
+|-------|------------|---------|
+| `chargers` | `idle_fee_enabled` | 0=auto-stop, 1=idle fee mode |
+| `chargers` | `max_temperature_celsius` | threshold overheat (default 60) |
+| `users` | `outstanding_debt` | หนี้ค้างจ่าย (idle fee/cancel fee) |
+| `users` | `wallet_frozen` | freeze wallet เมื่อมีหนี้ |
+| `users` | `freeze_reason` | เหตุผล freeze |
+| `bookings` | `scheduled_start` | เวลาจองล่วงหน้า |
+| `bookings` | `duration_min` | ระยะเวลาที่จอง (นาที) |
+| `bookings` | `recurring_schedule_id` | FK → recurring_schedules |
+| `charging_sessions` | `full_charge_time` | เวลาที่แบต = 100% |
+| `charging_sessions` | `idle_start_time` | เริ่มนับ idle fee |
+| `charging_sessions` | `idle_end_time` | จบ idle fee |
+| `charging_sessions` | `idle_fee` | ค่า idle fee ที่เก็บได้ |
+
+### Routes ใหม่ที่ nem เพิ่มใน server.js
+```
+/api/points           → routes/points.js
+/api/recurring-bookings → routes/recurringBookings.js
+/api/trip-plan        → routes/tripPlan.js
+```
+
+### Endpoints ใหม่ในไฟล์เดิม
+| Route | Endpoint ใหม่ | หน้าที่ |
+|-------|--------------|---------|
+| `routes/bookings.js` | `GET /suggest-recurring` | แนะนำ recurring slot จากประวัติ |
+| `routes/bookings.js` | `PATCH /:id/cancel` | user cancel + เก็บ ฿20 ถ้า < 60 นาที |
+| `routes/chargers.js` | `GET /:id/available-slots` | ดู slot ว่างในวันที่เลือก |
+| `routes/sessions.js` | `POST /:id/notify-milestone` | แจ้งเตือน 80%/100% |
+| `routes/sessions.js` | `POST /:id/unplug` | user ยืนยัน unplug → commit idle fee |
+
+### Cron Jobs ใหม่
+| ไฟล์ | ทำงานทุก | หน้าที่ |
+|------|---------|---------|
+| `jobs/idleFeeAutoStop.js` | 1 นาที | เริ่ม idle fee หลัง grace 5 นาที (Mode B) |
+| `jobs/recurringBookingsGen.js` | วันอาทิตย์ 00:00 | สร้าง booking จาก recurring_schedules 4 สัปดาห์ล่วงหน้า |
+
+### ไฟล์ใหม่ทั้งหมดของ nem
+```
+backend/routes/points.js
+backend/routes/recurringBookings.js
+backend/routes/tripPlan.js
+backend/jobs/idleFeeAutoStop.js
+backend/jobs/recurringBookingsGen.js
+backend/LALLA_MIGRATION.sql        ← รันนี้ก่อน!
+frontend/src/pages/user/PointsPage.jsx
+frontend/src/pages/user/RecurringSchedulePage.jsx
+```
+
+---
+
+## สถานะปัจจุบัน (อัปเดต 2026-04-26)
+
+| งาน | สถานะ |
+|-----|-------|
+| Database MySQL schema | ✅ |
+| Database MongoDB (Logs) | ✅ |
+| Backend routes admin/tech (43 endpoints) | ✅ |
+| Frontend admin/tech | ✅ |
+| nem: 14 user features (Phase 1+2+3) | ✅ |
+| Migration script สำหรับ lalla | ✅ `backend/LALLA_MIGRATION.sql` |
+
+---
 
 ## สรุป endpoints ทั้งหมดของ lalla
 | กลุ่ม | จำนวน | สถานะ |
@@ -44,141 +101,12 @@
 | User detail (GET /:id) | 1 | ✅ |
 | Nearby stations + stats | 2 | ✅ |
 | Admin Logs | 2 | ✅ |
-| Admin Wallet | 6 | ✅ เทสผ่าน |
-| Admin Reports + PDF Invoice | 6 | ✅ เทสผ่าน |
-| Admin Notifications (รวม schedule) | 4 | ✅ เทสผ่าน |
+| Admin Wallet | 6 | ✅ |
+| Admin Reports + PDF Invoice | 6 | ✅ |
+| Admin Notifications (รวม schedule) | 4 | ✅ |
 | **รวมทั้งหมด** | **43** | 43✅ |
 
-## งานที่ต้องทำต่อ
-
-### ✅ Bug แก้แล้ว (2026-04-19)
-| # | ปัญหา | ไฟล์ | สถานะ |
-|---|-------|------|-------|
-| 1 | **Admin cancel booking ไม่คืน charger** | `routes/bookings.js` | ✅ แก้แล้ว — SELECT charger_id ก่อน แล้ว UPDATE chargers SET status='available' |
-| 2 | **`GET /sessions/all` route ordering bug** | `routes/sessions.js` | ✅ ไม่ใช่ bug จริง — `/:id/status` ต้อง 2 segment ไม่ชนกับ `/all` |
-| 3 | **Mongo Express ไม่มี auth** | `docker-compose.yml:50` | 🟡 ยังไม่แก้ — ค่อยทำก็ได้ |
-| 4 | **server.js require path ผิด** `'./routes   auth'` | `server.js:18` | ✅ แก้แล้ว → `'./routes/auth'` |
-
-### ✅ Frontend Admin — เสร็จหมดแล้ว
-| # | หน้า | สถานะ |
-|---|------|-------|
-| 1 | Wallet Management UI | ✅ |
-| 2 | Refund Approval UI | ✅ เพิ่ม predefined reject reasons + custom approve modal (2026-04-19) |
-| 3 | Reports / CSV Export UI | ✅ |
-| 4 | PDF Invoice ปุ่มดาวน์โหลด | ✅ |
-
-### ✅ FE งานที่ทำ 2026-04-19 (เพิ่มเติม)
-| # | งาน | ไฟล์ | สถานะ |
-|---|-----|------|-------|
-| 1 | Real-time notifications (polling 10s + visibilitychange) | `context/NotificationContext.jsx`, `App.jsx`, `Sidebar.jsx`, `TopBar.jsx` | ✅ |
-| 2 | Recycle Bin route + menu | `AppRouter.jsx`, `Sidebar.jsx` | ✅ |
-| 3 | Custom Select dropdown (แทน native `<select>` ทุกหน้า admin/tech) | `components/ui/Select.jsx` + 11 ไฟล์ | ✅ |
-| 4 | Dropdown max-height จำกัด 3 แถว + scroll | `components/ui/Select.jsx` | ✅ |
-| 5 | Dashboard real-time polling 10s + visibilitychange | `DashboardPage.jsx` | ✅ |
-| 6 | แก้ bug รายได้วันนี้ (ไม่ส่ง to_date → backend ใช้ now()) | `DashboardPage.jsx` | ✅ |
-| 7 | กำกับ period label "ตลอดเวลา" ใน Top3, StationManagePage | `DashboardPage.jsx`, `StationManagePage.jsx` | ✅ |
-| 8 | BookingManagePage subtitle ใช้ filtered.length + label period | `BookingManagePage.jsx` | ✅ |
-| 9 | BookingManagePage ชำระเงิน/ยอดเงิน แสดง "รอชำระ" แทน dash สำหรับ pending | `BookingManagePage.jsx` | ✅ |
-
-### วิธีเทส "รายได้วันนี้" บน Dashboard
-1. เปิด `http://localhost:5001/api-docs` → Authorize ด้วย admin token
-2. ไปที่ `GET /api/admin/reports/revenue`
-3. ใส่ params: `period=daily`, `from_date=2026-04-19` (ไม่ต้องใส่ to_date)
-4. ถ้า summary.total_revenue > 0 = endpoint ทำงานถูกต้อง
-5. ถ้า = 0 แปลว่าวันนี้ยังไม่มี payment completed ใน DB ให้ตรวจว่ามี payment record ที่ `paid_at` เป็นวันนี้หรือไม่
-
-> ⚠️ bug เดิม: ส่ง `to_date=today` ทำให้ MySQL เปรียบเทียบ `paid_at <= 2026-04-19 00:00:00` (midnight) → ไม่เจอ record ที่จ่ายตอนกลางวัน
-> แก้แล้ว: ไม่ส่ง `to_date` → backend default เป็น `new Date()` (ตอนนี้) → รวมทุก payment วันนี้
-
 ---
-
-## ✅ ระบบ Refund Request — เสร็จแล้ว (อัปเดต 2026-04-18)
-
-### ⚠️ DB ที่ต้องรัน ALTER TABLE ก่อน (lalla ต้องทำ)
-```sql
-ALTER TABLE refund_requests
-  ADD COLUMN title VARCHAR(255) NOT NULL DEFAULT '' AFTER user_id,
-  MODIFY COLUMN reason TEXT DEFAULT NULL;
-```
-
-### โครงสร้างตาราง refund_requests (ปัจจุบัน)
-| column | type | หมายเหตุ |
-|--------|------|---------|
-| request_id | INT PK AUTO_INCREMENT | |
-| payment_id | INT FK → payments | |
-| user_id | INT FK → users | |
-| title | VARCHAR(255) NOT NULL | **ใหม่** — หัวข้อการขอคืนเงิน |
-| reason | TEXT DEFAULT NULL | รายละเอียดเพิ่มเติม (ไม่บังคับ) |
-| image_url | VARCHAR(500) | JSON array ของ path รูป เช่น `["/uploads/refunds/xxx.jpg"]` |
-| status | ENUM('pending','approved','rejected') | default 'pending' |
-| reviewed_by | INT FK → users | admin ที่ approve/reject |
-| reviewed_at | TIMESTAMP NULL | |
-| created_at | TIMESTAMP | |
-
-### Backend (nem ทำ — ห้ามแก้)
-| Method | Path | หน้าที่ |
-|--------|------|---------|
-| POST | `/api/payments/:id/refund-request` | user ส่งขอคืนเงิน รับ `{ title, reason?, images?: [base64] }` |
-| GET | `/api/admin/refunds?status=pending` | admin ดูรายการ (filter ด้วย status) |
-| POST | `/api/admin/refunds/:id/approve` | approve → คืนเงินเข้า wallet + notification |
-| POST | `/api/admin/refunds/:id/reject` | reject รับ `{ reason? }` + notification |
-
-### Response จาก GET /api/admin/refunds
-```json
-{
-  "refund_request": [
-    {
-      "request_id": 1,
-      "user_id": 5,
-      "title": "ตู้ชาร์จไม่ทำงาน / ชาร์จไม่ได้",
-      "reason": "กดชาร์จแล้วตู้ไม่ตอบสนองเลย",
-      "image_url": "[\"/uploads/refunds/refund_5_xxx.jpg\"]",
-      "status": "pending",
-      "payment_id": 12,
-      "amount": "250.00",
-      "method": "credit_card",
-      "first_name": "สมชาย",
-      "last_name": "ใจดี",
-      "email": "user@example.com",
-      "created_at": "2026-04-18T..."
-    }
-  ]
-}
-```
-
-### Frontend ที่ทำแล้ว
-| ไฟล์ | หน้าที่ | สถานะ |
-|------|---------|-------|
-| `pages/user/PaymentHistoryPage.jsx` | user กดปุ่ม "ขอคืนเงิน" → modal เลือกหัวข้อ + รายละเอียด + รูป | ✅ |
-| `pages/admin/RefundManagePage.jsx` | admin เห็นรายการ + approve/reject + ดูรูป | ✅ |
-
-### หัวข้อที่ user เลือกได้ (dropdown)
-1. ตู้ชาร์จไม่ทำงาน / ชาร์จไม่ได้
-2. ถูกเก็บเงินผิดจำนวน
-3. ชาร์จไม่เสร็จ / หยุดกลางคัน
-4. จองแล้วใช้งานไม่ได้
-5. ยกเลิกการจองแต่ยังถูกตัดเงิน
-6. อื่นๆ (พิมพ์เอง)
-
-### รูปภาพแนบ
-- เก็บที่ `backend/uploads/refunds/` (static serve อยู่แล้ว)
-- `image_url` ใน DB เป็น JSON string เช่น `["/uploads/refunds/file.jpg", ...]`
-- ใน RefundManagePage ใช้ `JSON.parse(rr.image_url)` แล้ว render ด้วย `BASE_URL + path`
-
----
-
-### ⏳ งานจิปาถะ
-| # | งาน | สถานะ |
-|---|------|-------|
-| 1 | commit + push ไฟล์ที่ค้าง (server.js, notifications.js, package.json) | ⏳ |
-| 2 | อัปเดต schema.sql ให้ตรง DB จริง (tech_profiles columns + scheduled_notifications) | ⏳ |
-
-## 🔴 Bug จาก Code Review (2026-04-12) — lalla ต้องแก้
-| # | ปัญหา | ไฟล์ | ความร้ายแรง |
-|---|-------|------|------------|
-| 1 | **Admin cancel booking ไม่คืน charger เป็น available** — แค่ UPDATE bookings ไม่มี UPDATE chargers SET status='available' | `routes/bookings.js:246-261` | 🔴 ต้องแก้ |
-| 2 | **`GET /sessions/all` route ordering bug** — อยู่หลัง `GET /:id/status` ทำให้ Express จับ "all" เป็น `:id` → route ไม่ทำงาน | `routes/sessions.js:402` (ย้ายไว้ก่อน `:id/status`) | 🔴 ต้องแก้ |
-| 3 | **Mongo Express ไม่มี auth** — `ME_CONFIG_BASICAUTH: "false"` ใครก็เข้า port 8082 แก้ข้อมูลได้ | `docker-compose.yml:50` | 🟡 ควรแก้ |
 
 ## ความรับผิดชอบหลัก
 ดูแล Database schema ทั้งหมด + API ฝั่ง Admin และ Technician
@@ -197,96 +125,100 @@ ALTER TABLE refund_requests
 
 ---
 
-## ~~ต้องทำก่อนเพื่อน~~ ✅ เสร็จหมดแล้ว
-
-> Database schema + tables ทั้งหมดเสร็จเรียบร้อยแล้ว ไม่ต้องทำอะไรเพิ่ม
-
----
-
-## API ที่ lalla ต้องเขียน (14 endpoints)
+## API ที่ lalla ทำ (43 endpoints) — เสร็จครบ ✅
 
 ### Users — Admin only (4)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 1 | GET | `/api/users` | ดู user ทั้งหมดในระบบ | ✅ |
-| 2 | PATCH | `/api/users/:id/ban` | ban/unban user | ✅ |
-| 3 | POST | `/api/users/technician` | สร้าง account ช่าง | ✅ |
-| 4 | PUT | `/api/users/:id` | admin แก้ไขข้อมูล user/ช่าง (ชื่อ/เบอร์/รหัสผ่าน) | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/users` | ดู user ทั้งหมด |
+| PATCH | `/api/users/:id/ban` | ban/unban user |
+| POST | `/api/users/technician` | สร้าง account ช่าง |
+| PUT | `/api/users/:id` | admin แก้ข้อมูล user/ช่าง |
 
 ### Stations — Admin only (3)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 4 | POST | `/api/stations` | เพิ่มสถานีใหม่ | ✅ |
-| 5 | PUT | `/api/stations/:id` | แก้ข้อมูลสถานี | ✅ |
-| 6 | DELETE | `/api/stations/:id` | ลบสถานี | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| POST | `/api/stations` | เพิ่มสถานีใหม่ |
+| PUT | `/api/stations/:id` | แก้ข้อมูลสถานี |
+| DELETE | `/api/stations/:id` | soft delete สถานี |
 
 ### Chargers — Admin/Tech (5)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 7 | GET | `/api/chargers` | ดูตู้ชาร์จทั้งหมด (admin only) | ✅ |
-| 8 | POST | `/api/chargers` | เพิ่มตู้ชาร์จ | ✅ |
-| 9 | PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ | ✅ |
-| 10 | PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ (available/reserved/charging/out_of_service) | ✅ |
-| 11 | DELETE | `/api/chargers/:id` | ลบตู้ชาร์จ | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/chargers` | ดูตู้ชาร์จทั้งหมด (admin) |
+| POST | `/api/chargers` | เพิ่มตู้ชาร์จ |
+| PUT | `/api/chargers/:id` | แก้ข้อมูลตู้ชาร์จ |
+| PATCH | `/api/chargers/:id/status` | เปลี่ยนสถานะ |
+| DELETE | `/api/chargers/:id` | soft delete ตู้ชาร์จ |
 
 ### Tickets — Admin/Tech (4)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 12 | GET | `/api/tickets` | ดู ticket ทั้งหมด (admin เห็นทุกอัน, ช่างเห็นของตัวเอง) | ✅ |
-| 13 | PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง | ✅ |
-| 14 | PATCH | `/api/tickets/:id/status` | update สถานะ ticket (reported/assigned/in_progress/completed) | ✅ |
-| 15 | POST | `/api/tickets/:id/image` | อัพโหลดรูป repair_image | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/tickets` | ดู ticket ทั้งหมด |
+| PATCH | `/api/tickets/:id/assign` | assign ticket ให้ช่าง |
+| PATCH | `/api/tickets/:id/status` | update สถานะ ticket |
+| POST | `/api/tickets/:id/image` | อัพโหลดรูป repair_image |
 
 ### Bookings — Admin only (2)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 16 | GET | `/api/bookings/all` | ดู booking ทุกคนในระบบ (admin view) | ✅ |
-| 17 | PATCH | `/api/bookings/:id/admin-cancel` | admin ยกเลิก booking ใดก็ได้ | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/bookings/all` | ดู booking ทุกคน (admin view) |
+| PATCH | `/api/bookings/:id/admin-cancel` | admin ยกเลิก booking |
 
 ### Payments — Admin only (1)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 18 | GET | `/api/payments/admin/all` | ดูรายการจ่ายเงินทั้งหมด พร้อม station/charger info | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/payments/admin/all` | ดูรายการจ่ายเงินทั้งหมด |
 
 ### Sessions — Admin only (1)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 19 | GET | `/api/sessions/all` | ดู charging session ทุกคน (admin view) | ✅ |
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/sessions/all` | ดู charging session ทุกคน |
 
-### Dashboard Stats — Admin only (1)
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 20 | GET | `/api/admin/stats` | ดึงสถิติ dashboard (total_users, bookings_today, payments_count, charger_issue) | ✅ |
+### Dashboard Stats (1)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/admin/stats` | สถิติ dashboard |
 
----
+### Nearby + Stats (2)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/stations/nearby` | หาสถานีใกล้เคียง (Haversine) |
+| GET | `/api/stations/:id/stats` | สถิติสถานี |
 
-## Frontend ที่เพิ่มใหม่ (2026-03-26)
+### Admin Logs (2)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/admin/logs` | ดู log ทั้งหมด |
+| GET | `/api/admin/logs/:type` | filter log ตาม type |
 
-| ไฟล์ | หน้าที่ | สถานะ |
-|------|---------|-------|
-| `pages/admin/AdminLoginPage.jsx` | หน้า login PC-style สำหรับ Admin และ Technician | ✅ |
-| `routes/AppRouter.jsx` | เพิ่ม route `/admin/login` | ✅ |
+### Admin Wallet (6)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/admin/users/:id/wallet` | ยอด + ประวัติ wallet |
+| GET | `/api/admin/wallet/transactions` | transactions ทั้งหมด |
+| GET | `/api/admin/wallet/transactions/:txnId` | transaction เดียว |
+| POST | `/api/admin/users/:id/wallet/adjust` | ปรับยอด + reason |
+| PATCH | `/api/admin/users/:id/wallet/freeze` | freeze/unfreeze |
+| GET | `/api/admin/wallet/summary` | dashboard summary |
 
-- เข้าได้ที่ `http://localhost:3000/admin/login`
-- ถ้า login ด้วย role `user` จะขึ้น error "ไม่มีสิทธิ์เข้าใช้งานระบบ Staff"
-- admin → `/admin/dashboard`, technician → `/tech/dashboard`
-- ใช้ `api.post('/api/auth/login')` และ `useAuth()` hook เดียวกับ nem
+### Admin Reports (6)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/admin/reports/revenue` | รายได้ |
+| GET | `/api/admin/reports/bookings` | สถิติการจอง |
+| GET | `/api/admin/reports/users` | สถิติ user |
+| GET | `/api/admin/reports/chargers` | สถิติตู้ชาร์จ |
+| GET | `/api/admin/reports/export` | export CSV |
+| GET | `/api/payments/:id/invoice` | PDF Invoice |
 
-> รวม lalla ใน code จริง = **23 endpoints** (22 เดิม + nearby)
-
----
-
-## ⚠️ Dependencies จาก nem ที่ต้องรู้
-
-### Auto-notification เมื่อมี ticket ใหม่
-- **nem แก้แล้ว ✅** `POST /api/tickets` INSERT notification ให้ช่างทุกคนอัตโนมัติ (bulk insert)
-- notification title: `"มีแจ้งปัญหาใหม่"`, message: `"ตั๋วซ่อม #{id}: {title}"`
-- **lalla ต้องทำ** ให้ tech dashboard อ่าน notification เหล่านี้และแสดงผล (unread badge + list)
-
-### ปุ่มแจ้งปัญหาใน BookingPage
-- **nem ทำแล้ว ✅** ปุ่ม "แจ้งปัญหาตู้ชาร์จนี้" ใน BookingPage → navigate `/report` พร้อม pre-fill chargerId + stationId
-- ReportIssuePage รับ location.state มา pre-fill สถานี + ตู้ชาร์จอัตโนมัติ
-- lalla ต้องทำให้ tech dashboard เห็น ticket นั้นและ assign งานได้
+### Admin Notifications (4)
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| GET | `/api/admin/notifications` | ดูทั้งหมด |
+| POST | `/api/admin/notifications` | ส่งประกาศ |
+| POST | `/api/admin/notifications/schedule` | ตั้งเวลาส่ง |
+| DELETE | `/api/admin/notifications/:id` | ลบ |
 
 ---
 
@@ -295,14 +227,17 @@ ALTER TABLE refund_requests
 ### Routes ที่ห้ามแก้
 | Route | เพราะ |
 |-------|-------|
-| `routes/auth.js` | register/login ของ nem ทั้งหมด |
+| `routes/auth.js` | register/login ของ nem |
 | `routes/vehicles.js` | CRUD รถของ user |
-| `routes/bookings.js` — ยกเว้น GET all admin | user booking ของ nem |
-| `routes/sessions.js` | start/stop charging ของ nem |
+| `routes/bookings.js` — ยกเว้น GET all admin | user booking + cancel + suggest-recurring |
+| `routes/sessions.js` | start/stop/notify-milestone/unplug ของ nem |
 | `routes/payments.js` | payment ของ nem |
 | `routes/reviews.js` | review ของ nem |
 | `routes/notifications.js` | notification ของ nem |
-| `routes/tickets.js` — เฉพาะ POST | user แจ้งปัญหา ของ nem |
+| `routes/tickets.js` — เฉพาะ POST | user แจ้งปัญหา |
+| `routes/points.js` | reward points ของ nem |
+| `routes/recurringBookings.js` | recurring schedule ของ nem |
+| `routes/tripPlan.js` | trip planning ของ nem |
 
 ### หน้า Frontend ที่ห้ามแก้
 - `pages/user/` ทุกไฟล์ → ของ nem
@@ -312,426 +247,68 @@ ALTER TABLE refund_requests
 
 ### จุดที่ระวังชนกัน
 - `routes/tickets.js` — nem ทำแค่ POST ส่วนที่เหลือของ lalla อย่า overwrite ทั้งไฟล์
-- `routes/bookings.js` — nem ทำ user bookings lalla เพิ่มแค่ GET all admin อย่าแก้ทับ
-- `routes/chargers.js` — nem ทำ GET (อ่าน) lalla ทำ POST/PUT/PATCH อย่าแก้ GET ทิ้ง
+- `routes/bookings.js` — nem เพิ่ม `suggest-recurring`, `cancel` (fee logic) อย่าแก้ทับ
+- `routes/chargers.js` — nem เพิ่ม `GET /:id/available-slots` อย่าลบทิ้ง
+- `routes/sessions.js` — nem เพิ่ม `notify-milestone`, `unplug` อย่าลบทิ้ง
 - `routes/stations.js` — nem ทำ GET (อ่าน) lalla ทำ POST/PUT/DELETE อย่าแก้ GET ทิ้ง
 - `middleware/auth.js` — ใช้ร่วมกัน ถ้าจะแก้ต้องบอกกันก่อน
-- `server.js` — ใช้ร่วมกัน ถ้าจะเพิ่ม route ใหม่ต้องบอกกันก่อน
+- `server.js` — nem เพิ่ม routes: `/api/points`, `/api/recurring-bookings`, `/api/trip-plan` แล้ว อย่า overwrite
+
+---
+
+## ระบบ Refund Request — เสร็จแล้ว ✅
+
+| Method | Path | หน้าที่ |
+|--------|------|---------|
+| POST | `/api/payments/:id/refund-request` | user ส่งขอคืนเงิน |
+| GET | `/api/admin/refunds?status=pending` | admin ดูรายการ |
+| POST | `/api/admin/refunds/:id/approve` | approve → คืนเงินเข้า wallet |
+| POST | `/api/admin/refunds/:id/reject` | reject + reason + notification |
+
+- รูปแนบเก็บที่ `backend/uploads/refunds/`
+- FE: `PaymentHistoryPage.jsx` (user), `RefundManagePage.jsx` (admin)
+
+---
+
+## Soft Delete (Recycle Bin) — เสร็จแล้ว ✅
+
+- `users`, `stations`, `chargers` มี column `deleted_at DATETIME NULL`
+- DELETE endpoints ทั้งหมดเป็น Soft Delete (`UPDATE SET deleted_at = NOW()`)
+- `PATCH /:id/restore` กู้คืนได้
+- `backend/routes/admin/trash.js` — 9 endpoints GET/restore/permanent
+- FE: `TrashPage.jsx` + route `/admin/trash` + menu "Recycle Bin" ใน Sidebar
 
 ---
 
 ## MongoDB — Log System (NoSQL)
 
-โปรเจคนี้ใช้ **2 DB**: MySQL (ข้อมูลหลัก) + MongoDB (เก็บ log)
-
-### ทำไมต้องมี MongoDB ด้วย
-- Log มีปริมาณเยอะมาก (ทุก request = 1 document) → MySQL ไม่เหมาะ
-- แต่ละ log มี body โครงสร้างไม่เหมือนกัน → MongoDB เก็บ JSON ยืดหยุ่นกว่า
-- Log ไม่ต้อง JOIN กับ table อื่น → ไม่จำเป็นต้อง relational
-- MongoDB เขียนไว ไม่มี FK check, ตั้ง TTL auto-delete log เก่าได้
-
-### Setup ที่มีแล้ว (ไม่ต้องทำ)
 | ไฟล์ | หน้าที่ |
 |------|---------|
 | `config/mongodb.js` | เชื่อม MongoDB |
-| `models/Log.js` | Mongoose schema สำหรับ log |
-| `middleware/logger.js` | บันทึกทุก request อัตโนมัติ (ทุก role) |
-| `docker-compose.yml` | MongoDB container + Mongo Express (GUI: `localhost:8082`) |
+| `models/Log.js` | Mongoose schema |
+| `middleware/logger.js` | บันทึกทุก request อัตโนมัติ (fire-and-forget) |
+| `docker-compose.yml` | MongoDB container + Mongo Express (`localhost:8082`) |
+| `routes/admin/logs.js` | GET /api/admin/logs, GET /api/admin/logs/:type |
 
-### งานที่ lalla ต้องทำ (MongoDB) — เสร็จหมดแล้ว ✅
+- TTL index 90 วัน (auto-delete log เก่า)
+- Mongo Express ไม่มี auth → `ME_CONFIG_BASICAUTH: "false"` (ค่อยแก้ก็ได้)
+
+---
+
+## 🔒 Security & Stability
+
 | # | งาน | สถานะ |
-|---|------|-------|
-| 1 | `GET /api/admin/logs` — admin ดู log ทั้งหมด | ✅ |
-| 2 | `GET /api/admin/logs/:type` — filter log (เช่น error 4xx/5xx) | ✅ |
-| 3 | TTL index — ลบ log เก่าอัตโนมัติ (เช่น เกิน 90 วัน) | ✅ |
+|---|-----|-------|
+| 1 | CORS จำกัด origin `localhost:3000`, `localhost:5173` | ✅ |
+| 2 | Rate limiting login — max 10 ครั้ง / 15 นาที | ✅ |
+| 3 | JWT_SECRET เปลี่ยนเป็น random 128 ตัวอักษร | ✅ |
+| 4 | `BASE_URL` export จาก `api.js` แทน hardcoded localhost | ✅ |
+| 5 | Error handling frontend — toast แทน console.error | ⏳ |
 
 ---
 
-## หมายเหตุเรื่อง Schema (MySQL)
+## Performance Indexes — รันใน phpMyAdmin ถ้ายังไม่มี
 
-ไฟล์ [backend/schema.sql](backend/schema.sql) มีอยู่แล้ว — ตัดสินใจได้ 2 ทาง:
-- **ใช้ต่อ** → import เข้า MySQL แล้วปรับเพิ่มเติมได้
-- **เขียนใหม่** → ลบ db เก่าใน phpMyAdmin แล้วสร้างเอง
-
-ถ้าแก้ schema ต้องบอกฉันด้วย เพราะ query ใน backend ต้องตรงกับชื่อ column
-
----
-
-## ⚠️ Schema ที่ต้องรัน ALTER TABLE — รันใน phpMyAdmin ทีละ statement
-
-> ⚠️ ห้าม import schema.sql ใหม่ — มี DROP TABLE → ข้อมูลหาย (ดูคำเตือนด้านบน)
-
-### วิธีเช็ค DB ว่ามีแล้วหรือยัง (รันใน phpMyAdmin ก่อนทำอะไร)
-
-```sql
--- เช็ค columns ทั้งหมดของแต่ละตาราง
-SHOW COLUMNS FROM vehicles;
-SHOW COLUMNS FROM chargers;
-SHOW COLUMNS FROM bookings;
-```
-
-แล้วเปรียบเทียบ:
-| ต้องมี column/ENUM | ตาราง | ถ้าไม่มี → รัน Statement # |
-|--------------------|-------|--------------------------|
-| `battery_current_kwh` | vehicles | Statement 1 |
-| `temperature_celsius` | chargers | Statement 2 |
-| `active` ใน ENUM status | bookings | Statement 3 |
-
-> ถ้า `SHOW COLUMNS FROM bookings` แล้วเห็น status ENUM มี `'active'` อยู่แล้ว → ไม่ต้องรัน Statement 3
-
----
-
-### Statement 1 — vehicles.battery_current_kwh
-```sql
-ALTER TABLE vehicles
-  ADD COLUMN battery_current_kwh DECIMAL(6,2) DEFAULT NULL
-  AFTER battery_capacity_kwh;
-```
-- nem อัพเดทค่านี้อัตโนมัติทุกครั้งที่ชาร์จเสร็จ
-- ไม่ต้องทำอะไรฝั่ง lalla
-
----
-
-### Statement 2 — chargers.temperature_celsius
-```sql
-ALTER TABLE chargers
-  ADD COLUMN temperature_celsius DECIMAL(5,2) DEFAULT NULL
-  AFTER status;
-```
-- **lalla ต้องทำ:** แสดงค่าใน admin charger management
-- ถ้า temperature >= 60 → แสดง badge "ร้อนเกิน" สีแดง หรือ auto set `out_of_service`
-
----
-
-### Statement 3 — bookings.status เพิ่ม 'active' (เพิ่มเมื่อ 2026-04-09)
-```sql
-ALTER TABLE bookings
-  MODIFY status ENUM('pending','confirmed','active','cancelled','completed','expired')
-  NOT NULL DEFAULT 'pending';
-```
-**ทำไมต้องมี `'active'`:**
-- ตอน user กดเริ่มชาร์จ → booking เปลี่ยนจาก `confirmed` → `active`
-- expire job เช็คแค่ `WHERE status = 'confirmed'` → booking ที่ชาร์จอยู่ไม่โดน expire กลางคัน
-- ตอนหยุดชาร์จ → `completed`
-
-**lalla ต้องระวัง:** ถ้ามี query ที่ดึง booking ที่กำลัง active อยู่ ต้องเพิ่ม `'active'` ด้วย:
-```sql
--- booking ที่ยังไม่เสร็จ (confirmed = จอง, active = กำลังชาร์จ)
-WHERE status IN ('confirmed', 'active')
-```
-
----
-
-## ~~ลำดับการทำงาน~~ ✅ ผ่านขั้นตอนนี้หมดแล้ว
-
----
-
-## วิธีเทส API
-
-1. รัน backend: `cd backend && nodemon server.js`
-2. รัน frontend: `cd frontend && npm run dev`
-3. เปิด `http://localhost:5001/api-docs` (Swagger)
-4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
-5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
-
-## ~~แผนงานที่เหลือ 23 endpoints~~ ✅ Backend เสร็จหมดแล้ว (อัปเดต 2026-04-12)
-
-### ~~🔴 ลำดับ 1 — Admin Wallet (6 endpoints)~~ ✅ เสร็จแล้ว
-
-### 🟡 ลำดับ 2 — Google Maps / Stations API (2 endpoints — ตัด 5 ที่ซ้ำซ้อนออกแล้ว)
-> วิเคราะห์แล้ว: 5 จาก 7 endpoints เดิมซ้ำซ้อนกับสิ่งที่ frontend ทำได้แล้ว
-> เหลือเฉพาะ 2 ที่มีเหตุผลทางเทคนิคจริง
-
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 23 | GET | `/api/stations/nearby` | หาสถานีใกล้เคียงจาก lat/lng + radius (ใช้ Haversine ใน SQL + spatial index) | ✅ |
-| 24 | GET | `/api/stations/:id/stats` | สถิติของสถานี (booking count, revenue, charger availability %) — ต้อง aggregate หลาย table | ✅ |
-
-#### ❌ ตัดออก 5 endpoints — เหตุผลทางเทคนิค
-| endpoint เดิม | ทำไมตัด |
-|--------------|---------|
-| `GET /api/stations/filter` | frontend filter เร็วกว่า — สถานี ~100 แห่งโหลดมาหมดแล้ว, filter ฝั่ง client = 0ms vs API call = 200ms+ network round-trip |
-| `GET /api/stations/:id/availability` | ซ้ำกับ `GET /api/chargers/station/:id` ที่ nem มีแล้ว — return chargers พร้อม status อยู่แล้ว |
-| `POST /api/distances/calculate` | Haversine formula เป็นสูตรคณิตศาสตร์ล้วน (0.001ms) — frontend คำนวณเองได้ไม่ต้องเรียก API (200ms+ round-trip) |
-| `POST /api/users/:id/location` | ไม่มี table เก็บ location, ไม่มี use case จริงที่ต้อง persist user location ใน DB |
-| `POST /api/locations/search` | frontend ใช้ Google Places Autocomplete SDK โดยตรง — ผ่าน backend = เพิ่ม latency ไม่มีประโยชน์ |
-
-### ~~🟡 ลำดับ 3 — Admin Reports (6 endpoints)~~ ✅ เสร็จแล้ว
-
-### ~~🟡 ลำดับ 4 — PDF Invoice~~ ✅ รวมอยู่ใน Reports แล้ว
-
-### ~~🟢 ลำดับ 5 — Notification Admin (4 endpoints)~~ ✅ เสร็จแล้ว
-
-### Admin Logs — เสร็จแล้ว ✅
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 41 | GET | `/api/admin/logs` | ดู log ทั้งหมด | ✅ |
-| 42 | GET | `/api/admin/logs/:type` | filter log ตาม type | ✅ |
-
-> รวมทั้งหมด = **43 endpoints** (43✅ — เสร็จหมดแล้ว)
-
----
-
-## Database ที่ต้องเพิ่ม (อนาคต)
-
-> รัน query เหล่านี้ใน phpMyAdmin ก่อน implement API ใหม่
-
-### 1. ALTER TABLE payments (เพิ่ม 4 columns)
-```sql
-ALTER TABLE payments
-ADD COLUMN webhook_id VARCHAR(255) NULL,
-ADD COLUMN refund_status ENUM('none','pending','completed','failed') DEFAULT 'none',
-ADD COLUMN refund_amount DECIMAL(10,2) NULL,
-ADD COLUMN expires_at DATETIME NULL;
-```
-**เหตุผล:** รองรับ webhook idempotency, refund tracking, QR expire
-
-### 2. CREATE TABLE refunds (ใหม่)
-```sql
-CREATE TABLE refunds (
-  refund_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  payment_id INT UNSIGNED NOT NULL,
-  amount DECIMAL(10,2) NOT NULL,
-  reason VARCHAR(255),
-  status ENUM('pending','completed','failed') DEFAULT 'pending',
-  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY (refund_id),
-  FOREIGN KEY (payment_id) REFERENCES payments(payment_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-**เหตุผล:** 1 payment อาจมีหลาย refund (partial refund) ต้องแยก table
-
-### 3. ALTER TABLE stations (เพิ่ม Spatial Index)
-```sql
-ALTER TABLE stations
-ADD INDEX idx_location (latitude, longitude);
-```
-**เหตุผล:** query nearby stations เร็วขึ้น ไม่ full table scan
-
-### 4. CREATE TABLE notification_logs (ใหม่)
-```sql
-CREATE TABLE notification_logs (
-  log_id INT UNSIGNED NOT NULL AUTO_INCREMENT,
-  notification_id INT UNSIGNED NOT NULL,
-  user_id INT UNSIGNED NOT NULL,
-  delivered_at TIMESTAMP NULL,
-  read_at TIMESTAMP NULL,
-  status ENUM('pending','delivered','failed') DEFAULT 'pending',
-  PRIMARY KEY (log_id),
-  FOREIGN KEY (notification_id) REFERENCES notifications(notification_id),
-  FOREIGN KEY (user_id) REFERENCES users(user_id)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-```
-**เหตุผล:** track delivery/read rate สำหรับ `GET /api/notifications/analytics`
-
----
-
-## สิ่งที่แก้/เพิ่มวันที่ 2026-03-26
-
-| สิ่งที่ทำ | ไฟล์ที่แก้ |
-|-----------|-----------|
-| แก้ port frontend จาก 5000 → 5001 | `frontend/.env` |
-| reset password hash ของ admin ใน DB | phpMyAdmin |
-| แก้ bug DashboardPage `users.filter is not a function` | `frontend/src/pages/admin/DashboardPage.jsx` |
-| แก้ Swagger doc ของ POST /api/users/technician (`name` → `first_name`+`last_name`) | `backend/routes/users.js` |
-| เพิ่ม Swagger doc ให้ GET /api/bookings/all | `backend/routes/bookings.js` |
-| เพิ่ม Swagger doc ให้ GET /api/admin/stats | `backend/server.js` |
-| แก้ Swagger config ให้อ่าน server.js ด้วย | `backend/server.js` |
-| เทสทุก 15 endpoint ผ่านหมด | — |
-
----
-
-## วิธีให้ Claude สอน (สำหรับ lalla)
-
-> ให้ Claude อธิบายควบคู่กับการเช็ค/แก้ bug ทีละ route ไม่ใช่แค่แก้ให้ผ่าน
-
-**วิธีใช้:**
-- ครอบ code ที่อยากเข้าใจแล้วบอกว่า "อธิบายที่ครอบไว้"
-- ถามได้เลยถ้าไม่เข้าใจคำไหน เช่น "destructuring คืออะไร", "ทำไมต้องมี async await"
-- ให้ Claude เช็ค bug ก่อนแก้เองเสมอ แล้วค่อยถามว่าทำไมต้องแก้
-
-**ตัวอย่างที่ถามได้:**
-```
-"อธิบายที่ครอบไว้ที"
-"ทำไมถึงใช้ [rows] แทน rows เฉยๆ"
-"req.body คืออะไร"
-"เช็คให้ทีว่า bug หายไปแล้วไหม"
-"flow ของ route นี้เป็นยังไง"
-```
-
-**สิ่งที่จะได้:**
-- เข้าใจว่าแต่ละบรรทัดทำอะไร ไม่ใช่แค่ copy
-- รู้ว่า bug เกิดจากไหน ไม่ใช่แค่แก้ตามที่บอก
-- พอถึงตอนอาจารย์ถาม จะตอบได้ครับ
-
----
-
-## ✅ Soft Delete (Recycle Bin) — เสร็จแล้ว (2026-04-18)
-
-### แนวคิด Soft Delete vs Hard Delete
-| | Hard Delete | Soft Delete |
-|--|------------|-------------|
-| SQL | `DELETE FROM table` | `UPDATE table SET deleted_at = NOW()` |
-| ข้อมูลหาย? | ถาวร ✗ | ไม่หาย ✓ |
-| กู้คืนได้? | ไม่ได้ | ได้ (ล้าง `deleted_at = NULL`) |
-| เหมาะกับ | log ชั่วคราว | users, stations, chargers |
-
-### Schema ที่เพิ่ม
-เพิ่ม column `deleted_at DATETIME NULL DEFAULT NULL` ใน 3 ตาราง:
-```sql
--- รันใน phpMyAdmin ถ้ายังไม่มี
-ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-ALTER TABLE stations ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-ALTER TABLE chargers ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-```
-
-### chargers.js — สิ่งที่แก้
-| บรรทัด | แก้อะไร | ทำไม |
-|-------|---------|------|
-| GET / ~40 | เพิ่ม `WHERE c.deleted_at IS NULL` | ไม่แสดงตู้ที่ถูกลบแล้วในหน้า admin |
-| GET /station/:id ~54 | เพิ่ม `AND deleted_at IS NULL` | ไม่แสดงตู้ที่ถูกลบในหน้าสถานี |
-| GET /:id ~89 | เพิ่ม `AND deleted_at IS NULL` | ไม่ดึงตู้ที่ถูกลบมา detail |
-| DELETE /:id | เปลี่ยน `DELETE FROM` → `UPDATE SET deleted_at = NOW()` | Soft Delete แทน Hard Delete |
-| PATCH /:id/restore (ใหม่) | `SET deleted_at = NULL WHERE deleted_at IS NOT NULL` | กู้คืนจาก trash |
-
-### stations.js — สิ่งที่แก้
-| บรรทัด | แก้อะไร | ทำไม |
-|-------|---------|------|
-| GET / ~51 | เพิ่ม `WHERE s.deleted_at IS NULL` (ก่อน AND) | query ต้องมี WHERE ก่อน ถึงต่อ AND ได้ |
-| GET /nearby ~151 | เพิ่ม `WHERE s.deleted_at IS NULL` | ไม่แสดงสถานีที่ถูกลบในแผนที่ |
-| GET /:id ~168 | เพิ่ม `AND deleted_at IS NULL` | ไม่ดึงสถานีที่ถูกลบ |
-| GET /:id/stats ~404 | เพิ่ม `AND deleted_at IS NULL` | stats ต้องไม่รวมสถานีที่ถูกลบ |
-| DELETE /:id | เปลี่ยนเป็น `UPDATE SET deleted_at = NOW()` | Soft Delete |
-| PATCH /:id/restore (ใหม่) | กู้คืนสถานีจาก trash | |
-
-### users.js — สิ่งที่แก้
-| บรรทัด | แก้อะไร | ทำไม |
-|-------|---------|------|
-| GET / ~156 | เพิ่ม `WHERE u.deleted_at IS NULL` | admin ไม่เห็น user ที่ถูกลบ |
-| GET /profile ~35 | เพิ่ม `AND deleted_at IS NULL` | user ที่ถูกลบดู profile ตัวเองไม่ได้ |
-| GET /:id ~265 | เพิ่ม `AND u.deleted_at IS NULL` | admin ดู user ที่ถูกลบไม่ได้ (ต้องไปที่ trash) |
-| DELETE /:id ~343 | เปลี่ยนเป็น `UPDATE SET deleted_at = NOW()` | Soft Delete |
-| PATCH /:id/restore (ใหม่) | กู้คืน user จาก trash | |
-| ⚠️ line ~128 | **ไม่แก้** — self-delete ของ user | นี่คือ user ลบตัวเอง ซึ่งเป็น Hard Delete ตั้งใจ |
-
-### auth.js — สิ่งที่แก้
-| บรรทัด | แก้อะไร | ทำไม |
-|-------|---------|------|
-| Login query ~128 | เพิ่ม `AND deleted_at IS NULL` | user ที่ถูก soft-delete ต้อง login ไม่ได้ |
-
-### trash.js (ใหม่) + server.js
-- สร้างไฟล์ `backend/routes/admin/trash.js` — scaffold 9 endpoints (GET list, PATCH restore, DELETE permanent) สำหรับ users/stations/chargers
-- เพิ่ม route ใน `server.js`: `app.use('/api/admin/trash', adminTrashRoutes)`
-- endpoints ทั้ง 9 ตัวยัง **TODO** — รอเขียน query จริง
-
-### สถานะ Soft Delete (อัปเดต 2026-04-18)
-| # | งาน | ไฟล์ | สถานะ |
-|---|-----|------|-------|
-| 1 | เติม query จริงใน trash.js ทุก endpoint (9 endpoints) | `routes/admin/trash.js` | ✅ เสร็จแล้ว |
-| 2 | FE TrashPage — 3 tabs (Users/Stations/Chargers) + ปุ่ม restore + ปุ่ม permanent delete + confirm modal | `pages/admin/TrashPage.jsx` | ✅ เสร็จแล้ว |
-| 3 | เพิ่ม route `/admin/trash` ใน AppRouter.jsx | `frontend/src/routes/AppRouter.jsx` | ⏳ ยังไม่ได้ทำ |
-| 4 | เพิ่มเมนู "Recycle Bin" ใน Sidebar.jsx | `frontend/src/components/Sidebar.jsx` | ⏳ ยังไม่ได้ทำ |
-| 5 | รัน ALTER TABLE เพิ่ม `deleted_at` ใน phpMyAdmin | DB | ⏳ ต้องรันก่อนใช้งาน |
-
-### ⏳ งานที่ต้องทำต่อในแชทใหม่ — Soft Delete (เหลือ 3 อย่าง)
-
-#### 1. รัน ALTER TABLE ใน phpMyAdmin ก่อนเลย
-```sql
-ALTER TABLE users ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-ALTER TABLE stations ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-ALTER TABLE chargers ADD COLUMN deleted_at DATETIME NULL DEFAULT NULL;
-```
-
-#### 2. เพิ่ม route ใน `frontend/src/routes/AppRouter.jsx`
-
-เพิ่ม 2 บรรทัดนี้:
-
-ตรง import (หลัง ReportsPage):
-```js
-const TrashPage = lazy(() => import('../pages/admin/TrashPage'))
-```
-
-ตรง Admin pages routes (หลัง `/admin/reports`):
-```jsx
-<Route path="/admin/trash" element={<RoleRoute roles={['admin']}><DesktopLayout><TrashPage /></DesktopLayout></RoleRoute>} />
-```
-
-#### 3. เพิ่มเมนูใน `frontend/src/components/Sidebar.jsx`
-
-เพิ่ม import icon บรรทัด 17 (ใน import list เดิม):
-```js
-FaRecycle,
-```
-> import จาก `react-icons/fa` เหมือน icon อื่น
-
-เพิ่มใน `navItems` array (หลัง reports):
-```js
-{ to: '/admin/trash', label: 'Recycle Bin', Icon: FaRecycle },
-```
-
----
-
-## ⚠️ งานที่ต้องทำเพิ่ม — Wallet Admin (เพิ่มใหม่ 2026-04-08)
-
-### Schema ที่ต้องแก้ก่อน (บอก nem ด้วย)
-```sql
--- เพิ่ม type ใหม่สำหรับ admin action
-ALTER TABLE wallet_transactions
-  MODIFY COLUMN type ENUM('topup','deduct','refund','adjust') NOT NULL,
-  ADD COLUMN reason VARCHAR(255) DEFAULT NULL,
-  ADD COLUMN adjusted_by INT UNSIGNED DEFAULT NULL;
-
--- freeze wallet user
-ALTER TABLE users
-  ADD COLUMN wallet_frozen TINYINT(1) NOT NULL DEFAULT 0;
-```
-
-### Admin Wallet Endpoints (6 endpoints — lalla ทำ) — เสร็จแล้ว ✅
-| # | Method | Path | หน้าที่ | สถานะ |
-|---|--------|------|---------|-------|
-| 1 | GET | `/api/admin/users/:id/wallet` | ดูยอด + ประวัติ wallet ของ user | ✅ |
-| 2 | GET | `/api/admin/wallet/transactions` | ดู transactions ทั้งหมดทุก user + filter | ✅ |
-| 3 | GET | `/api/admin/wallet/transactions/:txnId` | ดู transaction เดียวละเอียด | ✅ |
-| 4 | POST | `/api/admin/users/:id/wallet/adjust` | คืนเงิน/ปรับยอด + reason + บันทึก adjusted_by | ✅ |
-| 5 | PATCH | `/api/admin/users/:id/wallet/freeze` | freeze/unfreeze wallet user | ✅ (backend only — ยังไม่มี UI) |
-| 6 | GET | `/api/admin/wallet/summary` | dashboard: topup/deduct/refund รวมทั้งระบบ | ✅ |
-
-### ทำไมต้องมี
-| กรณี | admin ต้องทำอะไร |
-|------|----------------|
-| ตู้ดับกลางคัน ตัดเงินแล้วแต่ชาร์จไม่ครบ | adjust wallet คืนเงินบางส่วน |
-| topup สำเร็จแต่ยอดไม่ขึ้น | adjust wallet เพิ่มยอดให้ |
-| deduct ซ้ำ (double charge) | adjust wallet คืนเต็มจำนวน |
-| สงสัย fraud | freeze wallet ระหว่างสืบสวน |
-
-### Admin UI ที่ต้องทำ
-- หน้าจัดการ wallet ใน Admin panel (ดูยอด/ประวัติ/ปรับยอด/freeze)
-- แสดงยอด wallet ของ user ในหน้า UserManagePage ด้วย
-
----
-
-## 🔒 Security & Stability (lalla) — อัปเดต 2026-04-18
-
-### ✅ เสร็จแล้ว
-| # | งาน | ไฟล์ | สถานะ |
-|---|-----|------|-------|
-| 1 | CORS จำกัด origin `localhost:3000`, `localhost:5173` + `credentials: true` | `server.js` | ✅ |
-| 2 | Rate limiting login — max 10 ครั้ง / 15 นาที (`express-rate-limit`) | `server.js` | ✅ |
-| 3 | JWT_SECRET เปลี่ยนเป็น random 128 ตัวอักษร | `backend/.env` | ✅ |
-| 4 | Hardcoded `http://localhost:5000` ใน JSX แก้เป็น `BASE_URL` จาก api.js | `TicketManagePage.jsx`, `RefundManagePage.jsx` | ✅ |
-| 5 | export `BASE_URL` จาก `api.js` เพื่อให้ทุกไฟล์ import ใช้ได้ | `utils/api.js` | ✅ |
-
-### ⏳ ยังไม่ได้ทำ — ทำต่อ
-| # | งาน | ไฟล์ | หมายเหตุ |
-|---|-----|------|---------|
-| 6 | Error handling frontend — เปลี่ยน `.catch(console.error)` เป็น toast แจ้ง user | ทุก page | ต้อง install `react-hot-toast` ก่อน |
-
----
-
-## 🔧 Performance Optimization (lalla) — ต้องทำ
-
-### 1. Re-import schema.sql เพื่อเพิ่ม Performance Indexes
-nem เพิ่ม 12 indexes ใน `schema.sql` แล้ว — ถ้า DB ของ lalla ยังไม่มี ให้รันใน phpMyAdmin:
 ```sql
 CREATE INDEX idx_chargers_station     ON chargers(station_id, status);
 CREATE INDEX idx_bookings_user        ON bookings(user_id, status);
@@ -746,47 +323,21 @@ CREATE INDEX idx_stations_location    ON stations(latitude, longitude);
 CREATE INDEX idx_tickets_user         ON maintenance_tickets(user_id);
 CREATE INDEX idx_wallet_txn_user      ON wallet_transactions(user_id);
 ```
-**ทำไมต้องมี:** ไม่มี index = MySQL full table scan ทุก query (O(n)) → มี index = B-tree lookup (O(log n))
-เช่น `WHERE user_id = 3 AND status = 'pending'` ถ้าไม่มี index ต้องอ่านทุก row ใน bookings
-
-### 2. Pagination สำหรับ Admin List Endpoints
-admin endpoints ที่ return list (GET /api/users, GET /api/bookings/all, GET /api/sessions/all) ควรเพิ่ม `LIMIT 20 OFFSET ?` + รับ `?page=1`
-**ทำไม:** ถ้ามี users 1000 คน ส่ง JSON 1000 rows กลับมาทั้ง response size ใหญ่ + browser render ช้า
-
-### 3. Logger เปลี่ยนเป็น fire-and-forget แล้ว ✅
-`middleware/logger.js` เปลี่ยนจาก `await Log.create()` เป็น `Log.create().catch()` แล้ว
-**ทำไม:** log ไม่ใช่ business logic — ถ้า MongoDB ช้า 50ms ไม่ควรทำให้ user รอ response ช้าไปด้วย
 
 ---
 
-## ✅ MongoDB Setup — เสร็จแล้ว (2026-04-08)
+## วิธีเทส API
 
-### สิ่งที่เสร็จแล้ว:
-- ✅ MongoDB Database: `ev_charger`
-- ✅ Collection: `logs`
-- ✅ Index created:
-  - `userId_1` — search by userId
-  - `statusCode_1` — search by status code
-  - `createdAt_1` + TTL (7776000 sec = 90 days) — auto-delete old logs
-- ✅ config/mongodb.js — connect to MongoDB
-- ✅ models/Log.js — define log schema with fields: method, url, statusCode, userId, userRole, ip, userAgent, responseTime, body, createdAt
+1. รัน backend: `cd backend && nodemon server.js`
+2. รัน frontend: `cd frontend && npm run dev`
+3. เปิด `http://localhost:5001/api-docs` (Swagger)
+4. Login ด้วย `admin@evcharge.com` / `password123` → copy token → กด Authorize → ใส่ token (ไม่ต้องพิมพ์ Bearer นำหน้า)
+5. เปิดหน้า Admin: `http://localhost:3000/admin/login`
 
-### สิ่งที่เสร็จแล้วเพิ่มเติม:
-- ✅ middleware/logger.js — capture every request and save to MongoDB
-- ✅ routes/admin/logs.js — 2 endpoints: GET /api/admin/logs, GET /api/admin/logs/:type
-- ✅ bug fix: import auth + roleCheck ผิด → แก้แล้ว (2026-04-08)
+---
 
-## ✅ middleware/logger.js — เสร็จแล้ว (2026-04-08)
+## วิธีให้ Claude สอน (สำหรับ lalla)
 
-### สิ่งที่ทำ:
-- ✅ จับทุก request (method, url, statusCode, userId, userRole, ip, userAgent, body, responseTime)
-- ✅ บันทึก MongoDB อัตโนมัติ
-- ✅ ทดสอบใน Swagger → logs บันทึกลงฐานข้อมูล
-
-### ผลลัพธ์:
-```
-✅ Response finished, saving log...
-✅ Log saved to MongoDB!
-```
-เห็นในทุก API call = ทำงานสมบูรณ์
-
+- ครอบ code ที่อยากเข้าใจแล้วบอกว่า "อธิบายที่ครอบไว้"
+- ถามได้เลยถ้าไม่เข้าใจ: "destructuring คืออะไร", "ทำไมต้องมี async await"
+- ให้ Claude เช็ค bug ก่อนแก้เองเสมอ แล้วค่อยถามว่าทำไมต้องแก้

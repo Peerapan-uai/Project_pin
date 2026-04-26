@@ -66,6 +66,13 @@ export default function PaymentMethodModal({
         <div className="text-center py-2">
           <p className="text-3xl font-bold text-primary">฿{parseFloat(totalCost).toFixed(2)}</p>
           <p className="text-xs text-gray-400 mt-1">ยอดชำระทั้งหมด</p>
+          {localStorage.getItem('ev_redeem_token') && (
+            <div className="mt-2 inline-flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-full px-3 py-1">
+              <span className="text-xs text-amber-700 font-semibold">
+                ✅ ส่วนลดแต้ม ฿{localStorage.getItem('ev_redeem_discount') || '?'} ถูกนำไปหักแล้ว
+              </span>
+            </div>
+          )}
         </div>
 
         {loading ? (

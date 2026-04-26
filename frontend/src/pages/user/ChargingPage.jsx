@@ -20,6 +20,8 @@ export default function ChargingPage() {
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [estimated, setEstimated] = useState(null)
   const [reachedFull, setReachedFull] = useState(false)
+  const [idleFeeData, setIdleFeeData] = useState(null)
+  const [unplugging, setUnplugging] = useState(false)
   const baseDurationRef = useRef(0)
   const fetchedAtRef = useRef(0)
   const intervalRef = useRef(null)
@@ -53,6 +55,10 @@ export default function ChargingPage() {
 
       // Feature 4: Mode B — reached 100% but idle_fee_enabled
       if (data.reached_full) setReachedFull(true)
+      // Feature 12: idle fee running
+      if (data.idle_fee_running !== undefined) {
+        setIdleFeeData({ fee: data.idle_fee_running, minutes: data.idle_minutes ?? 0, full_charge_time: data.full_charge_time })
+      }
 
       setSession(data.session)
       const newEstimated = data.estimated ?? null
@@ -142,6 +148,20 @@ export default function ChargingPage() {
   const estimatedKwh = parseFloat(((powerKw * durationMin) / 60).toFixed(3))
   const estimatedCost = parseFloat((estimatedKwh * pricePerKwh).toFixed(2))
 
+  const handleUnplug = async () => {
+    setUnplugging(true)
+    try {
+      const res = await api.post(`/api/sessions/${sessionId}/unplug`)
+      clearInterval(intervalRef.current)
+      clearInterval(tickRef.current)
+      setStopResult({ energy_kwh: session?.energy_kwh || 0, total_cost: res.data.idle_fee || 0, payment_method: 'wallet', auto_stopped: false, unplug: true })
+    } catch (err) {
+      console.error('Unplug error:', err)
+    } finally {
+      setUnplugging(false)
+    }
+  }
+
   const handleStopClick = async () => {
     // หยุด timer ทันทีที่กดปุ่ม — ตัวเลขไม่วิ่งระหว่างเลือกวิธีจ่าย
     clearInterval(tickRef.current)
@@ -178,8 +198,12 @@ export default function ChargingPage() {
     const energy_kwh = previewData?.energy_kwh > 0 ? previewData.energy_kwh : 0.001
     const body = { energy_kwh, payment_method: paymentChoice.type }
     if (paymentChoice.type === 'credit_card') body.card_id = paymentChoice.card_id
+    const redeemToken = localStorage.getItem('ev_redeem_token')
+    if (redeemToken) body.redeem_token = redeemToken
 
     const res = await api.patch(`/api/sessions/${sessionId}/stop`, body)
+    localStorage.removeItem('ev_redeem_token')
+    localStorage.removeItem('ev_redeem_discount')
     setShowPaymentModal(false)
     const pm = res.data.payment_method
     if (pm === 'wallet' || pm === 'credit_card') {
@@ -377,12 +401,32 @@ export default function ChargingPage() {
         )}
 
         {/* Feature 4: Mode B — reached 100% but still plugged in */}
-        {reachedFull && (
+        {reachedFull && !idleFeeData && (
           <div className="w-full max-w-xs bg-blue-50 border-l-4 border-blue-400 px-4 py-2 flex items-start gap-2 rounded-r-xl">
             <FaBolt className="text-blue-500 shrink-0 mt-0.5" size={13} />
             <p className="text-xs text-blue-800">
               ชาร์จครบ 100% แล้ว กรุณาถอดสายภายใน 5 นาที (อาจมีค่า idle fee หากมีคิวรออยู่)
             </p>
+          </div>
+        )}
+
+        {/* Feature 12: Idle fee running */}
+        {idleFeeData && (
+          <div className="w-full max-w-xs bg-orange-50 border-l-4 border-orange-400 p-3 rounded-r-xl space-y-2">
+            <p className="font-bold text-orange-800 text-sm">⚠️ ชาร์จเสร็จแล้ว มีคนจองคิวต่อ</p>
+            <p className="text-xs text-orange-700">กรุณาถอดสายภายใน 5 นาทีเพื่อหลีกเลี่ยงค่า idle fee</p>
+            {idleFeeData.minutes > 0 && (
+              <p className="text-orange-600 font-bold text-sm">
+                Idle fee: ฿{idleFeeData.fee.toFixed(2)} ({idleFeeData.minutes} นาที)
+              </p>
+            )}
+            <button
+              onClick={handleUnplug}
+              disabled={unplugging}
+              className="w-full mt-1 bg-orange-500 disabled:opacity-50 text-white py-2 px-4 rounded-xl text-sm font-semibold"
+            >
+              {unplugging ? 'กำลังถอดสาย...' : 'ถอดสาย — สิ้นสุดการใช้งาน'}
+            </button>
           </div>
         )}
 
