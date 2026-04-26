@@ -5,7 +5,7 @@ import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
 import {
   FaUser, FaEnvelope, FaPhone, FaCar, FaHistory, FaCreditCard,
-  FaSignOutAlt, FaChevronRight, FaEdit, FaTrash, FaBell, FaWallet
+  FaSignOutAlt, FaChevronRight, FaEdit, FaBell, FaWallet, FaCog
 } from 'react-icons/fa'
 import api from '../../utils/api'
 
@@ -17,13 +17,9 @@ export default function ProfilePage() {
 
   // edit modal
   const [showEdit, setShowEdit] = useState(false)
-  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '', password: '' })
+  const [editForm, setEditForm] = useState({ first_name: '', last_name: '', phone: '' })
   const [saving, setSaving] = useState(false)
   const [editError, setEditError] = useState(null)
-
-  // delete confirm
-  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
-  const [deleting, setDeleting] = useState(false)
 
   useEffect(() => {
     api.get('/api/users/profile')
@@ -39,7 +35,6 @@ export default function ProfilePage() {
       first_name: user?.first_name || '',
       last_name: user?.last_name || '',
       phone: user?.phone || '',
-      password: ''
     })
     setEditError(null)
     setShowEdit(true)
@@ -57,7 +52,6 @@ export default function ProfilePage() {
       last_name: editForm.last_name,
       phone: editForm.phone || null,
     }
-    if (editForm.password) body.password = editForm.password
     api.put('/api/users/profile', body)
       .then(() => {
         setProfile(prev => ({ ...prev, ...body }))
@@ -67,25 +61,13 @@ export default function ProfilePage() {
       .finally(() => setSaving(false))
   }
 
-  const handleDeleteAccount = () => {
-    setDeleting(true)
-    api.delete('/api/users/profile')
-      .then(() => {
-        logout()
-        navigate('/login')
-      })
-      .catch(() => {
-        setDeleting(false)
-        setShowDeleteConfirm(false)
-      })
-  }
-
   const menuItems = [
     { label: 'กระเป๋าเงิน', icon: FaWallet, to: '/wallet' },
     { label: 'ยานพาหนะของฉัน', icon: FaCar, to: '/vehicles' },
     { label: 'ประวัติการจอง', icon: FaHistory, to: '/bookings' },
     { label: 'ประวัติการชำระเงิน', icon: FaCreditCard, to: '/payments' },
     { label: 'การแจ้งเตือน', icon: FaBell, to: '/notifications' },
+    { label: 'ตั้งค่า', icon: FaCog, to: '/settings' },
   ]
 
   if (loading) return <div className="flex justify-center p-10"><div className="text-gray-500">กำลังโหลด...</div></div>
@@ -159,15 +141,6 @@ export default function ProfilePage() {
           <FaSignOutAlt size={15} />
           ออกจากระบบ
         </button>
-
-        {/* Delete account */}
-        <button
-          onClick={() => setShowDeleteConfirm(true)}
-          className="w-full flex items-center justify-center gap-2 py-2.5 text-gray-400 text-sm hover:text-red-500 transition-colors"
-        >
-          <FaTrash size={13} />
-          ลบบัญชี
-        </button>
       </div>
 
       {/* Edit Modal */}
@@ -198,13 +171,6 @@ export default function ProfilePage() {
                 onChange={e => setEditForm(p => ({ ...p, phone: e.target.value }))}
                 className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               />
-              <input
-                type="password"
-                placeholder="รหัสผ่านใหม่ (เว้นว่างถ้าไม่เปลี่ยน)"
-                value={editForm.password}
-                onChange={e => setEditForm(p => ({ ...p, password: e.target.value }))}
-                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
             </div>
             <div className="flex gap-2 pt-1">
               <button
@@ -219,39 +185,6 @@ export default function ProfilePage() {
                 className="flex-1 py-2.5 bg-primary disabled:opacity-50 text-white rounded-xl text-sm font-semibold hover:bg-green-600"
               >
                 {saving ? 'กำลังบันทึก...' : 'บันทึก'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Delete Confirm Modal */}
-      {showDeleteConfirm && (
-        <div className="fixed inset-0 bg-black/50 z-[60] flex items-center justify-center px-6">
-          <div className="bg-white w-full max-w-sm rounded-2xl p-6 space-y-4">
-            <div className="text-center">
-              <div className="w-14 h-14 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <FaTrash size={22} className="text-red-500" />
-              </div>
-              <h2 className="text-lg font-bold text-gray-900">ลบบัญชี?</h2>
-              <p className="text-sm text-gray-500 mt-1">
-                ข้อมูลทั้งหมดจะถูกลบถาวร ทั้งประวัติการจอง การชำระเงิน และยานพาหนะ ไม่สามารถกู้คืนได้
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowDeleteConfirm(false)}
-                disabled={deleting}
-                className="flex-1 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-600 hover:bg-gray-50"
-              >
-                ยกเลิก
-              </button>
-              <button
-                onClick={handleDeleteAccount}
-                disabled={deleting}
-                className="flex-1 py-2.5 bg-red-500 disabled:opacity-50 text-white rounded-xl text-sm font-semibold hover:bg-red-600"
-              >
-                {deleting ? 'กำลังลบ...' : 'ลบบัญชี'}
               </button>
             </div>
           </div>

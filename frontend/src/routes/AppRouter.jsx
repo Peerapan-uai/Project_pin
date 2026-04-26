@@ -24,6 +24,7 @@ const PaymentHistoryPage = lazy(() => import('../pages/user/PaymentHistoryPage')
 const ReviewPage = lazy(() => import('../pages/user/ReviewPage'))
 const ReportIssuePage = lazy(() => import('../pages/user/ReportIssuePage'))
 const ProfilePage = lazy(() => import('../pages/user/ProfilePage'))
+const SettingsPage = lazy(() => import('../pages/user/SettingsPage'))
 const VehicleManagePage = lazy(() => import('../pages/user/VehicleManagePage'))
 const NotificationsPage = lazy(() => import('../pages/user/NotificationsPage'))
 const SearchPage = lazy(() => import('../pages/user/SearchPage'))
@@ -101,6 +102,7 @@ export default function AppRouter() {
       <Route path="/vehicles" element={<PrivateRoute><MobileLayout><VehicleManagePage /></MobileLayout></PrivateRoute>} />
       <Route path="/notifications" element={<PrivateRoute><MobileLayout><NotificationsPage /></MobileLayout></PrivateRoute>} />
       <Route path="/wallet" element={<PrivateRoute><MobileLayout><WalletPage /></MobileLayout></PrivateRoute>} />
+      <Route path="/settings" element={<PrivateRoute><MobileLayout><SettingsPage /></MobileLayout></PrivateRoute>} />
 
       {/* Admin pages */}
       <Route path="/admin/dashboard" element={<RoleRoute roles={['admin']}><DesktopLayout><DashboardPage /></DesktopLayout></RoleRoute>} />
