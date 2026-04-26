@@ -1,17 +1,22 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { FaSearch, FaMapMarkerAlt, FaStar, FaBolt, FaClock } from 'react-icons/fa'
+import { FaSearch, FaMapMarkerAlt, FaStar, FaBolt, FaClock, FaExclamationTriangle, FaMoon, FaSun } from 'react-icons/fa'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../utils/api'
 
+const getBangkokHour = () => new Date(Date.now() + 7 * 3600 * 1000).getUTCHours()
+const isOffPeak = () => { const h = getBangkokHour(); return h >= 22 || h < 9 }
+
 export default function HomePage() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [search, setSearch] = useState('')
+  const [offPeak] = useState(isOffPeak())
   const [stations, setStations] = useState([])
   const [unread, setUnread] = useState(0)
+  const [walletBalance, setWalletBalance] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
@@ -20,6 +25,7 @@ export default function HomePage() {
       .then(res => setStations(Array.isArray(res.data) ? res.data : []))
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
+    api.get('/api/wallet/balance').then(res => setWalletBalance(res.data.balance)).catch(() => {})
   }, [])
 
   useEffect(() => {
@@ -47,6 +53,15 @@ export default function HomePage() {
         unreadCount={unread}
         onNotificationClick={() => navigate('/notifications')}
       />
+
+      {walletBalance !== null && walletBalance < 100 && walletBalance > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-2 flex items-center gap-2">
+          <FaExclamationTriangle className="text-yellow-500 shrink-0" size={14} />
+          <p className="text-sm text-yellow-800">
+            ยอดเงินใกล้หมด (฿{parseFloat(walletBalance).toFixed(2)})
+          </p>
+        </div>
+      )}
 
       <div className="px-4 pt-4 pb-2">
         <p className="text-gray-500 text-sm">สวัสดี, <span className="font-semibold text-gray-800">{user?.first_name}</span></p>
@@ -116,6 +131,12 @@ export default function HomePage() {
                   <FaBolt size={11} className="text-primary" />
                   <span>{station.available_chargers}/{station.total_chargers}</span>
                 </div>
+                {station.min_price != null && (
+                  <div className={`flex items-center gap-1 text-xs font-semibold px-1.5 py-0.5 rounded-full ${offPeak ? 'bg-blue-50 text-blue-600' : 'bg-gray-50 text-gray-500'}`}>
+                    {offPeak ? <FaMoon size={9} /> : <FaSun size={9} />}
+                    <span>฿{offPeak ? (station.min_price * 0.7).toFixed(2) : parseFloat(station.min_price).toFixed(2)}/kWh</span>
+                  </div>
+                )}
               </div>
             </div>
           </button>

@@ -38,12 +38,15 @@ router.get('/', async (req, res) => {
     let query = `
       SELECT s.*,
         COUNT(DISTINCT c.charger_id) AS total_chargers,
-        COALESCE(SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END), 0) AS available_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'available' THEN c.charger_id END) AS available_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'reserved' THEN c.charger_id END) AS reserved_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'charging' THEN c.charger_id END) AS in_use_chargers,
         ROUND(AVG(r.rating), 1) AS rating,
         COUNT(DISTINCT r.review_id) AS review_count,
-        GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types
+        GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types,
+        MIN(c.price_per_kwh) AS min_price
       FROM stations s
-      LEFT JOIN chargers c ON s.station_id = c.station_id
+      LEFT JOIN chargers c ON s.station_id = c.station_id AND c.deleted_at IS NULL
       LEFT JOIN reviews r ON s.station_id = r.station_id
     `;
     let params = [];
@@ -134,7 +137,9 @@ router.get('/nearby', async (req, res) => {
     const [rows] = await pool.query(
       `SELECT s.*,
         COUNT(DISTINCT c.charger_id) AS total_chargers,
-        COALESCE(SUM(CASE WHEN c.status = 'available' THEN 1 ELSE 0 END), 0) AS available_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'available' THEN c.charger_id END) AS available_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'reserved' THEN c.charger_id END) AS reserved_chargers,
+        COUNT(DISTINCT CASE WHEN c.status = 'charging' THEN c.charger_id END) AS in_use_chargers,
         ROUND(AVG(r.rating), 1) AS rating,
         COUNT(DISTINCT r.review_id) AS review_count,
         GROUP_CONCAT(DISTINCT c.connector_type) AS connector_types,

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaBolt, FaStopCircle, FaClock, FaPlug, FaWallet, FaExclamationTriangle, FaCar } from 'react-icons/fa'
+import PaymentMethodModal from '../../components/PaymentMethodModal'
+import { FaBolt, FaStopCircle, FaClock, FaPlug, FaWallet, FaExclamationTriangle, FaCar, FaThermometerHalf, FaBatteryHalf } from 'react-icons/fa'
 import api from '../../utils/api'
 
 export default function ChargingPage() {
@@ -13,42 +14,77 @@ export default function ChargingPage() {
   const [stopping, setStopping] = useState(false)
   const [elapsedSec, setElapsedSec] = useState(0)
   const [walletBalance, setWalletBalance] = useState(null)
-  const [stopResult, setStopResult] = useState(null)  // ผลลัพธ์หลังหยุดชาร์จ
+  const [stopResult, setStopResult] = useState(null)
+  const [showPaymentModal, setShowPaymentModal] = useState(false)
+  const [previewData, setPreviewData] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [estimated, setEstimated] = useState(null)
+  const [reachedFull, setReachedFull] = useState(false)
+  const [idleFeeData, setIdleFeeData] = useState(null)
+  const [unplugging, setUnplugging] = useState(false)
   const baseDurationRef = useRef(0)
   const fetchedAtRef = useRef(0)
   const intervalRef = useRef(null)
   const tickRef = useRef(null)
+  const lastPctRef = useRef(0)
+  const sentMilestonesRef = useRef(new Set())
+
+  // Feature 5: ขออนุญาต browser notification เมื่อเปิดหน้า
+  useEffect(() => {
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+  }, [])
 
   useEffect(() => {
+    const handleStatusData = (data) => {
+      if (data.auto_stopped) {
+        clearInterval(intervalRef.current)
+        clearInterval(tickRef.current)
+        const pm = data.payment_method
+        const reason = data.reason
+        if (reason === 'overheat') {
+          setStopResult({ energy_kwh: data.energy_kwh, total_cost: data.total_cost, payment_method: pm, auto_stopped: true, reason: 'overheat', current_temp: data.current_temp })
+        } else if (pm === 'wallet' || pm === 'credit_card') {
+          setStopResult({ energy_kwh: data.energy_kwh, total_cost: data.total_cost, payment_method: pm, auto_stopped: true, battery_after_kwh: data.battery_after_kwh, battery_capacity_kwh: data.battery_capacity_kwh, reason })
+        } else {
+          navigate(`/payment/${sessionId}`, { state: { total_cost: data.total_cost, energy_kwh: data.energy_kwh } })
+        }
+        return
+      }
+
+      // Feature 4: Mode B — reached 100% but idle_fee_enabled
+      if (data.reached_full) setReachedFull(true)
+      // Feature 12: idle fee running
+      if (data.idle_fee_running !== undefined) {
+        setIdleFeeData({ fee: data.idle_fee_running, minutes: data.idle_minutes ?? 0, full_charge_time: data.full_charge_time })
+      }
+
+      setSession(data.session)
+      const newEstimated = data.estimated ?? null
+      setEstimated(newEstimated)
+      baseDurationRef.current = data.session?.duration_seconds ?? 0
+      fetchedAtRef.current = Date.now()
+      setElapsedSec(baseDurationRef.current)
+
+      // Feature 5: milestone notifications
+      const newPct = newEstimated?.current_percentage ?? 0
+      const oldPct = lastPctRef.current
+      for (const milestone of [80, 100]) {
+        if (oldPct < milestone && newPct >= milestone && !sentMilestonesRef.current.has(milestone)) {
+          sentMilestonesRef.current.add(milestone)
+          api.post(`/api/sessions/${sessionId}/notify-milestone`, { milestone }).catch(() => {})
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification(`ชาร์จถึง ${milestone}%`, { body: `รถของคุณชาร์จถึง ${milestone}% แล้ว` })
+          }
+        }
+      }
+      lastPctRef.current = newPct
+    }
+
     const fetchStatus = () => {
       api.get(`/api/sessions/${sessionId}/status`)
-        .then(res => {
-          // BE auto stop เมื่อเงินไม่พอ
-          if (res.data.auto_stopped) {
-            clearInterval(intervalRef.current)
-            clearInterval(tickRef.current)
-            const pm = res.data.payment_method
-            if (pm === 'wallet' || pm === 'credit_card') {
-              setStopResult({
-                energy_kwh: res.data.energy_kwh,
-                total_cost: res.data.total_cost,
-                payment_method: pm,
-                auto_stopped: true,
-                battery_after_kwh: res.data.battery_after_kwh,
-                battery_capacity_kwh: res.data.battery_capacity_kwh,
-              })
-            } else {
-              navigate(`/payment/${sessionId}`, {
-                state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh }
-              })
-            }
-            return
-          }
-          setSession(res.data.session)
-          baseDurationRef.current = res.data.session?.duration_seconds ?? 0
-          fetchedAtRef.current = Date.now()
-          setElapsedSec(baseDurationRef.current)
-        })
+        .then(res => handleStatusData(res.data))
         .catch(() => {})
         .finally(() => setLoading(false))
     }
@@ -68,6 +104,38 @@ export default function ChargingPage() {
     }
   }, [sessionId]) // eslint-disable-line
 
+  const resumePolling = () => {
+    baseDurationRef.current = elapsedSec
+    fetchedAtRef.current = Date.now()
+    tickRef.current = setInterval(() => {
+      const delta = Math.floor((Date.now() - fetchedAtRef.current) / 1000)
+      setElapsedSec(baseDurationRef.current + delta)
+    }, 1000)
+    intervalRef.current = setInterval(() => {
+      api.get(`/api/sessions/${sessionId}/status`)
+        .then(res => {
+          if (res.data.auto_stopped) {
+            clearInterval(intervalRef.current)
+            clearInterval(tickRef.current)
+            const pm = res.data.payment_method
+            if (pm === 'wallet' || pm === 'credit_card') {
+              setStopResult({ energy_kwh: res.data.energy_kwh, total_cost: res.data.total_cost, payment_method: pm, auto_stopped: true, battery_after_kwh: res.data.battery_after_kwh, battery_capacity_kwh: res.data.battery_capacity_kwh })
+            } else {
+              navigate(`/payment/${sessionId}`, { state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh } })
+            }
+            return
+          }
+          if (res.data.reached_full) setReachedFull(true)
+          setSession(res.data.session)
+          setEstimated(res.data.estimated ?? null)
+          baseDurationRef.current = res.data.session?.duration_seconds ?? 0
+          fetchedAtRef.current = Date.now()
+          setElapsedSec(baseDurationRef.current)
+        })
+        .catch(() => {})
+    }, 10000)
+  }
+
   const durationSec = Math.max(0, elapsedSec)
   const durationMin = durationSec / 60
   const hours = Math.floor(durationSec / 3600)
@@ -80,30 +148,71 @@ export default function ChargingPage() {
   const estimatedKwh = parseFloat(((powerKw * durationMin) / 60).toFixed(3))
   const estimatedCost = parseFloat((estimatedKwh * pricePerKwh).toFixed(2))
 
-  const handleStop = () => {
-    setStopping(true)
-    const energy_kwh = estimatedKwh > 0 ? estimatedKwh : 1
-    api.patch(`/api/sessions/${sessionId}/stop`, { energy_kwh })
-      .then(res => {
-        const pm = res.data.payment_method
-        if (pm === 'wallet' || pm === 'credit_card') {
-          // จ่ายอัตโนมัติสำเร็จแล้ว → แสดงสรุป (รวม battery info)
-          setStopResult({
-            ...res.data,
-            battery_after_kwh: res.data.battery_after_kwh,
-            battery_capacity_kwh: res.data.battery_capacity_kwh,
-          })
-        } else {
-          // ยังไม่จ่าย (pending) → ไปหน้าชำระเงินเอง
-          navigate(`/payment/${sessionId}`, {
-            state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh }
-          })
-        }
+  const handleUnplug = async () => {
+    setUnplugging(true)
+    try {
+      const res = await api.post(`/api/sessions/${sessionId}/unplug`)
+      clearInterval(intervalRef.current)
+      clearInterval(tickRef.current)
+      setStopResult({ energy_kwh: session?.energy_kwh || 0, total_cost: res.data.idle_fee || 0, payment_method: 'wallet', auto_stopped: false, unplug: true })
+    } catch (err) {
+      console.error('Unplug error:', err)
+    } finally {
+      setUnplugging(false)
+    }
+  }
+
+  const handleStopClick = async () => {
+    // หยุด timer ทันทีที่กดปุ่ม — ตัวเลขไม่วิ่งระหว่างเลือกวิธีจ่าย
+    clearInterval(tickRef.current)
+    clearInterval(intervalRef.current)
+
+    setLoadingPreview(true)
+    try {
+      const [previewRes, cardsRes] = await Promise.allSettled([
+        api.get(`/api/sessions/${sessionId}/preview-cost`),
+        api.get('/api/wallet/cards'),
+      ])
+      const preview = previewRes.status === 'fulfilled' ? previewRes.value.data : {
+        energy_kwh: estimatedKwh > 0 ? estimatedKwh : 0.001,
+        total_cost: estimatedCost,
+        wallet_balance: walletBalance || 0,
+        wallet_frozen: false,
+      }
+      const saved_cards = cardsRes.status === 'fulfilled' ? (cardsRes.value.data.cards || []) : []
+      setPreviewData({ ...preview, saved_cards })
+    } catch (_) {
+      setPreviewData({ energy_kwh: estimatedKwh > 0 ? estimatedKwh : 0.001, total_cost: estimatedCost, wallet_balance: walletBalance || 0, wallet_frozen: false, saved_cards: [] })
+    } finally {
+      setLoadingPreview(false)
+    }
+    setShowPaymentModal(true)
+  }
+
+  const handleCloseModal = () => {
+    setShowPaymentModal(false)
+    resumePolling()
+  }
+
+  const handleConfirmPayment = async (paymentChoice) => {
+    const energy_kwh = previewData?.energy_kwh > 0 ? previewData.energy_kwh : 0.001
+    const body = { energy_kwh, payment_method: paymentChoice.type }
+    if (paymentChoice.type === 'credit_card') body.card_id = paymentChoice.card_id
+    const redeemToken = localStorage.getItem('ev_redeem_token')
+    if (redeemToken) body.redeem_token = redeemToken
+
+    const res = await api.patch(`/api/sessions/${sessionId}/stop`, body)
+    localStorage.removeItem('ev_redeem_token')
+    localStorage.removeItem('ev_redeem_discount')
+    setShowPaymentModal(false)
+    const pm = res.data.payment_method
+    if (pm === 'wallet' || pm === 'credit_card') {
+      setStopResult(res.data)
+    } else {
+      navigate(`/payment/${sessionId}`, {
+        state: { total_cost: res.data.total_cost, energy_kwh: res.data.energy_kwh }
       })
-      .catch(() => {
-        setStopping(false)
-        navigate(`/payment/${sessionId}`)
-      })
+    }
   }
 
   // ชาร์จเสร็จ + จ่ายอัตโนมัติสำเร็จ
@@ -116,10 +225,13 @@ export default function ChargingPage() {
             <FaBolt size={40} className="text-green-500" />
           </div>
           <h2 className="text-xl font-bold text-gray-900">
-            {stopResult.auto_stopped ? 'หยุดชาร์จอัตโนมัติ' : 'ชาร์จเสร็จสิ้น!'}
+            {stopResult.reason === 'overheat' ? 'ตู้ชาร์จร้อนเกิน!' : stopResult.auto_stopped ? 'หยุดชาร์จอัตโนมัติ' : 'ชาร์จเสร็จสิ้น!'}
           </h2>
           <p className="text-gray-500 text-sm mt-1">
-            {stopResult.auto_stopped ? 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จให้อัตโนมัติ' : 'ชำระเงินอัตโนมัติเรียบร้อย'}
+            {stopResult.reason === 'overheat'
+              ? `อุณหภูมิสูงถึง ${stopResult.current_temp}°C ระบบหยุดชาร์จเพื่อความปลอดภัย กรุณาเลือกตู้อื่น`
+              : stopResult.auto_stopped ? 'ยอดเงินในกระเป๋าใกล้หมด ระบบหยุดชาร์จให้อัตโนมัติ'
+              : 'ชำระเงินอัตโนมัติเรียบร้อย'}
           </p>
           <div className="mt-4 bg-gray-50 rounded-xl p-4 space-y-2 text-sm">
             <div className="flex justify-between">
@@ -218,6 +330,49 @@ export default function ChargingPage() {
           </div>
         </div>
 
+        {/* Temperature */}
+        {session?.temperature_celsius != null && (
+          <div className="w-full max-w-xs bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100 flex items-center gap-3">
+            <FaThermometerHalf
+              size={20}
+              className={session.temperature_celsius > 50 ? 'text-orange-500' : 'text-blue-500'}
+            />
+            <div>
+              <p className="text-sm font-bold text-gray-800">{parseFloat(session.temperature_celsius).toFixed(1)}°C</p>
+              <p className="text-xs text-gray-400">อุณหภูมิตู้ชาร์จ</p>
+            </div>
+          </div>
+        )}
+
+        {/* Estimated charge time */}
+        {estimated && (
+          <div className="w-full max-w-xs bg-white rounded-2xl px-4 py-3 shadow-sm border border-gray-100">
+            <div className="flex items-center gap-2 mb-2">
+              <FaBatteryHalf size={15} className="text-primary" />
+              <p className="text-xs font-semibold text-gray-600">ประมาณเวลาชาร์จ</p>
+              <span className="ml-auto text-xs font-bold text-primary">{estimated.current_percentage}%</span>
+            </div>
+            <div className="w-full h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div
+                className="h-full rounded-full bg-primary transition-all duration-1000"
+                style={{ width: `${Math.min(100, estimated.current_percentage)}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-gray-500">
+              <span>ถึง 80%</span>
+              <span className="font-semibold text-gray-800">
+                {estimated.minutes_to_80 === 0 ? 'ถึงแล้ว ✓' : `อีก ${estimated.minutes_to_80} นาที`}
+              </span>
+            </div>
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>ถึง 100%</span>
+              <span className="font-semibold text-gray-800">
+                {estimated.minutes_to_100 === 0 ? 'ถึงแล้ว ✓' : `อีก ${estimated.minutes_to_100} นาที`}
+              </span>
+            </div>
+          </div>
+        )}
+
         {/* Connector info */}
         {session?.connector_type && (
           <div className="flex items-center gap-2 text-sm text-gray-500">
@@ -245,20 +400,71 @@ export default function ChargingPage() {
           </div>
         )}
 
+        {/* Feature 4: Mode B — reached 100% but still plugged in */}
+        {reachedFull && !idleFeeData && (
+          <div className="w-full max-w-xs bg-blue-50 border-l-4 border-blue-400 px-4 py-2 flex items-start gap-2 rounded-r-xl">
+            <FaBolt className="text-blue-500 shrink-0 mt-0.5" size={13} />
+            <p className="text-xs text-blue-800">
+              ชาร์จครบ 100% แล้ว กรุณาถอดสายภายใน 5 นาที (อาจมีค่า idle fee หากมีคิวรออยู่)
+            </p>
+          </div>
+        )}
+
+        {/* Feature 12: Idle fee running */}
+        {idleFeeData && (
+          <div className="w-full max-w-xs bg-orange-50 border-l-4 border-orange-400 p-3 rounded-r-xl space-y-2">
+            <p className="font-bold text-orange-800 text-sm">⚠️ ชาร์จเสร็จแล้ว มีคนจองคิวต่อ</p>
+            <p className="text-xs text-orange-700">กรุณาถอดสายภายใน 5 นาทีเพื่อหลีกเลี่ยงค่า idle fee</p>
+            {idleFeeData.minutes > 0 && (
+              <p className="text-orange-600 font-bold text-sm">
+                Idle fee: ฿{idleFeeData.fee.toFixed(2)} ({idleFeeData.minutes} นาที)
+              </p>
+            )}
+            <button
+              onClick={handleUnplug}
+              disabled={unplugging}
+              className="w-full mt-1 bg-orange-500 disabled:opacity-50 text-white py-2 px-4 rounded-xl text-sm font-semibold"
+            >
+              {unplugging ? 'กำลังถอดสาย...' : 'ถอดสาย — สิ้นสุดการใช้งาน'}
+            </button>
+          </div>
+        )}
+
+        {/* Low balance banner */}
+        {walletBalance !== null && walletBalance < 100 && walletBalance > 0 && (
+          <div className="w-full max-w-xs bg-yellow-50 border-l-4 border-yellow-400 px-4 py-2 flex items-center gap-2 rounded-r-xl">
+            <FaExclamationTriangle className="text-yellow-500 shrink-0" size={13} />
+            <p className="text-xs text-yellow-800">
+              ยอดเงินใกล้หมด (฿{parseFloat(walletBalance).toFixed(2)})
+            </p>
+          </div>
+        )}
+
         {/* Stop button */}
         <button
-          onClick={handleStop}
-          disabled={stopping}
+          onClick={handleStopClick}
+          disabled={loadingPreview}
           className="w-full max-w-xs py-3.5 bg-red-500 disabled:opacity-50 text-white font-semibold rounded-2xl hover:bg-red-600 transition-colors flex items-center justify-center gap-2 mt-2"
         >
           <FaStopCircle size={18} />
-          {stopping ? 'กำลังหยุด...' : 'หยุดชาร์จ'}
+          {loadingPreview ? 'กำลังโหลด...' : 'หยุดชาร์จ'}
         </button>
 
         <p className="text-xs text-gray-400 text-center">Session #{sessionId}</p>
       </div>
 
       <BottomNav />
+
+      <PaymentMethodModal
+        isOpen={showPaymentModal}
+        onClose={handleCloseModal}
+        onConfirm={handleConfirmPayment}
+        totalCost={previewData?.total_cost ?? estimatedCost}
+        walletBalance={previewData?.wallet_balance ?? walletBalance ?? 0}
+        walletFrozen={previewData?.wallet_frozen ?? false}
+        savedCards={previewData?.saved_cards ?? []}
+        loading={loadingPreview}
+      />
     </div>
   )
 }

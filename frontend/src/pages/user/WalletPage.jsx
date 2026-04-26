@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
-import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash, FaBan } from 'react-icons/fa'
+import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash, FaBan, FaExclamationTriangle } from 'react-icons/fa'
 import api from '../../utils/api'
 
 const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
@@ -13,8 +13,11 @@ export default function WalletPage() {
   const [balance, setBalance] = useState(null)
   const [walletFrozen, setWalletFrozen] = useState(false)
   const [freezeReason, setFreezeReason] = useState(null)
+  const [outstandingDebt, setOutstandingDebt] = useState(0)
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [payingDebt, setPayingDebt] = useState(false)
+  const [debtError, setDebtError] = useState(null)
 
   // modal state
   const [showModal, setShowModal] = useState(false)   // 'promptpay' | 'card' | false
@@ -42,10 +45,26 @@ export default function WalletPage() {
         setBalance(res.data.balance)
         setWalletFrozen(!!res.data.wallet_frozen)
         setFreezeReason(res.data.freeze_reason || null)
+        setOutstandingDebt(parseFloat(res.data.outstanding_debt || 0))
         setTransactions(res.data.recent_transactions || [])
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  const handlePayDebt = async () => {
+    setPayingDebt(true)
+    setDebtError(null)
+    try {
+      const res = await api.post('/api/wallet/pay-debt')
+      setOutstandingDebt(0)
+      setBalance(res.data.new_balance)
+      fetchWallet()
+    } catch (e) {
+      setDebtError(e.response?.data?.message || 'ชำระไม่สำเร็จ')
+    } finally {
+      setPayingDebt(false)
+    }
   }
 
   const fetchCards = () => {
@@ -184,6 +203,37 @@ export default function WalletPage() {
               {freezeReason || 'ไม่สามารถเติมเงิน จอง หรือชาร์จได้ กรุณาติดต่อแอดมิน'}
             </p>
           </div>
+        </div>
+      )}
+
+      {/* Outstanding debt banner */}
+      {outstandingDebt > 0 && (
+        <div className="bg-red-50 border-l-4 border-red-500 px-4 py-3">
+          <div className="flex items-start gap-2">
+            <FaExclamationTriangle className="text-red-500 shrink-0 mt-0.5" size={14} />
+            <div className="flex-1">
+              <p className="text-sm font-bold text-red-800">มียอดค้างชำระ ฿{parseFloat(outstandingDebt).toFixed(2)}</p>
+              <p className="text-xs text-red-600 mt-0.5">จะไม่สามารถเริ่มชาร์จได้จนกว่าจะชำระ</p>
+              {debtError && <p className="text-xs text-red-500 mt-1">{debtError}</p>}
+            </div>
+          </div>
+          <button
+            onClick={handlePayDebt}
+            disabled={payingDebt}
+            className="mt-2 w-full py-2 bg-red-500 disabled:opacity-50 text-white text-sm font-semibold rounded-xl hover:bg-red-600 transition-colors"
+          >
+            {payingDebt ? 'กำลังชำระ...' : `ชำระยอดค้าง ฿${parseFloat(outstandingDebt).toFixed(2)}`}
+          </button>
+        </div>
+      )}
+
+      {/* Low balance banner */}
+      {!walletFrozen && balance !== null && balance < 100 && balance > 0 && (
+        <div className="bg-yellow-50 border-l-4 border-yellow-400 px-4 py-2 flex items-center gap-2">
+          <FaExclamationTriangle className="text-yellow-500 shrink-0" size={14} />
+          <p className="text-sm text-yellow-800">
+            ยอดเงินใกล้หมด (฿{parseFloat(balance).toFixed(2)})
+          </p>
         </div>
       )}
 

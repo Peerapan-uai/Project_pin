@@ -3,6 +3,7 @@ const router = express.Router();
 const pool = require('../config/db');
 const auth = require('../middleware/auth');
 const roleCheck = require('../middleware/roleCheck');
+const { chargeFeeOrAddDebt } = require('../utils/chargeFeeOrAddDebt');
 
 /**
  * @swagger
@@ -44,14 +45,34 @@ const roleCheck = require('../middleware/roleCheck');
  *         description: Server error
  */
 router.post('/', auth, async (req, res) => {
-  const { charger_id } = req.body;
+  const { charger_id, vehicle_id, scheduled_start, duration_min } = req.body;
 
   if (!charger_id) {
     return res.status(400).json({ message: 'charger_id is required.' });
   }
 
+  const VALID_DURATIONS = [15, 30, 45, 60, 90, 120];
+  const durMin = duration_min ? Number(duration_min) : 60;
+  const isScheduled = !!scheduled_start;
+
+  if (isScheduled) {
+    if (!VALID_DURATIONS.includes(durMin)) {
+      return res.status(400).json({ message: 'duration_min ต้องเป็น 15/30/45/60/90/120' });
+    }
+    const scheduledAt = new Date(scheduled_start);
+    if (isNaN(scheduledAt.getTime())) {
+      return res.status(400).json({ message: 'scheduled_start ไม่ถูกต้อง' });
+    }
+    const minsFromNow = (scheduledAt.getTime() - Date.now()) / 60000;
+    if (minsFromNow < 5) {
+      return res.status(400).json({ message: 'scheduled_start ต้องอยู่ในอนาคตอย่างน้อย 5 นาที' });
+    }
+    if (minsFromNow > 7 * 24 * 60) {
+      return res.status(400).json({ message: 'จองล่วงหน้าได้ไม่เกิน 7 วัน' });
+    }
+  }
+
   try {
-    // เช็ค wallet_frozen → ห้ามจองถ้า wallet ถูกระงับ
     const [userRows] = await pool.query(
       'SELECT wallet_frozen FROM users WHERE user_id = ?',
       [req.user.user_id]
@@ -60,35 +81,64 @@ router.post('/', auth, async (req, res) => {
       return res.status(403).json({ message: 'กระเป๋าเงินของคุณถูกระงับ ไม่สามารถจองได้ กรุณาติดต่อแอดมิน' });
     }
 
-    // เช็คว่า charger ว่างไหม
     const [chargerRows] = await pool.query(
-      `SELECT status FROM chargers WHERE charger_id = ?`,
+      `SELECT status, temperature_celsius, max_temperature_celsius FROM chargers WHERE charger_id = ?`,
       [charger_id]
     );
-
     if (chargerRows.length === 0) {
       return res.status(404).json({ message: 'Charger not found.' });
     }
+    const ch = chargerRows[0];
 
-    if (chargerRows[0].status !== 'available') {
+    if (!isScheduled && ch.status !== 'available') {
       return res.status(400).json({ message: 'Charger is not available.' });
     }
 
+    if (ch.temperature_celsius != null && ch.max_temperature_celsius != null
+        && parseFloat(ch.temperature_celsius) > parseFloat(ch.max_temperature_celsius)) {
+      return res.status(503).json({
+        message: 'ขออภัย ตู้ชาร์จนี้ไม่พร้อมใช้งานชั่วคราว กรุณารอสักครู่หรือเลือกตู้อื่น',
+        code: 'CHARGER_OVERHEATED',
+      });
+    }
+
+    // สำหรับ scheduled booking — เช็ค slot conflict
+    if (isScheduled) {
+      const scheduledAt = new Date(scheduled_start);
+      const [conflictRows] = await pool.query(
+        `SELECT 1 FROM bookings WHERE charger_id = ?
+          AND status IN ('pending','confirmed','active')
+          AND scheduled_start IS NOT NULL
+          AND NOT (
+            DATE_ADD(scheduled_start, INTERVAL duration_min MINUTE) <= ?
+            OR scheduled_start >= DATE_ADD(?, INTERVAL ? MINUTE)
+          )
+         LIMIT 1`,
+        [charger_id, scheduledAt, scheduledAt, durMin]
+      );
+      if (conflictRows.length > 0) {
+        return res.status(409).json({ message: 'ช่วงเวลานี้มีการจองแล้ว กรุณาเลือกเวลาอื่น', code: 'SLOT_CONFLICT' });
+      }
+    }
+
     const [result] = await pool.query(
-      `INSERT INTO bookings (user_id, charger_id, start_time, status)
-       VALUES (?, ?, NOW(), 'confirmed')`,
-      [req.user.user_id, charger_id]
+      `INSERT INTO bookings (user_id, charger_id, vehicle_id, start_time, scheduled_start, duration_min, status)
+       VALUES (?, ?, ?, NOW(), ?, ?, 'confirmed')`,
+      [req.user.user_id, charger_id, vehicle_id || null, isScheduled ? scheduled_start : null, durMin]
     );
 
-    // ล็อคตู้ชาร์จทันที → คนอื่นจองไม่ได้
-    await pool.query(
-      `UPDATE chargers SET status = 'reserved' WHERE charger_id = ?`,
-      [charger_id]
-    );
+    // ล็อคตู้ทันทีเฉพาะ immediate booking
+    if (!isScheduled) {
+      await pool.query(
+        `UPDATE chargers SET status = 'reserved' WHERE charger_id = ?`,
+        [charger_id]
+      );
+    }
 
     return res.status(201).json({
       message: 'Booking created successfully.',
       booking_id: result.insertId,
+      scheduled: isScheduled,
     });
   } catch (error) {
     console.error('Create booking error:', error);
@@ -286,6 +336,25 @@ router.patch('/:id/admin-cancel', auth, roleCheck('admin'), async (req, res) => 
   }
 });
 
+/// nem — Feature 9.3: smart suggestion (ต้องอยู่ก่อน /:id)
+router.get('/suggest-recurring', auth, async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT charger_id, DAYNAME(scheduled_start) AS day, HOUR(scheduled_start) AS hour, COUNT(*) AS cnt
+       FROM bookings
+       WHERE user_id = ? AND status IN ('completed','active')
+         AND scheduled_start > DATE_SUB(NOW(), INTERVAL 4 WEEK)
+       GROUP BY charger_id, day, hour
+       HAVING cnt >= 3`,
+      [req.user.user_id]
+    );
+    return res.json({ suggestions: rows });
+  } catch (error) {
+    console.error('Suggest recurring error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
 /// nem
 router.get('/:id', auth, async (req, res) => {
   try {
@@ -331,11 +400,12 @@ router.get('/:id', auth, async (req, res) => {
  *       500:
  *         description: Server error
  */
-/// nem
+/// nem — Feature 11: cancel with fee logic
 router.patch('/:id/cancel', auth, async (req, res) => {
   try {
     const [bookingRows] = await pool.query(
-      `SELECT charger_id FROM bookings WHERE booking_id = ? AND user_id = ? AND status = 'confirmed'`,
+      `SELECT booking_id, charger_id, booking_time, scheduled_start
+       FROM bookings WHERE booking_id = ? AND user_id = ? AND status IN ('pending','confirmed')`,
       [req.params.id, req.user.user_id]
     );
 
@@ -343,18 +413,39 @@ router.patch('/:id/cancel', auth, async (req, res) => {
       return res.status(404).json({ message: 'Booking not found or cannot be cancelled.' });
     }
 
+    const b = bookingRows[0];
+    const scheduledStart = new Date(b.scheduled_start || b.booking_time);
+    const minsToStart = (scheduledStart.getTime() - Date.now()) / 60000;
+
+    let fee = 0;
+    let feeMethod = null;
+    if (minsToStart > 0 && minsToStart < 60) {
+      fee = 20;
+      feeMethod = await chargeFeeOrAddDebt(req.user.user_id, 20, `cancel_${req.params.id}`);
+      try {
+        const methodMsg = feeMethod === 'debt' ? 'ยอดค้างชำระได้รับการบันทึก' : 'หักจากกระเป๋าเงินแล้ว';
+        await pool.query(
+          `INSERT INTO notifications (user_id, title, message, type) VALUES (?, 'ค่าธรรมเนียมยกเลิก', ?, 'booking')`,
+          [req.user.user_id, `ยกเลิกการจองภายใน 1 ชั่วโมง ค่าธรรมเนียม ฿20 ${methodMsg}`]
+        );
+      } catch (_) {}
+    }
+
     await pool.query(
-      `UPDATE bookings SET status = 'cancelled' WHERE booking_id = ?`,
-      [req.params.id]
+      `UPDATE bookings SET status = 'cancelled', cancelled_at = NOW(), no_show_fee_charged = ? WHERE booking_id = ?`,
+      [fee, req.params.id]
     );
 
-    // คืนตู้ชาร์จกลับว่าง
     await pool.query(
       `UPDATE chargers SET status = 'available' WHERE charger_id = ? AND status = 'reserved'`,
-      [bookingRows[0].charger_id]
+      [b.charger_id]
     );
 
-    return res.status(200).json({ message: 'Booking cancelled successfully.' });
+    return res.status(200).json({
+      message: 'Booking cancelled successfully.',
+      fee_charged: fee,
+      fee_method: feeMethod,
+    });
   } catch (error) {
     console.error('Cancel booking error:', error);
     return res.status(500).json({ message: 'Server error cancelling booking.' });

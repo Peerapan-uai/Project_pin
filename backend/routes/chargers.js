@@ -336,4 +336,58 @@ router.patch('/:id/restore', auth, roleCheck('admin'), async (req, res) => {
 
 
 
+/// nem — Feature 9.1: available time slots for scheduled booking
+router.get('/:id/available-slots', auth, async (req, res) => {
+  const { date } = req.query; // e.g. '2026-04-26'
+  if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return res.status(400).json({ message: 'date query param ต้องอยู่ในรูป YYYY-MM-DD' });
+  }
+
+  try {
+    // หา bookings ที่มีอยู่แล้วในวันนั้น
+    const [bookings] = await pool.query(
+      `SELECT scheduled_start, duration_min FROM bookings
+       WHERE charger_id = ?
+         AND status IN ('pending','confirmed','active')
+         AND DATE(scheduled_start) = ?`,
+      [req.params.id, date]
+    );
+
+    // สร้าง slot 15 นาที ตั้งแต่ 00:00 ถึง 23:45
+    const slots = [];
+    for (let h = 0; h < 24; h++) {
+      for (let m = 0; m < 60; m += 15) {
+        const startMin = h * 60 + m;
+        const endMin = startMin + 15;
+        const startStr = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+        const endStr = `${String(Math.floor(endMin / 60)).padStart(2, '0')}:${String(endMin % 60).padStart(2, '0')}`;
+
+        const slotStart = new Date(`${date}T${startStr}:00`);
+        const slotEnd = new Date(`${date}T${endStr}:00`);
+        const now = new Date();
+
+        let available = slotStart > new Date(now.getTime() + 5 * 60000);
+
+        if (available) {
+          for (const b of bookings) {
+            const bStart = new Date(b.scheduled_start);
+            const bEnd = new Date(bStart.getTime() + b.duration_min * 60000);
+            if (slotStart < bEnd && slotEnd > bStart) {
+              available = false;
+              break;
+            }
+          }
+        }
+
+        slots.push({ start: startStr, end: endStr, available });
+      }
+    }
+
+    return res.json({ slots });
+  } catch (error) {
+    console.error('Available slots error:', error);
+    return res.status(500).json({ message: 'Server error.' });
+  }
+});
+
 module.exports = router;

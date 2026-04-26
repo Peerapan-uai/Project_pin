@@ -13,6 +13,11 @@ const cron = require('node-cron')
 
 const { startExpireJob } = require('./jobs/expireBookings');
 const { startExpirePaymentsJob } = require('./jobs/expirePayments');
+const { startTemperatureSimulator } = require('./jobs/temperatureSimulator');
+const { startNoShowChecker } = require('./jobs/noShowChecker');
+const { startPointsExpireJob } = require('./jobs/pointsExpire');
+const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen');
+const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop');
 
 // Route imports
 const authRoutes = require('./routes/auth');
@@ -27,12 +32,16 @@ const reviewRoutes = require('./routes/reviews');
 const ticketRoutes = require('./routes/tickets');
 const notificationRoutes = require('./routes/notifications');
 const walletRoutes = require('./routes/wallet');
+const favoritesRoutes = require('./routes/favorites');
+const pointsRoutes = require('./routes/points');
 const adminWalletRoutes = require('./routes/admin/wallet');
 const adminReportsRoutes = require('./routes/admin/reports');
 const adminNotificationsRoutes = require('./routes/admin/notifications');
 const logsRoutes = require('./routes/admin/logs');
 const adminRefundsRoutes = require('./routes/admin/refunds')
 const adminTrashRoutes   = require('./routes/admin/trash')
+const recurringBookingsRoutes = require('./routes/recurringBookings')
+const tripPlanRoutes = require('./routes/tripPlan')
 
 const app = express();
 
@@ -105,6 +114,10 @@ app.use('/api/admin/trash',   adminTrashRoutes)
 app.use('/api/admin/notifications', adminNotificationsRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/wallet', walletRoutes);
+app.use('/api/favorites', favoritesRoutes);
+app.use('/api/points', pointsRoutes);
+app.use('/api/recurring-bookings', recurringBookingsRoutes);
+app.use('/api/trip-plan', tripPlanRoutes);
 
 /**
  * @swagger
@@ -239,7 +252,12 @@ const startServer = async () => {
     console.log(`Server running on http://localhost:${PORT}`);
     console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
     startExpireJob();
-    startExpirePaymentsJob()
+    startExpirePaymentsJob();
+    startTemperatureSimulator();
+    startNoShowChecker();
+    startPointsExpireJob();
+    startRecurringBookingsGenJob();
+    startIdleFeeAutoStopJob();
     startScheduleNotificationsJob()
     startStationScheduleJob()
   });

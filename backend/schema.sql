@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: mysql:3306
--- Generation Time: Apr 24, 2026 at 09:02 AM
+-- Generation Time: Apr 26, 2026 at 04:25 AM
 -- Server version: 8.0.45
 -- PHP Version: 8.3.30
 
@@ -42,11 +42,17 @@ CREATE TABLE `bookings` (
   `booking_id` int UNSIGNED NOT NULL,
   `user_id` int UNSIGNED NOT NULL,
   `charger_id` int UNSIGNED NOT NULL,
+  `vehicle_id` int UNSIGNED DEFAULT NULL,
   `booking_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `scheduled_start` timestamp NULL DEFAULT NULL,
+  `duration_min` int NOT NULL DEFAULT '60',
+  `recurring_schedule_id` int UNSIGNED DEFAULT NULL,
   `start_time` timestamp NULL DEFAULT NULL,
   `end_time` timestamp NULL DEFAULT NULL,
   `status` enum('pending','confirmed','active','cancelled','completed','expired') NOT NULL DEFAULT 'pending',
-  `queue_position` int DEFAULT NULL
+  `queue_position` int DEFAULT NULL,
+  `cancelled_at` timestamp NULL DEFAULT NULL,
+  `no_show_fee_charged` decimal(10,2) NOT NULL DEFAULT '0.00'
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -66,6 +72,35 @@ CREATE TABLE `chargers` (
   `temperature_celsius` decimal(5,2) DEFAULT NULL,
   `qr_code` varchar(500) DEFAULT NULL,
   `deleted_at` datetime DEFAULT NULL
+-- Table structure for table `booking_skip_dates`
+--
+
+CREATE TABLE `booking_skip_dates` (
+  `skip_id` int UNSIGNED NOT NULL,
+  `schedule_id` int UNSIGNED NOT NULL,
+  `skip_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `chargers`
+--
+
+CREATE TABLE `chargers` (
+  `charger_id` int UNSIGNED NOT NULL,
+  `station_id` int UNSIGNED NOT NULL,
+  `charger_name` varchar(100) NOT NULL,
+  `connector_type` enum('CCS','CHAdeMO','Type2','Type1') NOT NULL,
+  `power_kw` decimal(6,2) NOT NULL,
+  `price_per_kwh` decimal(6,2) NOT NULL,
+  `status` enum('available','reserved','charging','out_of_service') NOT NULL DEFAULT 'available',
+  `idle_fee_enabled` tinyint(1) NOT NULL DEFAULT '0',
+  `temperature_celsius` decimal(5,2) DEFAULT NULL,
+  `max_temperature_celsius` decimal(5,2) NOT NULL DEFAULT '60.00',
+  `qr_code` varchar(500) DEFAULT NULL,
+  `deleted_at` datetime DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -81,6 +116,10 @@ CREATE TABLE `charging_sessions` (
   `charger_id` int UNSIGNED NOT NULL,
   `start_time` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `end_time` timestamp NULL DEFAULT NULL,
+  `full_charge_time` timestamp NULL DEFAULT NULL,
+  `idle_start_time` timestamp NULL DEFAULT NULL,
+  `idle_end_time` timestamp NULL DEFAULT NULL,
+  `idle_fee` decimal(10,2) NOT NULL DEFAULT '0.00',
   `energy_kwh` decimal(8,2) DEFAULT NULL,
   `charge_percentage` decimal(5,2) DEFAULT NULL,
   `status` enum('charging','completed','failed','stopped') NOT NULL DEFAULT 'charging'
@@ -89,6 +128,16 @@ CREATE TABLE `charging_sessions` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `messages`
+--
+
+CREATE TABLE `messages` (
+  `message_id` int NOT NULL,
+  `sender_id` int UNSIGNED NOT NULL,
+  `receiver_id` int UNSIGNED NOT NULL,
+  `content` text NOT NULL,
+  `is_read` tinyint(1) DEFAULT '0',
+  `created_at` timestamp NULL DEFAULT CURRENT_TIMESTAMP
 -- Table structure for table `maintenance_tickets`
 --
 
@@ -176,6 +225,9 @@ CREATE TABLE `payments` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `refund_requests`
+--
+
 -- Table structure for table `payment_refunds`
 --
 
@@ -186,6 +238,52 @@ CREATE TABLE `payment_refunds` (
   `reason` text,
   `refunded_by` int UNSIGNED NOT NULL,
   `refunded_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `point_balances`
+--
+
+CREATE TABLE `point_balances` (
+  `user_id` int UNSIGNED NOT NULL,
+  `balance` int NOT NULL DEFAULT '0',
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `point_transactions`
+--
+
+CREATE TABLE `point_transactions` (
+  `txn_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `amount` int NOT NULL,
+  `type` enum('earn','redeem','expire','adjust') NOT NULL,
+  `ref` varchar(100) DEFAULT NULL,
+  `expires_at` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `recurring_schedules`
+--
+
+CREATE TABLE `recurring_schedules` (
+  `schedule_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `charger_id` int UNSIGNED NOT NULL,
+  `days_of_week` set('mon','tue','wed','thu','fri','sat','sun') NOT NULL,
+  `start_time` time NOT NULL,
+  `duration_min` int NOT NULL DEFAULT '60',
+  `active` tinyint(1) NOT NULL DEFAULT '1',
+  `weeks_ahead` int NOT NULL DEFAULT '4',
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -221,6 +319,7 @@ CREATE TABLE `reviews` (
   `comment` text,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
 
@@ -266,6 +365,21 @@ CREATE TABLE `stations` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `tariffs`
+--
+
+CREATE TABLE `tariffs` (
+  `tariff_id` int UNSIGNED NOT NULL,
+  `charger_id` int UNSIGNED NOT NULL,
+  `period` enum('on_peak','off_peak') NOT NULL,
+  `start_time` time NOT NULL,
+  `end_time` time NOT NULL,
+  `price_per_kwh` decimal(6,2) NOT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `tech_profiles`
 --
 
@@ -293,6 +407,7 @@ CREATE TABLE `users` (
   `profile_image` varchar(500) DEFAULT NULL,
   `role` enum('user','admin','technician') NOT NULL DEFAULT 'user',
   `wallet_balance` decimal(10,2) NOT NULL DEFAULT '0.00',
+  `outstanding_debt` decimal(10,2) NOT NULL DEFAULT '0.00',
   `is_banned` tinyint(1) NOT NULL DEFAULT '0',
   `ban_reason` text,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -301,6 +416,19 @@ CREATE TABLE `users` (
   `wallet_frozen` tinyint(1) DEFAULT '0',
   `freeze_reason` text,
   `deleted_at` datetime DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `user_favorites`
+--
+
+CREATE TABLE `user_favorites` (
+  `favorite_id` int UNSIGNED NOT NULL,
+  `user_id` int UNSIGNED NOT NULL,
+  `station_id` int UNSIGNED NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -317,7 +445,7 @@ CREATE TABLE `vehicles` (
   `license_plate` varchar(50) NOT NULL,
   `connector_type` enum('CCS','CHAdeMO','Type2','Type1') NOT NULL,
   `battery_capacity_kwh` decimal(6,2) NOT NULL,
-  `battery_current_kwh` decimal(6,2) DEFAULT NULL
+  `battery_current_kwh` decimal(8,3) DEFAULT NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 
 -- --------------------------------------------------------
@@ -354,7 +482,15 @@ ALTER TABLE `admin_profiles`
 ALTER TABLE `bookings`
   ADD PRIMARY KEY (`booking_id`),
   ADD KEY `fk_bookings_user` (`user_id`),
-  ADD KEY `fk_bookings_charger` (`charger_id`);
+  ADD KEY `fk_bookings_charger` (`charger_id`),
+  ADD KEY `fk_bookings_recurring` (`recurring_schedule_id`);
+
+--
+-- Indexes for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  ADD PRIMARY KEY (`skip_id`),
+  ADD UNIQUE KEY `uk_schedule_date` (`schedule_id`,`skip_date`);
 
 --
 -- Indexes for table `chargers`
@@ -422,6 +558,28 @@ ALTER TABLE `payment_refunds`
   ADD KEY `fk_refunds_admin` (`refunded_by`);
 
 --
+-- Indexes for table `point_balances`
+--
+ALTER TABLE `point_balances`
+  ADD PRIMARY KEY (`user_id`);
+
+--
+-- Indexes for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  ADD PRIMARY KEY (`txn_id`),
+  ADD KEY `idx_pt_user` (`user_id`,`created_at`),
+  ADD KEY `idx_pt_expires` (`expires_at`);
+
+--
+-- Indexes for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  ADD PRIMARY KEY (`schedule_id`),
+  ADD KEY `fk_rs_user` (`user_id`),
+  ADD KEY `fk_rs_charger` (`charger_id`);
+
+--
 -- Indexes for table `refund_requests`
 --
 ALTER TABLE `refund_requests`
@@ -452,6 +610,14 @@ ALTER TABLE `stations`
   ADD PRIMARY KEY (`station_id`);
 
 --
+-- Indexes for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  ADD PRIMARY KEY (`tariff_id`),
+  ADD UNIQUE KEY `uk_charger_period` (`charger_id`,`period`),
+  ADD KEY `idx_tariffs_charger` (`charger_id`,`period`);
+
+--
 -- Indexes for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
@@ -464,6 +630,14 @@ ALTER TABLE `tech_profiles`
 ALTER TABLE `users`
   ADD PRIMARY KEY (`user_id`),
   ADD UNIQUE KEY `email` (`email`);
+
+--
+-- Indexes for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  ADD PRIMARY KEY (`favorite_id`),
+  ADD UNIQUE KEY `uk_user_station` (`user_id`,`station_id`),
+  ADD KEY `fk_fav_station` (`station_id`);
 
 --
 -- Indexes for table `vehicles`
@@ -494,6 +668,12 @@ ALTER TABLE `admin_profiles`
 --
 ALTER TABLE `bookings`
   MODIFY `booking_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  MODIFY `skip_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `chargers`
@@ -544,6 +724,18 @@ ALTER TABLE `payment_refunds`
   MODIFY `refund_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  MODIFY `txn_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  MODIFY `schedule_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `refund_requests`
 --
 ALTER TABLE `refund_requests`
@@ -568,6 +760,12 @@ ALTER TABLE `stations`
   MODIFY `station_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
+-- AUTO_INCREMENT for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  MODIFY `tariff_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
 -- AUTO_INCREMENT for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
@@ -578,6 +776,12 @@ ALTER TABLE `tech_profiles`
 --
 ALTER TABLE `users`
   MODIFY `user_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+--
+-- AUTO_INCREMENT for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  MODIFY `favorite_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 --
 -- AUTO_INCREMENT for table `vehicles`
@@ -606,7 +810,14 @@ ALTER TABLE `admin_profiles`
 --
 ALTER TABLE `bookings`
   ADD CONSTRAINT `fk_bookings_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_bookings_recurring` FOREIGN KEY (`recurring_schedule_id`) REFERENCES `recurring_schedules` (`schedule_id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_bookings_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `booking_skip_dates`
+--
+ALTER TABLE `booking_skip_dates`
+  ADD CONSTRAINT `fk_bsd_schedule` FOREIGN KEY (`schedule_id`) REFERENCES `recurring_schedules` (`schedule_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `chargers`
@@ -666,6 +877,25 @@ ALTER TABLE `payment_refunds`
   ADD CONSTRAINT `fk_refunds_payment` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`payment_id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `point_balances`
+--
+ALTER TABLE `point_balances`
+  ADD CONSTRAINT `fk_pb_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `point_transactions`
+--
+ALTER TABLE `point_transactions`
+  ADD CONSTRAINT `fk_pt_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `recurring_schedules`
+--
+ALTER TABLE `recurring_schedules`
+  ADD CONSTRAINT `fk_rs_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rs_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `refund_requests`
 --
 ALTER TABLE `refund_requests`
@@ -687,10 +917,23 @@ ALTER TABLE `scheduled_notifications`
   ADD CONSTRAINT `fk_sched_user` FOREIGN KEY (`created_by`) REFERENCES `users` (`user_id`);
 
 --
+-- Constraints for table `tariffs`
+--
+ALTER TABLE `tariffs`
+  ADD CONSTRAINT `fk_tariff_charger` FOREIGN KEY (`charger_id`) REFERENCES `chargers` (`charger_id`) ON DELETE CASCADE;
+
+--
 -- Constraints for table `tech_profiles`
 --
 ALTER TABLE `tech_profiles`
   ADD CONSTRAINT `tech_profiles_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+--
+-- Constraints for table `user_favorites`
+--
+ALTER TABLE `user_favorites`
+  ADD CONSTRAINT `fk_fav_station` FOREIGN KEY (`station_id`) REFERENCES `stations` (`station_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_fav_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
 
 --
 -- Constraints for table `vehicles`

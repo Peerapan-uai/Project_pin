@@ -3,34 +3,45 @@ import { useNavigate } from 'react-router-dom'
 import Navbar from '../../components/Navbar'
 import BottomNav from '../../components/BottomNav'
 import StatusBadge from '../../components/StatusBadge'
-import { FaBolt, FaCalendarAlt, FaDirections, FaClock } from 'react-icons/fa'
+import { FaBolt, FaCalendarAlt, FaDirections, FaClock, FaTimes } from 'react-icons/fa'
 import api from '../../utils/api'
 
 
-function useSecsLeft(startTime) {
-  const EXPIRE_MINUTES = 30
-  const getExpireAt = () => {
-    const raw = String(startTime)
-    // ถ้า DB ส่งมาไม่มี timezone suffix ให้ถือเป็น UTC
-    const ts = raw.endsWith('Z') || raw.includes('+') ? raw : raw.replace(' ', 'T') + 'Z'
-    return new Date(ts).getTime() + EXPIRE_MINUTES * 60 * 1000
+function toUTC(raw) {
+  const s = String(raw)
+  return s.endsWith('Z') || s.includes('+') ? s : s.replace(' ', 'T') + 'Z'
+}
+
+function useSecsLeft(b) {
+  const getTarget = () => {
+    if (b.scheduled_start) {
+      // scheduled: นับถอยหลังถึงเวลาจริง + 30 นาทีหลังถึงเวลา
+      const sched = new Date(toUTC(b.scheduled_start)).getTime()
+      return sched > Date.now() ? sched : sched + 30 * 60 * 1000
+    }
+    // immediate: start_time + 30 นาที
+    return new Date(toUTC(b.start_time)).getTime() + 30 * 60 * 1000
   }
-  const [secsLeft, setSecsLeft] = useState(() =>
-    Math.max(0, Math.floor((getExpireAt() - Date.now()) / 1000))
-  )
+  const [secsLeft, setSecsLeft] = useState(() => Math.max(0, Math.floor((getTarget() - Date.now()) / 1000)))
   useEffect(() => {
-    const calc = () =>
-      setSecsLeft(Math.max(0, Math.floor((getExpireAt() - Date.now()) / 1000)))
-    const t = setInterval(calc, 1000)
+    const t = setInterval(() => setSecsLeft(Math.max(0, Math.floor((getTarget() - Date.now()) / 1000))), 1000)
     return () => clearInterval(t)
-  }, [startTime])
+  }, [b.start_time, b.scheduled_start]) // eslint-disable-line
   return secsLeft
 }
 
-function BookingCard({ b, starting, onStart, navigate }) {
-  const secsLeft = useSecsLeft(b.start_time)
+function BookingCard({ b, starting, onStart, onCancel, navigate }) {
+  const secsLeft = useSecsLeft(b)
   const expired = secsLeft === 0
   const urgent = secsLeft <= 300 && secsLeft > 0
+
+  const isScheduled = !!b.scheduled_start
+  const schedFuture = isScheduled && new Date(toUTC(b.scheduled_start)) > new Date()
+  const displayTime = isScheduled ? b.scheduled_start : b.start_time
+
+  const scheduledStart = b.scheduled_start ? new Date(toUTC(b.scheduled_start)) : new Date(toUTC(b.start_time))
+  const minsToStart = (scheduledStart.getTime() - Date.now()) / 60000
+  const willChargeFee = minsToStart > 0 && minsToStart < 60
 
   return (
     <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
@@ -40,11 +51,16 @@ function BookingCard({ b, starting, onStart, navigate }) {
           <p className="text-xs text-gray-500 mt-0.5">{b.charger_name} · {b.connector_type}</p>
           <div className="flex items-center gap-1 mt-1.5 text-xs text-gray-400">
             <FaCalendarAlt size={10} />
-            <span>{new Date(b.start_time).toLocaleString('th-TH')}</span>
+            <span>{new Date(toUTC(displayTime)).toLocaleString('th-TH')}</span>
           </div>
           {b.status === 'confirmed' && (
             expired ? (
               <p className="text-xs text-red-500 font-semibold mt-1.5">หมดเวลาจอง</p>
+            ) : schedFuture ? (
+              <div className="flex items-center gap-1 mt-1.5 text-xs font-semibold text-blue-500">
+                <FaClock size={10} />
+                <span>เริ่มชาร์จได้ใน {Math.floor(secsLeft / 3600) > 0 ? `${Math.floor(secsLeft / 3600)} ชม. ` : ''}{Math.floor((secsLeft % 3600) / 60)} นาที</span>
+              </div>
             ) : (
               <div className={`flex items-center gap-1 mt-1.5 text-xs font-semibold ${urgent ? 'text-red-500' : 'text-amber-500'}`}>
                 <FaClock size={10} />
@@ -81,6 +97,13 @@ function BookingCard({ b, starting, onStart, navigate }) {
               <FaDirections size={16} />
             </button>
           )}
+          <button
+            onClick={() => onCancel(b, willChargeFee)}
+            className="px-3 py-2.5 bg-red-50 text-red-500 rounded-xl flex items-center justify-center active:scale-95 transition-all"
+            title="ยกเลิกการจอง"
+          >
+            <FaTimes size={14} />
+          </button>
         </div>
       )}
       {b.status === 'active' && b.session_id && (
@@ -108,13 +131,18 @@ export default function BookingHistoryPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [starting, setStarting] = useState(null)
+  const [cancelTarget, setCancelTarget] = useState(null)
+  const [willChargeFee, setWillChargeFee] = useState(false)
+  const [cancelling, setCancelling] = useState(false)
 
-  useEffect(() => {
+  const fetchBookings = () => {
     api.get('/api/bookings')
       .then(res => setBookings(res.data))
       .catch(() => setError('โหลดข้อมูลไม่สำเร็จ'))
       .finally(() => setLoading(false))
-  }, [])
+  }
+
+  useEffect(() => { fetchBookings() }, [])
 
   const handleStartCharging = (booking) => {
     setStarting(booking.booking_id)
@@ -123,10 +151,34 @@ export default function BookingHistoryPage() {
       charger_id: booking.charger_id
     })
       .then(res => navigate(`/charging/${res.data.session_id}`))
-      .catch(() => {
-        setError('เริ่มชาร์จไม่สำเร็จ กรุณาลองใหม่')
+      .catch(err => {
+        const code = err.response?.data?.code
+        const msg = code === 'CHARGER_OVERHEATED'
+          ? err.response.data.message
+          : (err.response?.data?.message || 'เริ่มชาร์จไม่สำเร็จ กรุณาลองใหม่')
+        setError(msg)
         setStarting(null)
       })
+  }
+
+  const handleCancelClick = (booking, feeWarning) => {
+    setCancelTarget(booking)
+    setWillChargeFee(feeWarning)
+  }
+
+  const handleConfirmCancel = () => {
+    if (!cancelTarget) return
+    setCancelling(true)
+    api.patch(`/api/bookings/${cancelTarget.booking_id}/cancel`)
+      .then(() => {
+        setCancelTarget(null)
+        fetchBookings()
+      })
+      .catch(err => {
+        setError(err.response?.data?.message || 'ยกเลิกไม่สำเร็จ')
+        setCancelTarget(null)
+      })
+      .finally(() => setCancelling(false))
   }
 
   if (loading) return <div className="flex justify-center p-10"><div className="text-gray-500">กำลังโหลด...</div></div>
@@ -143,10 +195,43 @@ export default function BookingHistoryPage() {
           </div>
         )}
         {bookings.map((b) => (
-          <BookingCard key={b.booking_id} b={b} starting={starting} onStart={handleStartCharging} navigate={navigate} />
+          <BookingCard key={b.booking_id} b={b} starting={starting} onStart={handleStartCharging} onCancel={handleCancelClick} navigate={navigate} />
         ))}
       </div>
       <BottomNav />
+
+      {/* Cancel confirm modal */}
+      {cancelTarget && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-end">
+          <div className="bg-white w-full rounded-t-3xl p-6 space-y-4">
+            <h2 className="text-lg font-bold text-gray-900">ยืนยันยกเลิกการจอง</h2>
+            {willChargeFee ? (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3">
+                <p className="text-sm text-red-700 font-semibold">⚠️ มีค่าธรรมเนียม ฿20</p>
+                <p className="text-xs text-red-600 mt-1">ยกเลิกภายใน 1 ชั่วโมงก่อนเวลาจอง จะถูกหักค่าธรรมเนียม ฿20 จาก Wallet</p>
+              </div>
+            ) : (
+              <p className="text-sm text-gray-600">ยกเลิกฟรี (ยกเลิกล่วงหน้ามากกว่า 1 ชั่วโมง)</p>
+            )}
+            <p className="text-sm text-gray-500">{cancelTarget.station_name} · {cancelTarget.charger_name}</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setCancelTarget(null)}
+                className="flex-1 py-3 border border-gray-300 rounded-2xl text-sm text-gray-600 font-semibold"
+              >
+                ไม่ยกเลิก
+              </button>
+              <button
+                onClick={handleConfirmCancel}
+                disabled={cancelling}
+                className="flex-1 py-3 bg-red-500 disabled:opacity-50 text-white rounded-2xl text-sm font-semibold"
+              >
+                {cancelling ? 'กำลังยกเลิก...' : willChargeFee ? 'ยืนยัน (หัก ฿20)' : 'ยืนยันยกเลิก'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

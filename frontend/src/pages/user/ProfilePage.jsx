@@ -5,7 +5,11 @@ import BottomNav from '../../components/BottomNav'
 import { useAuth } from '../../context/AuthContext'
 import {
   FaUser, FaEnvelope, FaPhone, FaCar, FaHistory, FaCreditCard,
+<<<<<<< HEAD
   FaSignOutAlt, FaChevronRight, FaEdit, FaBell, FaWallet, FaCog
+=======
+  FaSignOutAlt, FaChevronRight, FaEdit, FaTrash, FaBell, FaWallet, FaHeart, FaStar
+>>>>>>> 150349d00c96d75ad5b074515f2a4d5bebffcea5
 } from 'react-icons/fa'
 import api from '../../utils/api'
 
@@ -63,7 +67,9 @@ export default function ProfilePage() {
 
   const menuItems = [
     { label: 'กระเป๋าเงิน', icon: FaWallet, to: '/wallet' },
+    { label: 'แต้มสะสม', icon: FaStar, to: '/points' },
     { label: 'ยานพาหนะของฉัน', icon: FaCar, to: '/vehicles' },
+    { label: 'สถานีโปรด', icon: FaHeart, to: '/favorites' },
     { label: 'ประวัติการจอง', icon: FaHistory, to: '/bookings' },
     { label: 'ประวัติการชำระเงิน', icon: FaCreditCard, to: '/payments' },
     { label: 'การแจ้งเตือน', icon: FaBell, to: '/notifications' },
