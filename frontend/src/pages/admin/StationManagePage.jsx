@@ -11,7 +11,13 @@ const GMAPS_LIBRARIES = ['places']
 const BANGKOK = { lat: 13.7563, lng: 100.5018 }
 const MAP_CONTAINER = { width: '100%', height: '220px', borderRadius: '12px' }
 
-const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', scheduled_status: '', scheduled_status_at: '' }
+const EMPTY_FORM = { name: '', address: '', latitude: '', longitude: '', floor: '', open_time: '', close_time: '', status: 'active', station_type: 'public', scheduled_status: '', scheduled_status_at: '' }
+
+const STATION_TYPE_LABEL = {
+  public:        { label: 'สาธารณะ',      color: 'bg-blue-50 text-blue-600' },
+  private_fleet: { label: 'กองยาน',       color: 'bg-purple-50 text-purple-600' },
+  commercial:    { label: 'เชิงพาณิชย์',  color: 'bg-amber-50 text-amber-700' },
+}
 const EMPTY_CHARGER_FORM = { charger_name: '', connector_type: '', power_kw: '', price_per_kwh: '', status: 'available' }
 
 export default function StationManagePage() {
@@ -101,6 +107,7 @@ export default function StationManagePage() {
       open_time: s.open_time ?? '',
       close_time: s.close_time ?? '',
       status: s.status ?? 'active',
+      station_type: s.station_type ?? 'public',
       scheduled_status: s.scheduled_status ?? '',
       scheduled_status_at: s.scheduled_status_at ? s.scheduled_status_at.slice(0, 16) : '',
     })
@@ -344,6 +351,10 @@ export default function StationManagePage() {
                 <td className="px-5 py-4">
                   <p className="font-medium text-gray-900">{s.name}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{s.floor}</p>
+                  {s.station_type && (() => {
+                    const t = STATION_TYPE_LABEL[s.station_type]
+                    return t ? <span className={`inline-block mt-1 text-xs font-medium px-2 py-0.5 rounded-full ${t.color}`}>{t.label}</span> : null
+                  })()}
                 </td>
                 <td className="px-5 py-4 hidden md:table-cell">
                   <div className="flex items-start gap-1.5 max-w-xs">
@@ -677,16 +688,30 @@ export default function StationManagePage() {
                   />
                 </div>
               </div>
-              <div>
-                <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
-                <Select
-                  value={form.status}
-                  onChange={(v) => setForm({ ...form, status: v })}
-                  options={[
-                    { value: 'active', label: 'active' },
-                    { value: 'inactive', label: 'inactive' },
-                  ]}
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">สถานะ</label>
+                  <Select
+                    value={form.status}
+                    onChange={(v) => setForm({ ...form, status: v })}
+                    options={[
+                      { value: 'active', label: 'active' },
+                      { value: 'inactive', label: 'inactive' },
+                    ]}
+                  />
+                </div>
+                <div>
+                  <label className="text-xs font-medium text-gray-600 mb-1 block">ประเภทสถานี</label>
+                  <Select
+                    value={form.station_type}
+                    onChange={(v) => setForm({ ...form, station_type: v })}
+                    options={[
+                      { value: 'public', label: 'สาธารณะ' },
+                      { value: 'private_fleet', label: 'กองยาน' },
+                      { value: 'commercial', label: 'เชิงพาณิชย์' },
+                    ]}
+                  />
+                </div>
               </div>
               {/* ตั้งเวลาเปลี่ยนสถานะล่วงหน้า — แสดงเฉพาะตอนแก้ไข */}
               {editingId && <div className="border border-amber-200 bg-amber-50 rounded-xl p-3 space-y-3">

@@ -24,6 +24,13 @@
 - ถ้าเลือก `other` → โผล่ช่อง input ระบุ title เพิ่ม
 - เพิ่ม mandatory image upload + FileReader preview
 - handleSubmit แก้เป็น async/await 2 calls: POST ticket → ได้ ticket_id → POST image
+- **description บังคับเฉพาะ `safety`, `payment`, `other`** — type อื่นเป็น optional (UX: ช่องชัดเจนในตัวเองแล้ว)
+- placeholder เปลี่ยนตาม issue type — บอก user ว่าต้องระบุอะไร
+- label โชว์ `*` ถ้าบังคับ หรือ `(ไม่บังคับ)` ถ้าไม่บังคับ
+
+## BE — bugfix POST /api/tickets/:id/image
+
+- เพิ่ม `'user'` ใน roleCheck — เดิม lock แค่ admin/tech ทำให้ user แจ้งปัญหาแล้ว upload รูปไม่ได้ (403)
 
 ---
 
@@ -82,9 +89,30 @@
 
 # สิ่งที่ต้องทำต่อ (TODO)
 
-## ข้อ 1 — Repair vs Replace Proposal ✅ spec ใน LALLA_BE_PROPOSAL.md
-- BE: สร้าง table `repair_proposals` + 3 endpoints ใน tickets.js
-- FE: เพิ่ม form ยื่นข้อเสนอใน UpdateTicketPage (tech) + panel อนุมัติใน TicketManagePage (admin)
+## ข้อ 1 — Repair vs Replace Proposal ✅ BE เสร็จแล้ว
+
+**schema.sql** — เพิ่ม table `repair_proposals` ครบ (CREATE + INDEX + AUTO_INCREMENT + FK)
+
+**tickets.js** — เพิ่ม 3 endpoints + multer proposalStorage:
+- `POST /api/tickets/:id/proposal` — tech ยื่นข้อเสนอ (repair/replace + ราคาประเมิน + เวลา + คำอธิบาย + รูป) + แจ้ง admin ทุกคน
+- `GET /api/tickets/:id/proposals` — ดูข้อเสนอทั้งหมดของ ticket (JOIN tech_name + reviewed_by_name)
+- `PATCH /api/tickets/proposals/:id/review` — admin อนุมัติ/ปฏิเสธ + แจ้ง tech
+
+**FE เสร็จแล้ว ✅**
+
+UpdateTicketPage — เพิ่ม section "ข้อเสนอ: ซ่อม หรือ เปลี่ยนตู้ใหม่":
+- state: proposals, propRec, propRepairCost, propReplaceCost, propHours, propDesc, propImage
+- โหลด proposals จาก GET /api/tickets/:id/proposals ใน useEffect
+- handleSubmitProposal: POST multipart/form-data → refresh รายการ
+- แสดงข้อเสนอที่ส่งไปแล้ว + badge status + admin_note
+- form กรอก: dropdown ซ่อม/เปลี่ยน, ราคา 2 ช่อง, เวลา, คำอธิบาย, รูปหลักฐาน
+
+TicketManagePage (TicketDetailPanel) — เพิ่ม proposals panel:
+- state: proposals, adminNote, reviewingId
+- โหลด proposals พร้อมกับ part requests ใน useEffect
+- handleReviewProposal: PATCH /api/tickets/proposals/:id/review → refresh
+- แสดงข้อเสนอแต่ละอัน + คำนวณ % ซ่อมเทียบตู้ใหม่ (กฎ 50%) → แนะนำอัตโนมัติ
+- pending → ปุ่ม 3 ปุ่ม: อนุมัติซ่อม / อนุมัติเปลี่ยน / ปฏิเสธ + input admin_note
 
 ## ข้อ 2 — Dispatch Info สำหรับช่าง ✅ spec ใน LALLA_BE_DISPATCH.md
 - BE: เพิ่ม `latitude`, `longitude`, `floor`, `connector_type`, `power_kw` ใน GET /api/tickets

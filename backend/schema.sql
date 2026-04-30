@@ -19,6 +19,9 @@ SET time_zone = "+00:00";
 --
 -- Database: `ev_charger`
 --
+-- Updates log:
+-- 2026-04-26: +repair_proposals table (ช่างยื่นข้อเสนอ repair vs replace ให้ admin ประเมิน)
+--
 
 -- --------------------------------------------------------
 
@@ -308,6 +311,30 @@ CREATE TABLE `refund_requests` (
 -- --------------------------------------------------------
 
 --
+-- Table structure for table `repair_proposals` (NEW)
+-- ช่างยื่นข้อเสนอ repair vs replace ให้ admin ประเมิน
+--
+
+CREATE TABLE `repair_proposals` (
+  `proposal_id` int UNSIGNED NOT NULL,
+  `ticket_id` int UNSIGNED NOT NULL,
+  `tech_id` int UNSIGNED NOT NULL,
+  `recommendation` enum('repair','replace') NOT NULL,
+  `repair_cost_estimate` decimal(10,2) DEFAULT NULL,
+  `replace_cost_estimate` decimal(10,2) DEFAULT NULL,
+  `estimated_time_hours` decimal(4,1) DEFAULT NULL,
+  `description` text NOT NULL,
+  `evidence_image` varchar(500) DEFAULT NULL,
+  `status` enum('pending','approved_repair','approved_replace','rejected') NOT NULL DEFAULT 'pending',
+  `reviewed_by` int UNSIGNED DEFAULT NULL,
+  `reviewed_at` timestamp NULL DEFAULT NULL,
+  `admin_note` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+
+-- --------------------------------------------------------
+
+--
 -- Table structure for table `reviews`
 --
 
@@ -570,6 +597,12 @@ ALTER TABLE `refund_requests`
   ADD KEY `fk_rr_user` (`user_id`),
   ADD KEY `fk_rr_admin` (`reviewed_by`);
 
+ALTER TABLE `repair_proposals`
+  ADD PRIMARY KEY (`proposal_id`),
+  ADD KEY `fk_rp_ticket` (`ticket_id`),
+  ADD KEY `fk_rp_tech` (`tech_id`),
+  ADD KEY `fk_rp_reviewer` (`reviewed_by`);
+
 ALTER TABLE `reviews`
   ADD PRIMARY KEY (`review_id`),
   ADD KEY `fk_reviews_user` (`user_id`),
@@ -659,6 +692,9 @@ ALTER TABLE `recurring_schedules`
 
 ALTER TABLE `refund_requests`
   MODIFY `request_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
+
+ALTER TABLE `repair_proposals`
+  MODIFY `proposal_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
 
 ALTER TABLE `reviews`
   MODIFY `review_id` int UNSIGNED NOT NULL AUTO_INCREMENT;
@@ -758,6 +794,11 @@ ALTER TABLE `refund_requests`
   ADD CONSTRAINT `fk_rr_admin` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL,
   ADD CONSTRAINT `fk_rr_payment` FOREIGN KEY (`payment_id`) REFERENCES `payments` (`payment_id`) ON DELETE CASCADE,
   ADD CONSTRAINT `fk_rr_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE;
+
+ALTER TABLE `repair_proposals`
+  ADD CONSTRAINT `fk_rp_ticket` FOREIGN KEY (`ticket_id`) REFERENCES `maintenance_tickets` (`ticket_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rp_tech` FOREIGN KEY (`tech_id`) REFERENCES `users` (`user_id`) ON DELETE CASCADE,
+  ADD CONSTRAINT `fk_rp_reviewer` FOREIGN KEY (`reviewed_by`) REFERENCES `users` (`user_id`) ON DELETE SET NULL;
 
 ALTER TABLE `reviews`
   ADD CONSTRAINT `fk_reviews_station` FOREIGN KEY (`station_id`) REFERENCES `stations` (`station_id`) ON DELETE CASCADE,
