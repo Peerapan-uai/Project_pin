@@ -5,6 +5,8 @@ backend/node_modules/
 
 # Environment variables
 .env
+.env.*
+!.env.example
 frontend/.env
 backend/.env
 
@@ -19,3 +21,11 @@ npm-debug.log*
 # OS files
 .DS_Store
 Thumbs.db
+
+# Personal notes (nem)
+NEM_CAREER.md
+PHASE_2_*.md
+PHASE_3_*.md
+
+# Claude Code
+.claude/
