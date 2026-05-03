@@ -239,17 +239,22 @@ router.get('/:id', async (req, res) => {
  */
 ///lalla
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status, station_type } = req.body;
 
   if (!name || !address || latitude == null || longitude == null) {
     return res.status(400).json({ message: 'Name, address, latitude, and longitude are required.' });
   }
 
+  const validTypes = ['public', 'private_fleet', 'commercial']
+  if (station_type && !validTypes.includes(station_type)) {
+    return res.status(400).json({ message: 'station_type ต้องเป็น public, private_fleet หรือ commercial' })
+  }
+
   try {
     const [result] = await pool.query(
-      `INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, image, status)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active']
+      `INSERT INTO stations (name, address, latitude, longitude, floor, open_time, close_time, image, status, station_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active', station_type || 'public']
     );
 
     return res.status(201).json({
@@ -313,13 +318,18 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  */
 ///lalla   PUT	/api/stations/{id}	Update a station (Admin only)"
 router.put('/:id', auth, roleCheck('admin'), async (req, res) => {
-  const { name, address, latitude, longitude, floor, open_time, close_time, image, status } = req.body;
+  const { name, address, latitude, longitude, floor, open_time, close_time, image, status, station_type } = req.body;
+
+  const validTypes = ['public', 'private_fleet', 'commercial']
+  if (station_type && !validTypes.includes(station_type)) {
+    return res.status(400).json({ message: 'station_type ต้องเป็น public, private_fleet หรือ commercial' })
+  }
 
   try {
     const [result] = await pool.query(
       `UPDATE stations SET name = ?, address = ?, latitude = ?, longitude = ?,
-       floor = ?, open_time = ?, close_time = ?, image = ?, status = ? WHERE station_id = ?`,
-      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active', req.params.id]
+       floor = ?, open_time = ?, close_time = ?, image = ?, status = ?, station_type = ? WHERE station_id = ?`,
+      [name, address, latitude, longitude, floor || null, open_time || null, close_time || null, image || null, status || 'active', station_type || 'public', req.params.id]
     );
 
     if (result.affectedRows === 0) {

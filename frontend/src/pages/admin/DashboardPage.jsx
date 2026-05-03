@@ -9,6 +9,15 @@ const PRIORITY_COLOR = { low: 'bg-green-100 text-green-700', medium: 'bg-amber-1
 const PRIORITY_ICON_BG = { low: 'bg-green-100', medium: 'bg-amber-100', high: 'bg-red-100', critical: 'bg-red-200' }
 const PRIORITY_LABEL = { low: 'ต่ำ', medium: 'ปานกลาง', high: 'สูง', critical: 'วิกฤต' }
 
+const ISSUE_TYPE_META = {
+  safety:          { label: 'ความปลอดภัย',  color: 'bg-red-100 text-red-700' },
+  no_charge:       { label: 'ชาร์จไม่ได้',   color: 'bg-amber-100 text-amber-700' },
+  payment:         { label: 'ชำระเงิน',      color: 'bg-blue-100 text-blue-700' },
+  physical_damage: { label: 'ความเสียหาย',   color: 'bg-orange-100 text-orange-700' },
+  display:         { label: 'หน้าจอ',        color: 'bg-purple-100 text-purple-700' },
+  other:           { label: 'อื่นๆ',          color: 'bg-gray-100 text-gray-600' },
+}
+
 const POLL_INTERVAL = 30000
 
 function getDateRange(preset) {
@@ -169,6 +178,22 @@ export default function DashboardPage() {
   const TICKETS_PER_PAGE = 12
   const ticketTotalPages = Math.max(1, Math.ceil(filteredTickets.length / TICKETS_PER_PAGE))
   const pagedTickets = filteredTickets.slice((ticketPage - 1) * TICKETS_PER_PAGE, ticketPage * TICKETS_PER_PAGE)
+
+  // ticket summary — ทุก status ในช่วง period + station filter
+  const summaryTickets = tickets.filter((t) => {
+    if (selectedStation && t.station_name !== selectedStation.name) return false
+    if (t.created_at) {
+      const tDate = t.created_at.slice(0, 10)
+      if (tDate < from || tDate > to) return false
+    }
+    return true
+  })
+  const byPriority = { low: 0, medium: 0, high: 0, critical: 0 }
+  const byIssueType = { safety: 0, no_charge: 0, payment: 0, physical_damage: 0, display: 0, other: 0 }
+  summaryTickets.forEach((t) => {
+    if (byPriority[t.priority] !== undefined) byPriority[t.priority]++
+    if (byIssueType[t.issue_type] !== undefined) byIssueType[t.issue_type]++
+  })
 
   // format ticket date
   const formatTicketDate = (dateStr) => {
@@ -366,6 +391,46 @@ export default function DashboardPage() {
             <div>
               <p className="text-xs text-gray-400 mb-1">ปรับยอด</p>
               <p className="text-lg font-bold text-violet-600">{Number(walletSummary.total_adjust).toLocaleString('th-TH', { minimumFractionDigits: 2 })} ฿</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Ticket Summary — breakdown ตาม priority + issue_type */}
+      {summaryTickets.length > 0 && (
+        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+          <div className="flex items-center gap-2 mb-4">
+            <FaTicketAlt className="text-red-400" size={14} />
+            <h2 className="font-bold text-gray-900">สรุปแจ้งซ่อม ({periodLabel})</h2>
+            <span className="text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">{summaryTickets.length} รายการ</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+            {/* by priority */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2">แยกตาม Priority</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(byPriority).map(([key, count]) => (
+                  <div key={key} className={`flex items-center justify-between rounded-xl px-3 py-2 ${PRIORITY_COLOR[key]}`}>
+                    <span className="text-xs font-medium">{PRIORITY_LABEL[key]}</span>
+                    <span className="text-lg font-bold">{count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            {/* by issue type */}
+            <div>
+              <p className="text-xs font-semibold text-gray-500 mb-2">แยกตามประเภทปัญหา</p>
+              <div className="grid grid-cols-2 gap-2">
+                {Object.entries(byIssueType).map(([key, count]) => {
+                  const meta = ISSUE_TYPE_META[key]
+                  return (
+                    <div key={key} className={`flex items-center justify-between rounded-xl px-3 py-2 ${meta.color}`}>
+                      <span className="text-xs font-medium">{meta.label}</span>
+                      <span className="text-lg font-bold">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
             </div>
           </div>
         </div>

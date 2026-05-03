@@ -224,10 +224,16 @@ function TicketDetailPanel({ ticket, onRefresh }) {
   const [overridePriority, setOverridePriority] = useState(ticket.priority)
   const [overriding, setOverriding]             = useState(false)
   const [partRequests, setPartRequests]         = useState([])
+  const [proposals, setProposals]               = useState([])
+  const [adminNote, setAdminNote]               = useState('')
+  const [reviewingId, setReviewingId]           = useState(null)
 
   useEffect(() => {
     api.get(`/api/spare-parts/requests/${ticket.ticket_id}`)
       .then(res => setPartRequests(res.data.requests))
+      .catch(() => {})
+    api.get(`/api/tickets/${ticket.ticket_id}/proposals`)
+      .then(res => setProposals(res.data.proposals))
       .catch(() => {})
   }, [ticket.ticket_id])
 
@@ -269,6 +275,20 @@ function TicketDetailPanel({ ticket, onRefresh }) {
       loadRequests()
     } catch (err) {
       alert(err.response?.data?.message || 'ปฏิเสธไม่สำเร็จ')
+    }
+  }
+
+  const handleReviewProposal = async (proposalId, status) => {
+    setReviewingId(proposalId)
+    try {
+      await api.patch(`/api/tickets/proposals/${proposalId}/review`, { status, admin_note: adminNote || undefined })
+      const res = await api.get(`/api/tickets/${ticket.ticket_id}/proposals`)
+      setProposals(res.data.proposals)
+      setAdminNote('')
+    } catch (err) {
+      alert(err.response?.data?.message || 'บันทึกไม่สำเร็จ')
+    } finally {
+      setReviewingId(null)
     }
   }
 
@@ -328,6 +348,68 @@ function TicketDetailPanel({ ticket, onRefresh }) {
       {partRequests.length === 0 && (
         <p className="text-xs text-gray-400">ยังไม่มีการขอเบิกอะไหล่</p>
       )}
+
+      {/* Proposals */}
+      <div>
+        <p className="text-xs font-semibold text-gray-600 mb-2">ข้อเสนอจากช่าง (ซ่อม / เปลี่ยนตู้)</p>
+        {proposals.length === 0 && <p className="text-xs text-gray-400">ยังไม่มีข้อเสนอ</p>}
+        {proposals.map(p => (
+          <div key={p.proposal_id} className="bg-gray-50 rounded-xl px-3 py-3 mb-2 space-y-2">
+            <div className="flex items-center justify-between">
+              <span className={`text-xs font-bold ${p.recommendation === 'repair' ? 'text-blue-600' : 'text-orange-600'}`}>
+                {p.recommendation === 'repair' ? 'แนะนำ: ซ่อม' : 'แนะนำ: เปลี่ยนตู้ใหม่'}
+              </span>
+              <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                p.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                'bg-green-100 text-green-700'
+              }`}>
+                {p.status === 'pending' ? 'รอพิจารณา' :
+                 p.status === 'rejected' ? 'ปฏิเสธ' :
+                 p.status === 'approved_repair' ? 'อนุมัติ: ซ่อม' : 'อนุมัติ: เปลี่ยน'}
+              </span>
+            </div>
+            <p className="text-xs text-gray-600">{p.description}</p>
+            <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+              {p.repair_cost_estimate && <span>ค่าซ่อม: {Number(p.repair_cost_estimate).toLocaleString()} บาท</span>}
+              {p.replace_cost_estimate && <span>ราคาตู้ใหม่: {Number(p.replace_cost_estimate).toLocaleString()} บาท</span>}
+              {p.repair_cost_estimate && p.replace_cost_estimate && (
+                <span className={`col-span-2 font-medium ${Number(p.repair_cost_estimate) / Number(p.replace_cost_estimate) > 0.5 ? 'text-red-500' : 'text-green-600'}`}>
+                  {Math.round(Number(p.repair_cost_estimate) / Number(p.replace_cost_estimate) * 100)}% ของราคาตู้ใหม่
+                  {Number(p.repair_cost_estimate) / Number(p.replace_cost_estimate) > 0.5 ? ' → แนะนำเปลี่ยน' : ' → คุ้มค่าซ่อม'}
+                </span>
+              )}
+            </div>
+            {p.estimated_time_hours && <p className="text-xs text-gray-500">เวลาประเมิน: {p.estimated_time_hours} ชม.</p>}
+            <p className="text-xs text-gray-400">โดย {p.tech_name} · {new Date(p.created_at).toLocaleDateString('th-TH')}</p>
+
+            {p.status === 'pending' && (
+              <div className="space-y-2 pt-1">
+                <input value={adminNote} onChange={e => setAdminNote(e.target.value)}
+                  placeholder="หมายเหตุ admin (ไม่บังคับ)"
+                  className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-primary" />
+                <div className="flex gap-2">
+                  <button onClick={() => handleReviewProposal(p.proposal_id, 'approved_repair')}
+                    disabled={reviewingId === p.proposal_id}
+                    className="flex-1 text-xs py-1.5 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50">
+                    อนุมัติ: ซ่อม
+                  </button>
+                  <button onClick={() => handleReviewProposal(p.proposal_id, 'approved_replace')}
+                    disabled={reviewingId === p.proposal_id}
+                    className="flex-1 text-xs py-1.5 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:opacity-50">
+                    อนุมัติ: เปลี่ยน
+                  </button>
+                  <button onClick={() => handleReviewProposal(p.proposal_id, 'rejected')}
+                    disabled={reviewingId === p.proposal_id}
+                    className="flex-1 text-xs py-1.5 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 disabled:opacity-50">
+                    ปฏิเสธ
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

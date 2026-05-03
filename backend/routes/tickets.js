@@ -35,6 +35,19 @@ const storage = multer.diskStorage({
   },
 });
 
+const proposalStorage = multer.diskStorage({
+  destination: (req, file, cd) => {
+    const dir = path.join(__dirname, '..', 'uploads', 'proposals')
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true })
+    cd(null, dir)
+  },
+  filename: (req, file, cd) => {
+    const ext = path.extname(file.originalname)
+    cd(null, `proposal-${req.params.id}-${Date.now()}${ext}`)
+  },
+})
+const uploadProposal = multer({ storage: proposalStorage, limits: { fileSize: 5 * 1024 * 1024 }})
+
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
@@ -170,9 +183,10 @@ router.get('/', auth, async (req, res) => {
         SELECT t.*,
                CONCAT(u.first_name, ' ', u.last_name) AS reporter_name,
                CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name,
-               c.charger_name,
+               c.charger_name, c.connector_type, c.power_kw,
                s.name AS station_name,
-               s.address AS station_address
+               s.address AS station_address,
+               s.latitude, s.longitude, s.floor
         FROM maintenance_tickets t
         JOIN users u ON t.reported_by = u.user_id
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
@@ -186,9 +200,10 @@ router.get('/', auth, async (req, res) => {
         SELECT t.*,
                CONCAT(u.first_name, ' ', u.last_name) AS reporter_name,
                CONCAT(tech.first_name, ' ', tech.last_name) AS assigned_to_name,
-               c.charger_name,
+               c.charger_name, c.connector_type, c.power_kw,
                s.name AS station_name,
-               s.address AS station_address
+               s.address AS station_address,
+               s.latitude, s.longitude, s.floor
         FROM maintenance_tickets t
         JOIN users u ON t.reported_by = u.user_id
         LEFT JOIN users tech ON t.assigned_to = tech.user_id
@@ -492,6 +507,41 @@ router.post('/:id/test-image', auth, roleCheck('admin', 'technician'), upload.si
   }
 })
 
+router.patch('/proposals/:id/review', auth, roleCheck('admin'), async (req, res) => {
+  const { status, admin_note } = req.body
+  const validStatus = ['approved_repair', 'approved_replace', 'rejected']
+
+  if (!validStatus.includes(status))
+    return res.status(400).json({ message: 'status ไม่ถูกต้อง' })
+
+  const [result] = await pool.query(
+    `UPDATE repair_proposals
+     SET status = ?, admin_note = ?, reviewed_by = ?, reviewed_at = NOW()
+     WHERE proposal_id = ? AND status = 'pending'`,
+    [status, admin_note || null, req.user.user_id, req.params.id]
+  )
+  if (result.affectedRows === 0)
+    return res.status(404).json({ message: 'ไม่พบข้อเสนอหรือ review ไปแล้ว' })
+
+  res.json({ message: 'บันทึกผลการพิจารณาแล้ว' })
+
+  try {
+  const [[proposal]] = await pool.query(
+    `SELECT tech_id, ticket_id FROM repair_proposals WHERE proposal_id = ?`,
+    [req.params.id]
+  )
+  if (proposal) {
+    await pool.query(
+      `INSERT INTO notifications (user_id, title, message, type) VALUES (?, ?, ?, 'maintenance')`,
+      [proposal.tech_id, 'ผลการพิจารณาข้อเสนอ', `ticket #${proposal.ticket_id}: ${status}`]
+    )
+  }
+ } catch (_) {}
+
+})
+
+
+
 // check-in
 router.patch('/:id/checkin', auth, roleCheck('technician'), async (req, res) => {
   const [result] = await pool.query(
@@ -503,6 +553,59 @@ router.patch('/:id/checkin', auth, roleCheck('technician'), async (req, res) => 
     return res.status(404).json({ message: 'Ticket not found หรือ ไม่ใช่งานของคุณ' })
   res.json({ message: 'เช็คอินสำเร็จ' })
 })
+
+
+router.post('/:id/proposal', auth, roleCheck('technician'), uploadProposal.single('evidence_image'), async (req, res) => {
+  const { recommendation, repair_cost_estimate, replace_cost_estimate, estimated_time_hours, description } = req.body
+
+  if (!['repair', 'replace'].includes(recommendation))
+    return res.status(400).json({ message: 'recommendation ต้องเป็น repair หรือ replace' })
+  if (!description)
+    return res.status(400).json({ message: 'description required' })
+
+  const [[ticket]] = await pool.query(
+    `select ticket_id from maintenance_tickets where ticket_id = ? and assigned_to = ?`, [req.params.id, req.user.user_id]
+  )
+  if (!ticket) return res.status(403).json({ message: 'ไม่ใช่งานของคุณ' })
+
+  const imageUrl = req.file ? `/uploads/proposals/${req.file.filename}` : null
+  const [result] = await pool.query(
+    `INSERT INTO repair_proposals (ticket_id, tech_id, recommendation, repair_cost_estimate, replace_cost_estimate, estimated_time_hours, description, evidence_image)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [req.params.id, req.user.user_id, recommendation, repair_cost_estimate || null, replace_cost_estimate || null, estimated_time_hours || null, description, imageUrl]
+  )
+
+  res.status(201).json({ message: 'ส่งข้อเสนอแล้ว', proposal_id: result.insertId })
+  try {
+  await pool.query(
+    `INSERT INTO notifications (user_id, title, message, type)
+     SELECT user_id, 'ข้อเสนอจากช่าง',
+       CONCAT('ticket #', ?, ' ช่างเสนอ: ', ?),
+       'maintenance'
+     FROM users WHERE role = 'admin'`,
+    [req.params.id, recommendation === 'repair' ? 'ซ่อม' : 'เปลี่ยนตู้ใหม่']
+  )
+ } catch (_) {}
+
+
+})
+
+
+router.get('/:id/proposals', auth, roleCheck('admin', 'technician'), async (req, res) => {
+  const [rows] = await pool.query(`
+    SELECT p.*,
+           CONCAT(u.first_name, ' ', u.last_name) AS tech_name,
+           CONCAT(r.first_name, ' ', r.last_name) AS reviewed_by_name
+    FROM repair_proposals p
+    JOIN users u ON p.tech_id = u.user_id
+    LEFT JOIN users r ON p.reviewed_by = r.user_id
+    WHERE p.ticket_id = ?
+    ORDER BY p.created_at DESC
+  `, [req.params.id])
+  res.json({ proposals: rows })
+})
+
+
 
 // check-out
 router.patch('/:id/checkout', auth, roleCheck('technician'), async (req, res) => {
@@ -538,6 +641,33 @@ router.patch('/:id/priority', auth, roleCheck('admin'), async (req, res) => {
     [priority, req.params.id]
   )
   res.json({ message: 'Priority updated' })
+})
+
+// GET /api/tickets/:id/repair-history — ประวัติซ่อม 3 ครั้งล่าสุดของ charger นั้น
+router.get('/:id/repair-history', auth, roleCheck('admin', 'technician'), async (req, res) => {
+  try {
+    const [[ticket]] = await pool.query(
+      `SELECT charger_id FROM maintenance_tickets WHERE ticket_id = ?`,
+      [req.params.id]
+    )
+    if (!ticket) return res.status(404).json({ message: 'Ticket not found.' })
+
+    const [rows] = await pool.query(
+      `SELECT t.ticket_id, t.title, t.issue_type, t.priority,
+              t.completed_at, t.repair_notes,
+              CONCAT(u.first_name, ' ', u.last_name) AS tech_name
+       FROM maintenance_tickets t
+       LEFT JOIN users u ON t.assigned_to = u.user_id
+       WHERE t.charger_id = ? AND t.status = 'completed' AND t.ticket_id != ?
+       ORDER BY t.completed_at DESC
+       LIMIT 3`,
+      [ticket.charger_id, req.params.id]
+    )
+    res.json({ history: rows })
+  } catch (error) {
+    console.error('Repair history error:', error)
+    res.status(500).json({ message: 'Server error.' })
+  }
 })
 
 module.exports = router;

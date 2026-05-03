@@ -36,6 +36,17 @@ export default function UpdateTicketPage() {
   const [qty, setQty]           = useState(1)
   const [requesting, setRequesting] = useState(false)
 
+  // repair proposal
+  const [proposals, setProposals]         = useState([])
+  const [propRec, setPropRec]             = useState('repair')
+  const [propRepairCost, setPropRepairCost] = useState('')
+  const [propReplaceCost, setPropReplaceCost] = useState('')
+  const [propHours, setPropHours]         = useState('')
+  const [propDesc, setPropDesc]           = useState('')
+  const [propImage, setPropImage]         = useState(null)
+  const [propImagePreview, setPropImagePreview] = useState(null)
+  const [submittingProp, setSubmittingProp] = useState(false)
+
   useEffect(() => {
     api.get('/api/tickets')
       .then((res) => {
@@ -53,6 +64,7 @@ export default function UpdateTicketPage() {
 
     api.get('/api/spare-parts').then(res => setParts(res.data.parts)).catch(() => {})
     api.get(`/api/spare-parts/requests/${id}`).then(res => setPartRequests(res.data.requests)).catch(() => {})
+    api.get(`/api/tickets/${id}/proposals`).then(res => setProposals(res.data.proposals)).catch(() => {})
   }, [id])
 
   const handleCheckIn = async () => {
@@ -71,6 +83,29 @@ export default function UpdateTicketPage() {
       setCheckOutAt(new Date().toISOString())
     } catch { alert('เช็คเอาท์ไม่สำเร็จ') }
     finally { setCheckingOut(false) }
+  }
+
+  const handleSubmitProposal = async () => {
+    if (!propDesc.trim()) return alert('กรุณาใส่คำอธิบาย')
+    setSubmittingProp(true)
+    try {
+      const form = new FormData()
+      form.append('recommendation', propRec)
+      form.append('description', propDesc)
+      if (propRepairCost) form.append('repair_cost_estimate', propRepairCost)
+      if (propReplaceCost) form.append('replace_cost_estimate', propReplaceCost)
+      if (propHours) form.append('estimated_time_hours', propHours)
+      if (propImage) form.append('evidence_image', propImage)
+      await api.post(`/api/tickets/${id}/proposal`, form, { headers: { 'Content-Type': 'multipart/form-data' } })
+      const res = await api.get(`/api/tickets/${id}/proposals`)
+      setProposals(res.data.proposals)
+      setPropDesc(''); setPropRepairCost(''); setPropReplaceCost(''); setPropHours('')
+      setPropImage(null); setPropImagePreview(null)
+    } catch (err) {
+      alert(err.response?.data?.message || 'ส่งข้อเสนอไม่สำเร็จ')
+    } finally {
+      setSubmittingProp(false)
+    }
   }
 
   const handleRequestPart = async () => {
@@ -348,6 +383,77 @@ export default function UpdateTicketPage() {
               />
             </div>
           )}
+
+          {/* ข้อเสนอ repair vs replace */}
+          <div className="border-t border-gray-100 pt-4 space-y-3">
+            <p className="text-sm font-semibold text-gray-700">ข้อเสนอ: ซ่อม หรือ เปลี่ยนตู้ใหม่</p>
+
+            {/* ข้อเสนอที่ส่งไปแล้ว */}
+            {proposals.length > 0 && (
+              <div className="space-y-2">
+                {proposals.map(p => (
+                  <div key={p.proposal_id} className="bg-gray-50 rounded-xl px-3 py-2.5 text-xs space-y-1">
+                    <div className="flex items-center justify-between">
+                      <span className={`font-semibold ${p.recommendation === 'repair' ? 'text-blue-600' : 'text-orange-600'}`}>
+                        {p.recommendation === 'repair' ? 'แนะนำซ่อม' : 'แนะนำเปลี่ยนตู้'}
+                      </span>
+                      <span className={`px-2 py-0.5 rounded-full font-medium ${
+                        p.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                        p.status === 'rejected' ? 'bg-red-100 text-red-600' :
+                        'bg-green-100 text-green-700'
+                      }`}>
+                        {p.status === 'pending' ? 'รอ admin' :
+                         p.status === 'rejected' ? 'ปฏิเสธ' : 'อนุมัติแล้ว'}
+                      </span>
+                    </div>
+                    <p className="text-gray-600">{p.description}</p>
+                    {p.repair_cost_estimate && <p className="text-gray-500">ค่าซ่อมประมาณ: {Number(p.repair_cost_estimate).toLocaleString()} บาท</p>}
+                    {p.replace_cost_estimate && <p className="text-gray-500">ราคาตู้ใหม่ประมาณ: {Number(p.replace_cost_estimate).toLocaleString()} บาท</p>}
+                    {p.admin_note && <p className="text-blue-600">admin: {p.admin_note}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* form ส่งข้อเสนอใหม่ */}
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                {[{ value: 'repair', label: 'แนะนำซ่อม' }, { value: 'replace', label: 'แนะนำเปลี่ยนตู้' }].map(opt => (
+                  <button key={opt.value} onClick={() => setPropRec(opt.value)}
+                    className={`py-2 text-sm rounded-xl border font-medium transition-all ${propRec === opt.value ? 'border-primary bg-primary/5 text-primary' : 'border-gray-200 text-gray-600'}`}>
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <input type="number" placeholder="ค่าซ่อม (บาท)" value={propRepairCost}
+                  onChange={e => setPropRepairCost(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+                <input type="number" placeholder="ราคาตู้ใหม่ (บาท)" value={propReplaceCost}
+                  onChange={e => setPropReplaceCost(e.target.value)}
+                  className="border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              </div>
+              <input type="number" step="0.5" placeholder="เวลาที่ใช้ (ชั่วโมง)" value={propHours}
+                onChange={e => setPropHours(e.target.value)}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary" />
+              <textarea value={propDesc} onChange={e => setPropDesc(e.target.value)}
+                placeholder="อธิบายเหตุผล สภาพตู้ ความเสียหาย..." rows={3}
+                className="w-full border border-gray-300 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
+              <input type="file" accept="image/*"
+                onChange={e => {
+                  const file = e.target.files[0] || null
+                  setPropImage(file)
+                  if (file) { const r = new FileReader(); r.onloadend = () => setPropImagePreview(r.result); r.readAsDataURL(file) }
+                  else setPropImagePreview(null)
+                }}
+                className="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:bg-gray-100 file:text-gray-700 file:text-sm" />
+              {propImagePreview && <img src={propImagePreview} alt="preview" className="max-h-32 rounded-xl border border-gray-200" />}
+              <button onClick={handleSubmitProposal} disabled={submittingProp}
+                className="w-full py-2.5 bg-orange-500 text-white font-semibold rounded-xl hover:bg-orange-600 transition-colors disabled:opacity-50 text-sm">
+                {submittingProp ? 'กำลังส่ง...' : 'ส่งข้อเสนอให้ admin'}
+              </button>
+            </div>
+          </div>
 
           <button
             onClick={handleSave}
