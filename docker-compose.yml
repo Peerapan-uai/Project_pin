@@ -36,13 +36,20 @@ services:
       - "27017:27017"
     volumes:
       - mongo_data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "-u", "admin", "-p", "admin", "--authenticationDatabase", "admin", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
 
   mongo-express:
     image: mongo-express:latest
     container_name: ev_charger_mongo_express
     restart: always
     depends_on:
-      - mongodb
+      mongodb:
+        condition: service_healthy
     environment:
       ME_CONFIG_MONGODB_ADMINUSERNAME: admin
       ME_CONFIG_MONGODB_ADMINPASSWORD: admin
