@@ -229,11 +229,15 @@ router.get('/:id', async (req, res) => {
  *                 type: string
  *               status:
  *                 type: string
+ *               station_type:
+ *                 type: string
+ *                 enum: [public, private_fleet, commercial]
+ *                 default: public
  *     responses:
  *       201:
  *         description: Station created
  *       400:
- *         description: Missing required fields
+ *         description: Missing required fields or invalid station_type
  *       500:
  *         description: Server error
  */
@@ -308,9 +312,14 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
  *                 type: string
  *               status:
  *                 type: string
+ *               station_type:
+ *                 type: string
+ *                 enum: [public, private_fleet, commercial]
  *     responses:
  *       200:
  *         description: Station updated
+ *       400:
+ *         description: Invalid station_type
  *       404:
  *         description: Station not found
  *       500:
