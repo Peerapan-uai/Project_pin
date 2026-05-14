@@ -6,6 +6,32 @@
 
 ---
 
+## 🎯 Next up — เนมทำต่อได้คนเดียว (อัปเดต 2026-05-12)
+
+3 ทางเลือก ไม่ต้องรอลัลลา — เลือก 1 ลุย แล้ว research keywords ด้านล่าง
+
+### Option A — A.13 Husky + commitlint *(small, immediate)*
+- **Why:** kill "สฟสสฟ" ที่ source — commit message format ผิด = block ตั้งแต่ก่อนเข้า history
+- **Research:** `husky setup nodejs`, `commitlint conventional-commits`, `lint-staged eslint prettier`
+- **Done when:** ลอง `git commit -m "test"` → ถูก reject พร้อม error อธิบาย format
+
+### Option B — A.5 Jest + Supertest *(big, interview filter)*
+- **Why:** Tier S/A ทุกที่กรอง resume ด้วย "มี automated test มั้ย" — manual test ไม่นับ
+- **Research:** `jest config nodejs`, `supertest express tutorial`, `jest mock mysql2`, `jest coverage report`
+- **Done when:** `npm test` รันได้ + 50%+ coverage บน payment/booking/wallet
+
+### Option C — A.10 Knex migrations *(unblock team forever)*
+- **Why:** เลิกส่ง `LALLA_MIGRATION.sql` ทำมือ — schema เนม+ลัลลา sync ผ่าน 1 command
+- **Research:** `knex.js getting started`, `knex migrate vs raw sql`, `knex up/down pattern`
+- **Done when:** ลัลลาเพิ่ม table → commit migration file → เนม `npx knex migrate:latest` = sync
+
+**คำแนะนำเลือก:**
+- เพิ่งเจอปัญหา "สฟสสฟ" สดๆ → **A** ปิดที่ต้นทาง
+- อยากได้ portfolio bullet ใหญ่ → **B**
+- รำคาญ schema desync กับลัลลา → **C**
+
+---
+
 ## 🎯 เป้าหมาย
 
 ปั้น EV Charger ให้เป็น **production-grade portfolio** ที่บริษัท Tier S/A (Agoda, KBTG, LMWN, Grab, SYNQA) เห็นแล้วต้องการ — มี deploy URL, real-time, monitoring, security, mobile-installable, code quality automation, performance benchmarks
@@ -45,6 +71,117 @@ H. Mobile (Capacitor)
    ↓
 I. Deploy Phase 2 (AWS migration)
 ```
+
+---
+
+## 📊 Owner Matrix
+
+> **Legend:**
+> - `✅` = ทำเสร็จแล้ว
+> - `[ ]` = ยังไม่ทำ
+> - `[~]` = กำลังทำ
+> - **เนม / ลัลลา** = คนรับผิดชอบ
+> - `lead` = ตั้งระบบครั้งเดียว / `adopt` = pull มาใช้ / `pair` = ทำพร้อมกัน
+
+| # | Section | เนม | ลัลลา | Status | Note |
+|---|---|---|---|---|---|
+| A.1 | `.gitignore` + `.env` audit | review | review | `✅` | passed 2026-05-12 — .env never committed, .env.example มีทั้ง backend+frontend |
+| A.2 | Manual test 14 features | ของตัวเอง | ของตัวเอง | `✅` | each owns own feature |
+| A.3 | Schema sync | coordinate | coordinate | `[ ]` | รัน migration ทั้งคู่ | // อาจจะเปลี่ยนเป็น docker 
+| A.4 | Cleanup unused deps | ทั้งคู่ | ทั้งคู่ | `[ ]` | | 
+| A.5 | Jest + Supertest setup | lead | adopt | `✅` | nem setup → both write tests own routes | อาจจะเปลี่ยนไปใช้ vitest
+| A.6 | Logger password leak fix | — | ทำ | `[~]` | middleware แค่ครั้งเดียว | // อาจจะยังไม่แก้ 
+| A.7 | `npm audit fix` | ทั้งคู่ | ทั้งคู่ | `[✅]` | run own folder |
+| A.8 | Complete 21 TODOs | 7 user-side | 14 admin | `[]` | nem: payments 3 + stations 4 / lalla: admin/* 14 |
+| A.9 | Index audit | user tables | admin tables | `[ ]` | each owns own |
+| A.10 | Knex migration setup | lead | adopt | `[✅]` | nem setup tool, both write migrations |
+| A.11 | README + Architecture diagram | coordinate | coordinate | `[~]` | เขียนคู่กัน |
+| A.12 | Swagger doc complete | user routes | admin routes | `[ ]` | each owns own |
+| A.13 | ESLint + Prettier + Husky | lead | adopt | `[ ]` | nem setup, both agree on rules |
+| A.14 | ADRs (Architecture Decision) | coordinate | coordinate | `[ ]` | write 10 ADRs together |
+| B | Git Workflow + 10 Tricks | ทั้งคู่ | ทั้งคู่ | `[ ]` | follow same workflow |
+| C.1 | Docker + Compose | lead | adopt | `[ ]` | nem setup, lalla `docker-compose up` |
+| C.2 | GitHub Actions CI/CD | lead | adopt | `[ ]` | nem setup yml |
+| D.1 | Socket.io | real-time charger | admin↔tech chat | `[ ]` | different use cases |
+| D.2 | MongoDB Hybrid Logging | lead | adopt | `[ ]` | nem setup logger, both use |
+| E.1 | Helmet + OWASP | ทำ | — | `[ ]` | middleware ครั้งเดียว |
+| E.2 | Sentry error monitoring | ทำ | — | `[ ]` | middleware |
+| E.3 | Redis cache | ทำ | adopt | `[ ]` | nem setup, lalla cache admin queries |
+| E.4 | BullMQ queue | refactor user cron | refactor admin cron | `[ ]` | each own cron jobs |
+| E.5 | Health check endpoints | ทำ | — | `[ ]` | server-level |
+| E.6 | API versioning `/v1/` | own routes | own routes | `[ ]` | each prefix own routes |
+| E.7 | Graceful shutdown | ทำ | — | `[ ]` | server.js |
+| E.8 | Compression middleware | ทำ | — | `[ ]` | 2 lines |
+| E.9 | CORS hardening | ทำ | — | `[ ]` | server.js |
+| E.10 | Strict Helmet CSP | ทำ | — | `[ ]` | middleware |
+| E.11 | Refresh token rotation | ทำ | — | `[ ]` | auth middleware |
+| E.12 | Performance benchmarks | own endpoints | own endpoints | `[ ]` | each test own |
+| E.13 | OpenTelemetry tracing | ทำ | — | `[ ]` | server-level |
+| E.14 | Sentry Performance + RUM | ทำ + frontend | adopt | `[ ]` | nem setup, frontend ทั้งคู่ใช้ |
+| E.15 | Slow request middleware | ทำ | — | `[ ]` | middleware |
+| E.16 | Cursor pagination | pair first | pair second | `[ ]` | nem implement endpoint 1, lalla endpoint 2 |
+| E.17 | Multi-replica + Nginx LB | lead | adopt | `[ ]` | nem docker-compose, lalla pull |
+| F.1 | Error Boundaries | user pages | admin pages | `[ ]` | each own |
+| F.2 | Code Splitting (React.lazy) | user routes | admin routes | `[ ]` | each own |
+| F.3 | Form validation (zod) | user forms | admin forms | `[ ]` | each own |
+| F.4 | Loading states + Skeletons | user pages | admin pages | `[ ]` | each own |
+| F.5 | Image optimization | user images | admin images | `[ ]` | each own |
+| G.1 | Deploy Vercel + Railway | coordinate | coordinate | `[ ]` | 1 person deploys, both verify |
+| G.2 | AWS migration | lead | adopt | `[ ]` | nem migrate, lalla verify admin works |
+| H | Capacitor → .apk | ทำ | — | `[ ]` | **เนมเท่านั้น** (portfolio mobile) |
+| J | Pen test (OWASP ZAP + Burp) | coordinate | coordinate | `[ ]` | ทำหลัง deploy เสร็จ |
+
+**How to update:**
+- เริ่มทำ → เปลี่ยน `[ ]` → `[~]`
+- ทำเสร็จ → เปลี่ยน `[~]` → `✅`
+- Claude เห็น `✅` → skip ไม่แนะนำซ้ำ
+
+---
+
+## 🔬 Performance Work Order (E.12 + E.16 + E.17)
+
+> **ลำดับ theory-backed สำหรับ performance optimization** — defendable ต่ออาจารย์
+
+### Order ที่ถูก:
+```
+Step 1: E.12 baseline benchmark      → "ต้องวัดก่อน"
+Step 2: E.16 cursor pagination       → "fix algorithm ก่อน scale"
+Step 3: E.12 re-test                 → "validate improvement"
+Step 4: E.17 multi-replica + LB      → "scale หลัง optimize"
+Step 5: E.12 final test              → "validate scaling"
+```
+
+### หลักการที่ใช้ตัดสินใจ:
+
+**1. "Measure before optimize"** — Donald Knuth (1974)
+- ไม่มี baseline = ไม่รู้ดีขึ้นจริงมั้ย
+- "You can't improve what you don't measure" (Peter Drucker)
+- → E.12 ก่อนเสมอ
+
+**2. "Vertical before horizontal scaling"** — Google SRE Book
+- Code optimized ก่อน → scale = multiply efficiency
+- Code ไม่ optimize → 3 replicas = 3x ปัญหา + 3x cost (Werner Vogels)
+- → E.16 (code) ก่อน E.17 (infra)
+
+**3. "Algorithm complexity beats hardware"** — Big-O analysis
+- Offset pagination: **O(n)** — slow when data grows
+- Cursor pagination: **O(log n)** ด้วย B-tree index — constant performance
+- → E.16 = algorithm fix ที่ scale ไม่ช่วย
+
+**4. "Continuous validation"** — Brendan Gregg (Systems Performance)
+- Every optimization must be measured to confirm
+- → E.12 re-test ทุก step
+
+### References (อ้างใน ADR ได้):
+- **"Designing Data-Intensive Applications"** by Martin Kleppmann
+- **"Systems Performance"** by Brendan Gregg
+- **Google SRE Book** (chapter Service Level Objectives)
+- **Knuth's quote** — "Structured Programming with go to Statements" (1974)
+- **Amdahl's Law** — parallel computing theory
+
+### Resume bullet ที่จะได้:
+- "Optimized API throughput from X → Y req/s via cursor pagination (algorithm-level)"
+- "Scaled horizontally to 3 replicas + Nginx LB, achieving 93% linear scale efficiency"
 
 ---
 
@@ -104,14 +241,15 @@ SENTRY_DSN=https://xxx@sentry.io/yyy
 # ลบ unused dep อื่นๆ ที่ไม่ได้ใช้
 ```
 
-## A.5 Jest + Supertest Automated Testing ⭐ ต้องมี
+## A.5 Jest + Supertest Automated Testing ⭐ ต้องมี // เปลี่ยนจาก  jest เป็น vitest
 
 **ทำไม:** Manual test ไม่นับ production-ready — automated test = filter ของ Tier S/A interview
 
 **ทำ:**
 ```bash
 cd backend
-npm install --save-dev jest supertest @types/jest
+npm install --save-dev jest supertest
+# ไม่ต้องลง @types/jest — โปรเจคนี้ JS ล้วน (CLAUDE.md ห้าม TS)
 ```
 
 `backend/package.json`:
@@ -201,6 +339,7 @@ CREATE INDEX idx_bookings_charger_time ON bookings(charger_id, scheduled_start);
 -- charging_sessions: query ตาม booking + status
 CREATE INDEX idx_sessions_booking ON charging_sessions(booking_id);
 CREATE INDEX idx_sessions_user_time ON charging_sessions(user_id, started_at);
+มีปัญหา
 
 -- notifications: query ตาม user + read status
 CREATE INDEX idx_notifications_user_read ON notifications(user_id, is_read, created_at);
@@ -211,6 +350,7 @@ CREATE INDEX idx_payments_user_status ON payments(user_id, status);
 -- maintenance_tickets: query ตาม assigned_tech + status
 CREATE INDEX idx_tickets_tech_status ON maintenance_tickets(assigned_tech_id, status);
 ```
+มีปัญหา
 
 ## A.10 Database Migrations System (Knex.js) ⭐
 
@@ -1042,6 +1182,120 @@ module.exports = (req, res, next) => {
 // server.js
 app.use(require('./middleware/timing'));
 ```
+
+## E.16 Cursor-based Pagination ⭐
+
+> **Owner:** Pair learn — nem first endpoint, lalla second endpoint
+> **Why added:** เทียบ Reed backend video — ใช้ cursor pagination สำหรับ high-volume
+
+**ปัญหา offset ปัจจุบัน:**
+```sql
+-- หน้า 5 ของ 1M records → DB skip 80 rows → ช้า
+SELECT * FROM bookings ORDER BY id DESC LIMIT 20 OFFSET 80;
+```
+
+**Cursor — ใช้ id เป็นตำแหน่ง:**
+```sql
+-- "หา 20 records ก่อน id=1234"
+SELECT * FROM bookings WHERE id < 1234 ORDER BY id DESC LIMIT 20;
+-- → ใช้ index → เร็วเสมอแม้ data 10M rows
+```
+
+**Pattern API:**
+```
+GET /api/v1/bookings/history?limit=20&cursor=1234
+Response:
+{
+  "data": [...20 items...],
+  "next_cursor": 1214,    // id ตัวสุดท้าย
+  "has_more": true
+}
+```
+
+**Endpoints ที่ควรใช้ cursor (high-volume):**
+- nem: `GET /bookings/history`, `GET /sessions`, `GET /notifications`, `GET /payments/history`
+- lalla: `GET /admin/tickets`, `GET /admin/spare_parts`, `GET /admin/users`
+
+**Workflow:**
+1. nem implement `GET /bookings/history` (pair session ผ่าน Discord)
+2. lalla ดู + ถาม
+3. lalla implement `GET /admin/tickets` (nem ดู)
+4. แต่ละคนทำ endpoint ที่เหลือ
+
+## E.17 Multi-replica Docker + Load Balancer ⭐
+
+> **Owner:** nem setup → lalla pull adopt
+> **Why added:** เทียบ Reed video — มี backend 6 replicas + LB
+
+**ทำไม:** 1 instance backend = ค้าง → ระบบล่ม. Multi-replica = scale horizontal + redundancy
+
+**`docker-compose.yml` (replace existing backend service):**
+```yaml
+services:
+  backend:
+    build: ./backend
+    deploy:
+      replicas: 3              # รัน 3 ตัวพร้อมกัน
+    env_file: ./backend/.env
+    depends_on: [mysql, mongo, redis]
+    # ไม่ระบุ ports — Nginx จะแจกให้
+
+  nginx:
+    image: nginx:alpine
+    ports: ["5000:80"]         # external port 5000
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    depends_on: [backend]
+
+  # ... mysql, mongo, redis เหมือนเดิม
+```
+
+**`nginx.conf`:**
+```nginx
+events { worker_connections 1024; }
+
+http {
+  upstream backend {
+    server backend:5000;
+    # Docker swarm จะ resolve "backend" เป็น IP ของทุก replica
+    # round-robin โดย default
+  }
+
+  server {
+    listen 80;
+    location / {
+      proxy_pass http://backend;
+      proxy_http_version 1.1;
+      proxy_set_header Upgrade $http_upgrade;     # สำหรับ Socket.io
+      proxy_set_header Connection "upgrade";
+      proxy_set_header Host $host;
+      proxy_set_header X-Real-IP $remote_addr;
+    }
+  }
+}
+```
+
+**ใช้:**
+```bash
+docker-compose up --scale backend=3
+# หรือ
+docker swarm init
+docker stack deploy -c docker-compose.yml ev_charger
+```
+
+**Verify:**
+```bash
+curl http://localhost:5000/api/v1/health
+# call หลายๆครั้ง → log จะเห็นกระจายไป backend ต่างกัน
+```
+
+**Document ใน `docs/INFRA.md`:**
+- Architecture diagram (3 backend + Nginx + DB)
+- How to scale up/down
+- How load balancer routes
+- Sticky session note (สำหรับ Socket.io)
+
+→ **เทียบ Reed:** เห็น `reed-backend-api-1` ถึง `-6` + `reed-load-balancer-vd` = pattern เดียวกัน
 
 ---
 
