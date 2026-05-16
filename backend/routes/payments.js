@@ -7,6 +7,7 @@ const generatePayload = require('promptpay-qr');
 const QRCode = require('qrcode');
 const fs = require('fs');
 const path = require('path');
+const verifyOmiseSignature = require('../middleware/verifyOmiseSignature');
 
 /**
  * @swagger
@@ -30,12 +31,11 @@ const path = require('path');
  *         description: Webhook received
  */
 // #42  POST /webhook/omise
-router.post('/webhook/omise', async (req, res) => {
+router.post('/webhook/omise', verifyOmiseSignature, async (req, res) => {
   try {
     const event = req.body;
     console.log('[Omise Webhook]', JSON.stringify(event));
 
-    // TODO: ตรวจ signature จาก Omise ก่อน production
     // event.key === 'charge.complete' → update payment status
     if (event && event.key === 'charge.complete') {
       const charge = event.data;
