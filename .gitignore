@@ -27,8 +27,12 @@ NEM_CAREER.md
 PHASE_2_*.md
 PHASE_3_*.md
 
-# Claude Code
-.claude/
+# Claude Code — share team config; keep personal overrides local
+.claude/settings.local.json
+.claude/.cache/
+.claude/logs/
+.claude/**/*.backup
+*.backup
 
 
 backend/WebApp Connect MongoDB.pdf
