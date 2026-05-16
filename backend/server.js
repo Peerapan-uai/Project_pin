@@ -60,7 +60,7 @@ const loginLimiter = rateLimit({
 });
 app.use('/api/auth/login', loginLimiter);
 app.use('/api/admin/login', loginLimiter);
-app.use(express.json({ limit: '10mb' })); // รองรับ base64 image
+app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf;} })); // รองรับ base64 image
 app.use(logger); // morgan + MongoDB logger
 
 // ─── Static Files ─────────────────────────────────────────────────────────────
