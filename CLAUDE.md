@@ -9,7 +9,7 @@
 
 **EV Charging Station Booking** — โปรเจคมหาลัย CSI401 ที่กำลังปั้นเป็น production-grade portfolio
 - Tech stack: React (Vite) + Node.js (Express) + MySQL + MongoDB (logging) + Omise (payment) + Google Maps
-- Stack ห้ามใช้ TypeScript ใน scope ปัจจุบัน — ใช้ JavaScript ตลอด project
+- **Default ใช้ JavaScript** — TypeScript ใช้ได้ใน scope จำกัด (ดู Decision ด้านล่าง)
 - 150 endpoints / 42 frontend pages / 27 tables ใน schema.sql
 
 ## 👥 ทีม (2 คน)
@@ -95,11 +95,21 @@
 - ❌ Long planning response ที่ user ไม่ขอ
 - ❌ User confirm option → Claude install/write/run ให้ทันที (ตัวอย่าง 2026-05-09: nem เลือก task → Claude ทำเองหมด → nem ไม่ได้เรียน)
 
-### Decision: ใน project นี้ ห้ามใช้ TypeScript
+### Decision: TypeScript scope ใน Phase 1
 
-- โค้ดทุกไฟล์ใช้ JavaScript เท่านั้น
-- TypeScript เป็น future skill — เก็บไว้ Phase 2 (โปรเจคใหม่ของ nem)
-- Phase 1 = JS deep + production hardening เท่านั้น
+**Default = JavaScript** — เพราะ codebase ทั้งหมดเป็น JS อยู่แล้ว ไม่ rewrite ทั้ง stack
+
+**TypeScript ใช้ได้เฉพาะใน scope พวกนี้:**
+- ไฟล์ utility / shared types ใหม่ ที่ "ตั้งใจ" ใช้ TS เพื่อกัน bug ตอน runtime
+- ส่วนที่ type ช่วย catch bug ก่อน prod (เช่น payment amount, wallet balance, JWT payload shape)
+- ตอนเขียน test ใหม่ (TS ช่วย IDE auto-complete)
+
+**TypeScript ห้ามใช้ใน:**
+- ไม่ convert ไฟล์ JS ที่มีอยู่แล้วเป็น TS เพื่อความเท่ (ทำเฉพาะตอนมี reason จริง)
+- ไม่ใส่ build pipeline ที่ซับซ้อน — ใช้ `tsx` หรือ `ts-node` รันตรงๆ ได้
+- ไม่ใช้ใน hot path ที่ migration จะลำบาก
+
+**Phase 2 (โปรเจคใหม่ของ nem):** TS-first ทั้งโปรเจค ไม่ใช่หัวข้อตอนนี้
 
 ---
 
@@ -262,3 +272,65 @@ Project/
 - `plans/PHASE1_FOUNDATION.md`, `PHASE2_SMART.md`, `PHASE3_ADVANCED.md` — feature details
 - `TEST_CHECKLIST.md` — manual test checklist
 - `backend/schema.sql` — current DB schema (source of truth)
+
+---
+
+## 🧠 Claude Skill Hierarchy — สำคัญ Claude ต้องอ่าน
+
+ทีมมี `.claude/` ที่ install agents/skills/commands/rules ไว้ — **ทั้งหมดอยู่ใต้กฎใน CLAUDE.md นี้เสมอ**
+
+**ลำดับความสำคัญ (สูง → ต่ำ):**
+
+```
+1. CLAUDE.md (ไฟล์นี้)              ← teach mode, ห้าม TS นอก scope, trigger words, anti-patterns
+   ↓ ถ้าขัดแย้งกัน → ใช้กฎข้างบนเสมอ
+2. .claude/rules/                   ← security, git, testing, code-review baselines
+   ↓
+3. .claude/skills/                  ← knowledge libraries (backend-patterns, api-design, ฯลฯ)
+   ↓
+4. .claude/agents/                  ← specialized reviewers (security-reviewer, ฯลฯ)
+   ↓
+5. .claude/commands/                ← user-triggered slash commands (/plan, /pr, ฯลฯ)
+```
+
+**Critical:**
+- ทุก skill/agent ทำงาน**ใต้** teach mode — ถ้านายไม่พูด trigger words ("ทำให้เลย" / "do it") → Claude อธิบาย/สอน ไม่รันเอง
+- Skill = "book ที่ Claude เปิดอ่านตอนทำงาน" — ไม่ใช่ autopilot
+- เมื่อใช้ subagent ผ่าน Task tool — ต้องส่ง teach mode rule + 5-step mastery loop ไปใน prompt subagent ด้วย เสมอ
+
+## 🗺️ File → Skill/Agent Mapping
+
+ตอน Claude ทำงานกับไฟล์เหล่านี้ — ให้เปิด skill/agent ที่ระบุประกอบเสมอ
+
+| ไฟล์ที่แก้ | ใช้ skill / agent |
+|-----------|-------------------|
+| `backend/routes/payments.js`, `auth.js`, `wallet.js` | **security-reviewer** + `api-design` + `backend-patterns` (เกี่ยวข้องเงิน/auth → security ต้องผ่าน) |
+| `backend/routes/admin/*` | **security-reviewer** + `backend-patterns` (admin endpoint → RBAC check) |
+| `backend/routes/*.js` (อื่นๆ) | `api-design` + `backend-patterns` + `error-handling` |
+| `backend/middleware/*.js` | `backend-patterns` + `security-review` |
+| `backend/schema.sql`, `MIGRATION_*.sql` | **database-reviewer** + `mysql-patterns` + `database-migrations` |
+| `backend/models/*.js`, `backend/utils/*.js` | `backend-patterns` |
+| `backend/jobs/*.js` | `backend-patterns` + `silent-failure-hunter` (cron jobs fail silently บ่อย) |
+| `frontend/src/pages/**/*.jsx` | `frontend-patterns` + `accessibility` |
+| `frontend/src/components/**/*.jsx` | `frontend-patterns` + `accessibility` |
+| `docker-compose.yml`, `Dockerfile` | `docker-patterns` |
+| `.github/workflows/*.yml` | `github-ops` + `deployment-patterns` |
+| `tests/**`, `*.test.js` | `tdd-workflow` + `e2e-testing` + `browser-qa` |
+| `package.json` (deps change) | **security-reviewer** (npm audit) |
+| `CLAUDE.md`, `TEST_CHECKLIST.md`, `plans/*.md` | `doc-updater` agent |
+
+**Slash commands ที่นาย+lalla ใช้บ่อย:**
+- `/plan` — วาง implementation plan ก่อนเริ่ม feature
+- `/code-review` — review ก่อน commit
+- `/security-scan` — scan ก่อน push ไฟล์ payment/auth/admin
+- `/pr` — สร้าง PR (ตาม conventional commit format)
+- `/checkpoint` — git checkpoint ระหว่างทำงานยาว
+- `/save-session` + `/resume-session` — บันทึก/ดึง context ข้าม session
+- `/test-coverage` — เช็คว่ามี gap test ตรงไหน
+- `/build-fix` — ตอน build pang
+- `/feature-dev` — TDD-driven feature workflow (RED → GREEN → REFACTOR)
+
+## 🔧 Future Enhancements (ยังไม่ install)
+
+- **Hooks (memory-persistence, session-start)** — ต้องลง ECC plugin infrastructure (`scripts/hooks/` 1.6MB) เก็บไว้ทำตอน Phase 1 ใกล้จบ
+- **MCP servers** — ดู `.claude/mcp-configs/` ใน ECC source repo ถ้าจะเพิ่ม
