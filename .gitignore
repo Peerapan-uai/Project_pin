@@ -36,3 +36,10 @@ PHASE_3_*.md
 
 
 backend/WebApp Connect MongoDB.pdf
+
+# Uploads (ignore files but keep folder structure via .gitkeep)
+backend/uploads/**
+!backend/uploads/**/.gitkeep
+
+# IDE
+.vscode/

@@ -4,6 +4,27 @@ const pool = require('../config/db')
 const auth = require('../middleware/auth')
 const roleCheck = require('../middleware/roleCheck')
 
+/**
+ * @swagger
+ * tags:
+ *   name: SpareParts
+ *   description: Spare parts inventory and part request endpoints
+ */
+
+/**
+ * @swagger
+ * /api/spare-parts:
+ *   get:
+ *     summary: Get all spare parts (Admin + Technician)
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List of spare parts ordered by category
+ *       500:
+ *         description: Server error
+ */
 router.get('/', auth, roleCheck('admin', 'technician'), async (req, res) => {
   try {
     const [rows] = await pool.query(
@@ -16,6 +37,43 @@ router.get('/', auth, roleCheck('admin', 'technician'), async (req, res) => {
   }
 })
 
+/**
+ * @swagger
+ * /api/spare-parts:
+ *   post:
+ *     summary: Add new spare part (Admin only)
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [name, category]
+ *             properties:
+ *               name:
+ *                 type: string
+ *               category:
+ *                 type: string
+ *                 enum: [electrical, mechanical, display, cable, connector, other]
+ *               unit:
+ *                 type: string
+ *               stock_qty:
+ *                 type: integer
+ *               min_stock:
+ *                 type: integer
+ *               cost_per_unit:
+ *                 type: number
+ *     responses:
+ *       201:
+ *         description: Part added
+ *       400:
+ *         description: Missing required fields
+ *       500:
+ *         description: Server error
+ */
 router.post('/', auth, roleCheck('admin'), async (req, res) => {
     try {
         const { name, category, unit, stock_qty, min_stock, cost_per_unit } = req.body
@@ -35,6 +93,40 @@ router.post('/', auth, roleCheck('admin'), async (req, res) => {
     }
 })
 
+/**
+ * @swagger
+ * /api/spare-parts/{id}/stock:
+ *   put:
+ *     summary: Update stock quantity (Admin only)
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [stock_qty]
+ *             properties:
+ *               stock_qty:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Stock updated
+ *       400:
+ *         description: Invalid stock_qty
+ *       404:
+ *         description: Part not found
+ *       500:
+ *         description: Server error
+ */
 router.put('/:id/stock', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { stock_qty } = req.body
@@ -63,7 +155,26 @@ router.put('/:id/stock', auth, roleCheck('admin'), async (req, res) => {
 
 
 
-// Endpoint 4 — ดูรายการเบิกทั้งหมดของ ticket (ต้องอยู่ก่อน POST /request เพราะ Express match จากบนลงล่าง)
+/**
+ * @swagger
+ * /api/spare-parts/requests/{ticketId}:
+ *   get:
+ *     summary: Get all part requests for a ticket (Admin + Technician)
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: ticketId
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of part requests for the ticket
+ *       500:
+ *         description: Server error
+ */
 router.get('/requests/:ticketId', auth, async (req, res) => {
   try {
     const [rows] = await pool.query(`
@@ -82,7 +193,38 @@ router.get('/requests/:ticketId', auth, async (req, res) => {
   }
 })
 
-// Endpoint 5 — tech ขอเบิกอะไหล่
+/**
+ * @swagger
+ * /api/spare-parts/request:
+ *   post:
+ *     summary: Technician requests a spare part
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [ticket_id, part_id, qty_requested]
+ *             properties:
+ *               ticket_id:
+ *                 type: integer
+ *               part_id:
+ *                 type: integer
+ *               qty_requested:
+ *                 type: integer
+ *     responses:
+ *       201:
+ *         description: Request submitted, waiting for admin approval
+ *       400:
+ *         description: Invalid input or insufficient stock
+ *       403:
+ *         description: Not your ticket
+ *       500:
+ *         description: Server error
+ */
 router.post('/request', auth, roleCheck('technician'), async (req, res) => {
   try {
     const { ticket_id, part_id, qty_requested } = req.body
@@ -114,7 +256,36 @@ router.post('/request', auth, roleCheck('technician'), async (req, res) => {
   }
 })
 
-// Endpoint 5 — admin อนุมัติการเบิก → ลด stock ทันที
+/**
+ * @swagger
+ * /api/spare-parts/request/{id}/approve:
+ *   patch:
+ *     summary: Admin approves part request — deducts stock immediately
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               qty_approved:
+ *                 type: integer
+ *     responses:
+ *       200:
+ *         description: Approved and stock deducted
+ *       404:
+ *         description: Request not found or not pending
+ *       500:
+ *         description: Server error
+ */
 router.patch('/request/:id/approve', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { qty_approved } = req.body
@@ -143,7 +314,36 @@ router.patch('/request/:id/approve', auth, roleCheck('admin'), async (req, res) 
   }
 })
 
-// Endpoint 6 — admin ปฏิเสธการเบิก → stock ไม่เปลี่ยน
+/**
+ * @swagger
+ * /api/spare-parts/request/{id}/reject:
+ *   patch:
+ *     summary: Admin rejects part request — stock unchanged
+ *     tags: [SpareParts]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               notes:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Rejected
+ *       404:
+ *         description: Request not found or already processed
+ *       500:
+ *         description: Server error
+ */
 router.patch('/request/:id/reject', auth, roleCheck('admin'), async (req, res) => {
   try {
     const { notes } = req.body

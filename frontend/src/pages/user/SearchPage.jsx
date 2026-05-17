@@ -1129,7 +1129,7 @@ export default function SearchPage() {
 {/* ── Trip Planning Modal ──────────────────────────────────────────── */}
       {showTripPanel && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40">
-          <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4 max-h-[80vh] overflow-y-auto">
+          <div className="bg-white rounded-t-3xl w-full max-w-lg p-5 space-y-4 min-h-[38vh] max-h-[80vh] overflow-y-auto">
             <div className="flex items-center justify-between">
               <p className="font-bold text-gray-900">🚗 วางแผนเส้นทาง EV</p>
               <button onClick={() => { setShowTripPanel(false); setTripResult(null); setTripError(null) }} className="text-gray-400 text-lg">✕</button>

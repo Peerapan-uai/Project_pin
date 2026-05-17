@@ -290,7 +290,28 @@ router.patch('/:id/assign', auth, roleCheck('admin'), async (req, res) => {
   }
 });
 
-// PATCH /api/tickets/:id/unassign — ยกเลิกมอบหมายช่าง
+/**
+ * @swagger
+ * /api/tickets/{id}/unassign:
+ *   patch:
+ *     summary: Unassign technician from ticket (Admin only)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Ticket unassigned
+ *       404:
+ *         description: Ticket not found
+ *       500:
+ *         description: Server error
+ */
 router.patch('/:id/unassign', auth, roleCheck('admin'), async (req, res) => {
   try {
     const [result] = await pool.query(
@@ -487,7 +508,40 @@ router.post('/:id/image', auth, roleCheck('admin', 'technician', 'user'), upload
   }
 });
 
-// test evidence image (หลังซ่อม)
+/**
+ * @swagger
+ * /api/tickets/{id}/test-image:
+ *   post:
+ *     summary: Upload test evidence image after repair (Admin + Technician)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       200:
+ *         description: Test image uploaded
+ *       400:
+ *         description: No file uploaded
+ *       404:
+ *         description: Ticket not found
+ *       500:
+ *         description: Server error
+ */
 router.post('/:id/test-image', auth, roleCheck('admin', 'technician'), upload.single('image'), async (req, res) => {
   if (!req.file) return res.status(400).json({ message: 'No image file uploaded.' })
   try {
@@ -507,6 +561,43 @@ router.post('/:id/test-image', auth, roleCheck('admin', 'technician'), upload.si
   }
 })
 
+/**
+ * @swagger
+ * /api/tickets/proposals/{id}/review:
+ *   patch:
+ *     summary: Admin reviews a repair proposal (Admin only)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [status]
+ *             properties:
+ *               status:
+ *                 type: string
+ *                 enum: [approved_repair, approved_replace, rejected]
+ *               admin_note:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Review saved
+ *       400:
+ *         description: Invalid status
+ *       404:
+ *         description: Proposal not found or already reviewed
+ *       500:
+ *         description: Server error
+ */
 router.patch('/proposals/:id/review', auth, roleCheck('admin'), async (req, res) => {
   const { status, admin_note } = req.body
   const validStatus = ['approved_repair', 'approved_replace', 'rejected']
@@ -542,7 +633,28 @@ router.patch('/proposals/:id/review', auth, roleCheck('admin'), async (req, res)
 
 
 
-// check-in
+/**
+ * @swagger
+ * /api/tickets/{id}/checkin:
+ *   patch:
+ *     summary: Technician checks in to a ticket (sets status to in_progress)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Checked in successfully
+ *       404:
+ *         description: Ticket not found or not assigned to this technician
+ *       500:
+ *         description: Server error
+ */
 router.patch('/:id/checkin', auth, roleCheck('technician'), async (req, res) => {
   const [result] = await pool.query(
     `UPDATE maintenance_tickets SET check_in_at = NOW(), status = 'in_progress'
@@ -555,6 +667,52 @@ router.patch('/:id/checkin', auth, roleCheck('technician'), async (req, res) => 
 })
 
 
+/**
+ * @swagger
+ * /api/tickets/{id}/proposal:
+ *   post:
+ *     summary: Technician submits a repair/replace proposal
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             required: [recommendation, description]
+ *             properties:
+ *               recommendation:
+ *                 type: string
+ *                 enum: [repair, replace]
+ *               repair_cost_estimate:
+ *                 type: number
+ *               replace_cost_estimate:
+ *                 type: number
+ *               estimated_time_hours:
+ *                 type: number
+ *               description:
+ *                 type: string
+ *               evidence_image:
+ *                 type: string
+ *                 format: binary
+ *     responses:
+ *       201:
+ *         description: Proposal submitted
+ *       400:
+ *         description: Invalid recommendation or missing description
+ *       403:
+ *         description: Not your ticket
+ *       500:
+ *         description: Server error
+ */
 router.post('/:id/proposal', auth, roleCheck('technician'), uploadProposal.single('evidence_image'), async (req, res) => {
   const { recommendation, repair_cost_estimate, replace_cost_estimate, estimated_time_hours, description } = req.body
 
@@ -591,6 +749,26 @@ router.post('/:id/proposal', auth, roleCheck('technician'), uploadProposal.singl
 })
 
 
+/**
+ * @swagger
+ * /api/tickets/{id}/proposals:
+ *   get:
+ *     summary: Get all repair proposals for a ticket (Admin + Technician)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: List of proposals with tech name and reviewer name
+ *       500:
+ *         description: Server error
+ */
 router.get('/:id/proposals', auth, roleCheck('admin', 'technician'), async (req, res) => {
   const [rows] = await pool.query(`
     SELECT p.*,
@@ -607,7 +785,30 @@ router.get('/:id/proposals', auth, roleCheck('admin', 'technician'), async (req,
 
 
 
-// check-out
+/**
+ * @swagger
+ * /api/tickets/{id}/checkout:
+ *   patch:
+ *     summary: Technician checks out of a ticket (must check in first)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Checked out successfully
+ *       400:
+ *         description: Must check in first
+ *       404:
+ *         description: Ticket not found
+ *       500:
+ *         description: Server error
+ */
 router.patch('/:id/checkout', auth, roleCheck('technician'), async (req, res) => {
   const [[ticket]] = await pool.query(
     `select check_in_at from maintenance_tickets where ticket_id = ?`,
@@ -624,7 +825,41 @@ router.patch('/:id/checkout', auth, roleCheck('technician'), async (req, res) =>
   res.json({ message: 'เช็คเอาท์สำเร็จ' })
 })
 
-// / 3. Admin override priority (safety lock)
+/**
+ * @swagger
+ * /api/tickets/{id}/priority:
+ *   patch:
+ *     summary: Admin overrides ticket priority (safety tickets cannot be downgraded)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [priority]
+ *             properties:
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high, critical]
+ *     responses:
+ *       200:
+ *         description: Priority updated
+ *       400:
+ *         description: Invalid priority
+ *       403:
+ *         description: Cannot downgrade safety ticket
+ *       500:
+ *         description: Server error
+ */
 router.patch('/:id/priority', auth, roleCheck('admin'), async (req, res) => {
   const { priority } = req.body
   const valid = ['low','medium','high','critical']
@@ -643,7 +878,28 @@ router.patch('/:id/priority', auth, roleCheck('admin'), async (req, res) => {
   res.json({ message: 'Priority updated' })
 })
 
-// GET /api/tickets/:id/repair-history — ประวัติซ่อม 3 ครั้งล่าสุดของ charger นั้น
+/**
+ * @swagger
+ * /api/tickets/{id}/repair-history:
+ *   get:
+ *     summary: Get last 3 completed repairs for the same charger (Admin + Technician)
+ *     tags: [Tickets]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: integer
+ *     responses:
+ *       200:
+ *         description: Repair history (up to 3 records)
+ *       404:
+ *         description: Ticket not found
+ *       500:
+ *         description: Server error
+ */
 router.get('/:id/repair-history', auth, roleCheck('admin', 'technician'), async (req, res) => {
   try {
     const [[ticket]] = await pool.query(
