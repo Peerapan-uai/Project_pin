@@ -3,7 +3,7 @@ const crypto = require('crypto');
 module.exports = (req, res, next) => {
   // TODO 1: ดึง signature จาก header
   //   Omise ส่งใน 'x-omise-signature' (lowercase ใน Node)
-  const sigHeader = /* ... */;
+  const sigHeader = ""/* ... */;
 
   // TODO 2: ถ้าไม่มี header → return 401 'Missing signature'
 
