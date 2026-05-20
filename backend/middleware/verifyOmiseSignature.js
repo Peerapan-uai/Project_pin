@@ -1,7 +1,7 @@
 const crypto = require('crypto');
 
-module.exports = (req, res, next) =>
-  const sigHeader = req.headers['x-omise-signature'];
+module.exports = (req, res, next) => {
+  const sigHeader =  req.headers['x-omise-signature'];
 
   if (!sigHeader) {
     return res.status(401).json({ error: 'Missing singature' });
