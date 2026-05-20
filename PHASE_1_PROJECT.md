@@ -90,7 +90,7 @@ I. Deploy Phase 2 (AWS migration)
 | A.3 | Schema sync | coordinate | coordinate | `[ ]` | รัน migration ทั้งคู่ | // อาจจะเปลี่ยนเป็น docker 
 | A.4 | Cleanup unused deps | ทั้งคู่ | ทั้งคู่ | `[ ]` | | 
 | A.5 | Jest + Supertest setup | lead | adopt | `✅` | nem setup → both write tests own routes | อาจจะเปลี่ยนไปใช้ vitest
-| A.6 | Logger password leak fix | — | ทำ | `[~]` | middleware แค่ครั้งเดียว | // อาจจะยังไม่แก้ 
+| A.6 | Logger password leak fix | — | ทำ | `[✅]` | middleware แค่ครั้งเดียว | // อาจจะยังไม่แก้ 
 | A.7 | `npm audit fix` | ทั้งคู่ | ทั้งคู่ | `[✅]` | run own folder |
 | A.8 | Complete 21 TODOs | 7 user-side | 14 admin | `[]` | nem: payments 3 + stations 4 / lalla: admin/* 14 |
 | A.9 | Index audit | user tables | admin tables | `[ ]` | each owns own |
