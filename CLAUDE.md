@@ -1,17 +1,3 @@
-# CLAUDE.md — Project Context for Claude Code
-
-> ไฟล์นี้ Claude อ่านอัตโนมัติเมื่อเปิด Claude Code ในโฟลเดอร์ project
-> Update เมื่อ workflow / decision / convention เปลี่ยน
-
----
-
-## 📌 Project Overview
-
-**EV Charging Station Booking** — โปรเจคมหาลัย CSI401 ที่กำลังปั้นเป็น production-grade portfolio
-- Tech stack: React (Vite) + Node.js (Express) + MySQL + MongoDB (logging) + Omise (payment) + Google Maps
-- **Default ใช้ JavaScript** — TypeScript ใช้ได้ใน scope จำกัด (ดู Decision ด้านล่าง)
-- 150 endpoints / 42 frontend pages / 27 tables ใน schema.sql
-
 ## 👥 ทีม (2 คน)
 
 | คน | รับผิดชอบ |
@@ -24,24 +10,6 @@
 ## 🤖 Claude Interaction Rules — ทั้ง nem และ lalla ใช้กฎเดียวกัน
 
 > ⚠️ **สำคัญ:** Claude ของทั้งคู่ต้องทำตามกฎเหล่านี้ — ห้าม override ด้วย personal memory
-
-### Rule 1: Default mode = สอน ไม่ใช่ Claude ทำเอง
-
-- **Default:** อธิบายขั้นตอน → ให้ user รัน/พิมพ์เอง → check ผล → ขั้นต่อไป
-- **Claude execute เฉพาะตอน user พูด trigger words:**
-  - "ทำให้เลย"
-  - "คุณทำ" / "คุณรัน"
-  - "do it" / "run it"
-  - "รันให้หน่อย"
-- **นอกจาก trigger words → default = teach mode**
-- **เหตุผล:** nem + lalla เป็นมือใหม่ อยากเรียนจริง — Claude ทำให้ = ดูเฉยๆ ไม่ได้เรียน
-
-### Rule 2: ห้ามใช้ Time Estimate / Workload Warning
-
-- ❌ "ใช้เวลา 2-3 สัปดาห์" / "1-2 วัน" / "1 เดือน"
-- ❌ "งานนี้หนักนะ" / "ระวัง scope creep" / "งานเยอะ"
-- ✅ ใช้ framing: **"ทำ A เสร็จ → ต่อไปทำ B"** แทน
-- **เหตุผล:** nem ทำเสร็จเร็วกว่า estimate ตลอด — time noise = overwhelm
 
 ### Rule 3: 5-Step Mastery Loop (ใช้สอนทุกหัวข้อ)
 
@@ -122,22 +90,6 @@
 4. **ห้าม `git add .`** — เผลอติด `.env` / `node_modules`
 5. **ห้ามแก้ code ของอีกคน** โดยไม่ตกลง — nem ห้ามแก้ `routes/admin/*` / `routes/spareParts.js`, lalla ห้ามแก้ user-side routes
 6. **ห้าม mock**ทุกอย่าง — nem ต้องการของจริง
-
----
-
-## 🔧 Migration Pattern (สำคัญ)
-
-**Pattern ของ project นี้:** ใครแก้ schema = คนนั้นทำ migration script ส่งอีกฝั่งรัน
-
-ตัวอย่าง: nem เพิ่ม column ใน `chargers` → nem สร้าง `MIGRATION_<feature>.sql` (มีแค่ ALTER ที่เพิ่ม) → commit + บอก lalla รันใน phpMyAdmin
-
-**ห้าม:**
-- แก้ schema.sql อย่างเดียวโดยไม่ทำ migration → DB ของอีกฝั่งจะตามไม่ทัน → endpoint pang
-- ส่ง schema.sql ทั้งไฟล์ให้รัน → DROP TABLE → ข้อมูลหาย
-
-**Reference:** `backend/LALLA_MIGRATION.sql` (nem ทำให้ lalla รันตอน Phase 1+2+3)
-
-**Status ปัจจุบัน (2026-05-04):** lalla เพิ่ม 3 tables ใน schema.sql (`spare_parts`, `part_requests`, `repair_proposals`) แต่ยังไม่ส่ง migration → DB ของ nem ขาด 3 tables นี้ → endpoint /api/spare-parts pang
 
 ---
 
@@ -222,38 +174,6 @@ Project/
 
 ---
 
-## 🎯 Phase 1 Plan ปัจจุบัน (2026-05-04)
-
-ปั้นโปรเจคเป็น production-grade portfolio (deploy URL จริง + real-time + monitoring + security)
-
-**ลำดับงาน:**
-```
-1. ✅ Cleanup files (commit dda6516)
-2. ✅ CLAUDE.md (this file — commit ec08ce4 area)
-3. ✅ TEST_CHECKLIST.md (commit ec08ce4)
-4. Fix Omise webhook signature (payments.js 3 TODO)
-5. Fix logger password leak (middleware/logger.js)
-6. npm audit fix
-7. Add Helmet
-8. stations.js 4 TODO (station stats — nem)
-9. Git workflow setup (feature branch + PR + branch protection)
-10. Deploy Vercel + Railway → portfolio URL
-11. WebSocket — admin↔tech chat + real-time charger status
-12. AWS migration
-13. Capacitor wrap → .apk
-```
-
-**TODO ที่รอ lalla:**
-- Migration script 3 tables (spare_parts, part_requests, repair_proposals)
-- 14 admin TODO (admin/notifications.js 7 + admin/reports.js 3 + admin/wallet.js 4)
-
-**Decisions:**
-- Omise คงไว้ test mode + เน้น security/logic ให้แน่น (ไม่ live mode ตอนนี้)
-- Capacitor ทำหลัง deploy AWS (web URL = portfolio หลัก, .apk = bonus)
-- Mongo logger: patch ของเดิม (filter password + เพิ่ม Winston file fallback) ไม่ rewrite
-
----
-
 ## 🔴 Known Security Issues (ต้อง fix ก่อน live deploy)
 
 1. **Logger เก็บ password plain text** — `middleware/logger.js:17` save body ทุก POST รวม `/auth/login`
@@ -262,16 +182,6 @@ Project/
 4. **ไม่มี Helmet** (no HSTS / CSP / X-Frame-Options)
 5. **CORS hardcode localhost** — `server.js:53`
 6. **npm audit:** 4 vulnerabilities (1 mod + 3 high) — `cd backend && npm audit fix`
-
----
-
-## 📚 Reference Files
-
-- `PHASE_1_PROJECT.md` — production hardening plan (เนื้อหาเต็ม)
-- `plans/WALLET_FEATURES_INDEX.md` — 14 features master plan
-- `plans/PHASE1_FOUNDATION.md`, `PHASE2_SMART.md`, `PHASE3_ADVANCED.md` — feature details
-- `TEST_CHECKLIST.md` — manual test checklist
-- `backend/schema.sql` — current DB schema (source of truth)
 
 ---
 
