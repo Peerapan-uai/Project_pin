@@ -878,6 +878,35 @@ router.post('/:id/notify-milestone', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/sessions/{id}/unplug:
+ *   post:
+ *     summary: ถอดสายชาร์จ — ปิด session, คำนวณ idle fee, หักจาก wallet
+ *     description: ถ้าเลย full_charge_time + 5 นาที (grace period) จะคิด idle fee 5 บาท/นาที และหักจาก wallet (ถ้าไม่พอจะเพิ่ม outstanding_debt)
+ *     tags: [Sessions]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: session_id
+ *     responses:
+ *       200:
+ *         description: Unplug สำเร็จ (session ถูกปิดเป็น completed, charger กลับเป็น available)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string, example: "Unplugged successfully." }
+ *                 idle_fee: { type: number, example: 25.00, description: ค่า idle fee ที่เก็บ (บาท) — เป็น 0 ถ้ายังไม่เลย grace period }
+ *       401: { description: ไม่ได้ login }
+ *       404: { description: ไม่มี active session ของ user นี้ }
+ *       500: { description: Server error }
+ */
 /// nem — Feature 12: unplug (ถอดสาย) + commit idle fee
 router.post('/:id/unplug', auth, async (req, res) => {
   try {
