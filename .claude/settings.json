@@ -59,7 +59,16 @@
       "PowerShell(docker:*)",
       "PowerShell(npm:*)",
       "WebFetch(domain:www.omise.co)",
-      "WebFetch(domain:www.opn.ooo)"
+      "WebFetch(domain:www.opn.ooo)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:2025.stateofjs.com)",
+      "WebFetch(domain:biomejs.dev)",
+      "WebFetch(domain:life.wongnai.com)",
+      "WebFetch(domain:careers.lmwn.com)",
+      "Bash(gh api *)",
+      "Bash(git clone *)",
+      "Bash(npx husky *)"
     ]
   }
 }

@@ -83,53 +83,53 @@ I. Deploy Phase 2 (AWS migration)
 > - **เนม / ลัลลา** = คนรับผิดชอบ
 > - `lead` = ตั้งระบบครั้งเดียว / `adopt` = pull มาใช้ / `pair` = ทำพร้อมกัน
 
-| # | Section | เนม | ลัลลา | Status | Note |
-|---|---|---|---|---|---|
-| A.1 | `.gitignore` + `.env` audit | review | review | `✅` | passed 2026-05-12 — .env never committed, .env.example มีทั้ง backend+frontend |
-| A.2 | Manual test 14 features | ของตัวเอง | ของตัวเอง | `✅` | each owns own feature |
-| A.3 | Schema sync | coordinate | coordinate | `[ ]` | รัน migration ทั้งคู่ | // อาจจะเปลี่ยนเป็น docker 
-| A.4 | Cleanup unused deps | ทั้งคู่ | ทั้งคู่ | `[ ]` | | 
-| A.5 | Jest + Supertest setup | lead | adopt | `✅` | nem setup → both write tests own routes | อาจจะเปลี่ยนไปใช้ vitest
-| A.6 | Logger password leak fix | — | ทำ | `[~]` | middleware แค่ครั้งเดียว | // อาจจะยังไม่แก้ 
-| A.7 | `npm audit fix` | ทั้งคู่ | ทั้งคู่ | `[✅]` | run own folder |
-| A.8 | Complete 21 TODOs | 7 user-side | 14 admin | `[]` | nem: payments 3 + stations 4 / lalla: admin/* 14 |
-| A.9 | Index audit | user tables | admin tables | `[ ]` | each owns own |
-| A.10 | Knex migration setup | lead | adopt | `[✅]` | nem setup tool, both write migrations |
-| A.11 | README + Architecture diagram | coordinate | coordinate | `[~]` | เขียนคู่กัน |
-| A.12 | Swagger doc complete | user routes | admin routes | `[ ]` | each owns own |
-| A.13 | ESLint + Prettier + Husky | lead | adopt | `[ ]` | nem setup, both agree on rules |
-| A.14 | ADRs (Architecture Decision) | coordinate | coordinate | `[ ]` | write 10 ADRs together |
-| B | Git Workflow + 10 Tricks | ทั้งคู่ | ทั้งคู่ | `[ ]` | follow same workflow |
-| C.1 | Docker + Compose | lead | adopt | `[ ]` | nem setup, lalla `docker-compose up` |
-| C.2 | GitHub Actions CI/CD | lead | adopt | `[ ]` | nem setup yml |
-| D.1 | Socket.io | real-time charger | admin↔tech chat | `[ ]` | different use cases |
-| D.2 | MongoDB Hybrid Logging | lead | adopt | `[ ]` | nem setup logger, both use |
-| E.1 | Helmet + OWASP | ทำ | — | `[ ]` | middleware ครั้งเดียว |
-| E.2 | Sentry error monitoring | ทำ | — | `[ ]` | middleware |
-| E.3 | Redis cache | ทำ | adopt | `[ ]` | nem setup, lalla cache admin queries |
-| E.4 | BullMQ queue | refactor user cron | refactor admin cron | `[ ]` | each own cron jobs |
-| E.5 | Health check endpoints | ทำ | — | `[ ]` | server-level |
-| E.6 | API versioning `/v1/` | own routes | own routes | `[ ]` | each prefix own routes |
-| E.7 | Graceful shutdown | ทำ | — | `[ ]` | server.js |
-| E.8 | Compression middleware | ทำ | — | `[ ]` | 2 lines |
-| E.9 | CORS hardening | ทำ | — | `[ ]` | server.js |
-| E.10 | Strict Helmet CSP | ทำ | — | `[ ]` | middleware |
-| E.11 | Refresh token rotation | ทำ | — | `[ ]` | auth middleware |
-| E.12 | Performance benchmarks | own endpoints | own endpoints | `[ ]` | each test own |
-| E.13 | OpenTelemetry tracing | ทำ | — | `[ ]` | server-level |
-| E.14 | Sentry Performance + RUM | ทำ + frontend | adopt | `[ ]` | nem setup, frontend ทั้งคู่ใช้ |
-| E.15 | Slow request middleware | ทำ | — | `[ ]` | middleware |
-| E.16 | Cursor pagination | pair first | pair second | `[ ]` | nem implement endpoint 1, lalla endpoint 2 |
-| E.17 | Multi-replica + Nginx LB | lead | adopt | `[ ]` | nem docker-compose, lalla pull |
-| F.1 | Error Boundaries | user pages | admin pages | `[ ]` | each own |
-| F.2 | Code Splitting (React.lazy) | user routes | admin routes | `[ ]` | each own |
-| F.3 | Form validation (zod) | user forms | admin forms | `[ ]` | each own |
-| F.4 | Loading states + Skeletons | user pages | admin pages | `[ ]` | each own |
-| F.5 | Image optimization | user images | admin images | `[ ]` | each own |
-| G.1 | Deploy Vercel + Railway | coordinate | coordinate | `[ ]` | 1 person deploys, both verify |
-| G.2 | AWS migration | lead | adopt | `[ ]` | nem migrate, lalla verify admin works |
-| H | Capacitor → .apk | ทำ | — | `[ ]` | **เนมเท่านั้น** (portfolio mobile) |
-| J | Pen test (OWASP ZAP + Burp) | coordinate | coordinate | `[ ]` | ทำหลัง deploy เสร็จ |
+| # | Section | เนม role | ลัลลา role | Status เนม | Status ลัลลา | Note |
+|---|---|---|---|---|---|---|
+| A.1 | `.gitignore` + `.env` audit | review | review | `✅` | `✅` | passed 2026-05-12 — .env never committed, .env.example มีทั้ง backend+frontend |
+| A.2 | Manual test 14 features | ของตัวเอง | ของตัวเอง | `✅` | `✅` | each owns own feature |
+| A.3 | Schema sync | coordinate | coordinate | `[ ]` | `[ ]` | รัน migration ทั้งคู่ // อาจจะเปลี่ยนเป็น docker |
+| A.4 | Cleanup unused deps | ทั้งคู่ | ทั้งคู่ | `✅` | `[ ]` | nem: ลบ morgan (PR #7) |
+| A.5 | Jest + Supertest setup | lead | adopt | `✅` | `✅` | nem setup → both write tests own routes // อาจจะเปลี่ยนไปใช้ vitest |
+| A.6 | Logger password leak fix | — | ทำ | — | `[ ]` | nem เรียนวิธีทำแล้ว → ส่ง note สอนลัลลา → ลัลลา implement + push → nem pull ใช้ต่อ |
+| A.7 | `npm audit fix` | ทั้งคู่ | ทั้งคู่ | `✅` | `✅` | run own folder |
+| A.8 | Complete 21 TODOs | 7 user-side | 14 admin | `[~]` | `[ ]` | nem done: verifyOmiseSignature (PR #7). เหลือ: payments refund, promptpay signature, stations stats bug. lalla: admin/* 14 |
+| A.9 | Index audit | user tables | admin tables | `[ ]` | `[ ]` | each owns own |
+| A.10 | Knex migration setup | lead | adopt | `✅` | `✅` | nem setup tool, both write migrations |
+| A.11 | README + Architecture diagram | coordinate | coordinate | `[~]` | `[~]` | เขียนคู่กัน |
+| A.12 | Swagger doc complete | user routes | admin routes | `✅` | `[ ]` | nem done 2026-05-19 (favorites + recurring + tripPlan + sessions/unplug + chargers/available-slots) |
+| A.13 | ESLint + Prettier + Husky | lead | adopt | `[~]` | `[ ]` | nem: เพิ่ม backend eslint.config.js + .prettierrc.json + .prettierignore. Husky → ใช้ Matt Pocock `setup-pre-commit` skill ได้ |
+| A.14 | ADRs (Architecture Decision) | coordinate | coordinate | `[ ]` | `[ ]` | write 10 ADRs together |
+| B | Git Workflow + 10 Tricks | ทั้งคู่ | ทั้งคู่ | `[ ]` | `[ ]` | follow same workflow |
+| C.1 | Docker + Compose | lead | adopt | `[ ]` | `[ ]` | nem setup, lalla `docker-compose up` |
+| C.2 | GitHub Actions CI/CD | lead | adopt | `[ ]` | `[ ]` | nem setup yml |
+| D.1 | Socket.io | real-time charger | admin↔tech chat | `[ ]` | `[ ]` | different use cases |
+| D.2 | MongoDB Hybrid Logging | lead | adopt | `[ ]` | `[ ]` | nem setup logger, both use |
+| E.1 | Helmet + OWASP | ทำ | — | `[ ]` | — | middleware ครั้งเดียว |
+| E.2 | Sentry error monitoring | ทำ | — | `[ ]` | — | middleware |
+| E.3 | Redis cache | ทำ | adopt | `[ ]` | `[ ]` | nem setup, lalla cache admin queries |
+| E.4 | BullMQ queue | refactor user cron | refactor admin cron | `[ ]` | `[ ]` | each own cron jobs |
+| E.5 | Health check endpoints | ทำ | — | `[ ]` | — | server-level |
+| E.6 | API versioning `/v1/` | own routes | own routes | `[ ]` | `[ ]` | each prefix own routes |
+| E.7 | Graceful shutdown | ทำ | — | `[ ]` | — | server.js |
+| E.8 | Compression middleware | ทำ | — | `[ ]` | — | 2 lines |
+| E.9 | CORS hardening | ทำ | — | `[ ]` | — | server.js |
+| E.10 | Strict Helmet CSP | ทำ | — | `[ ]` | — | middleware |
+| E.11 | Refresh token rotation | ทำ | — | `[ ]` | — | auth middleware |
+| E.12 | Performance benchmarks | own endpoints | own endpoints | `[ ]` | `[ ]` | each test own |
+| E.13 | OpenTelemetry tracing | ทำ | — | `[ ]` | — | server-level |
+| E.14 | Sentry Performance + RUM | ทำ + frontend | adopt | `[ ]` | `[ ]` | nem setup, frontend ทั้งคู่ใช้ |
+| E.15 | Slow request middleware | ทำ | — | `[ ]` | — | middleware |
+| E.16 | Cursor pagination | pair first | pair second | `[ ]` | `[ ]` | nem implement endpoint 1, lalla endpoint 2 |
+| E.17 | Multi-replica + Nginx LB | lead | adopt | `[ ]` | `[ ]` | nem docker-compose, lalla pull |
+| F.1 | Error Boundaries | user pages | admin pages | `[ ]` | `[ ]` | each own |
+| F.2 | Code Splitting (React.lazy) | user routes | admin routes | `[ ]` | `[ ]` | each own |
+| F.3 | Form validation (zod) | user forms | admin forms | `[ ]` | `[ ]` | each own |
+| F.4 | Loading states + Skeletons | user pages | admin pages | `[ ]` | `[ ]` | each own |
+| F.5 | Image optimization | user images | admin images | `[ ]` | `[ ]` | each own |
+| G.1 | Deploy Vercel + Railway | coordinate | coordinate | `[ ]` | `[ ]` | 1 person deploys, both verify |
+| G.2 | AWS migration | lead | adopt | `[ ]` | `[ ]` | nem migrate, lalla verify admin works |
+| H | Capacitor → .apk | ทำ | — | `[ ]` | — | **เนมเท่านั้น** (portfolio mobile) |
+| J | Pen test (OWASP ZAP + Burp) | coordinate | coordinate | `[ ]` | `[ ]` | ทำหลัง deploy เสร็จ |
 
 **How to update:**
 - เริ่มทำ → เปลี่ยน `[ ]` → `[~]`
