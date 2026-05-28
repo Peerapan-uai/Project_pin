@@ -1,6 +1,6 @@
 const crypto = require('crypto');
 
-module.exports = (req, res, next) =>
+module.exports = (req, res, next) => {
   const sigHeader = req.headers['x-omise-signature'];
 
   if (!sigHeader) {

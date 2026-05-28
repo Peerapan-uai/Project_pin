@@ -218,16 +218,16 @@ Project/
 | `backend/routes/admin/*` | **security-reviewer** + `backend-patterns` (admin endpoint → RBAC check) |
 | `backend/routes/*.js` (อื่นๆ) | `api-design` + `backend-patterns` + `error-handling` |
 | `backend/middleware/*.js` | `backend-patterns` + `security-review` |
-| `backend/schema.sql`, `MIGRATION_*.sql` | **database-reviewer** + `mysql-patterns` + `database-migrations` |
+| `backend/schema.sql`, `MIGRATION_*.sql` | `mysql-patterns` + `database-migrations` |
 | `backend/models/*.js`, `backend/utils/*.js` | `backend-patterns` |
-| `backend/jobs/*.js` | `backend-patterns` + `silent-failure-hunter` (cron jobs fail silently บ่อย) |
-| `frontend/src/pages/**/*.jsx` | `frontend-patterns` + `accessibility` |
-| `frontend/src/components/**/*.jsx` | `frontend-patterns` + `accessibility` |
+| `backend/jobs/*.js` | `backend-patterns` + `error-handling` (cron fail silently บ่อย — Grep หา empty catch) |
+| `frontend/src/pages/**/*.jsx` | `frontend-patterns` *(not installed yet — TODO Phase 1)* |
+| `frontend/src/components/**/*.jsx` | `frontend-patterns` *(not installed yet — TODO Phase 1)* |
 | `docker-compose.yml`, `Dockerfile` | `docker-patterns` |
-| `.github/workflows/*.yml` | `github-ops` + `deployment-patterns` |
-| `tests/**`, `*.test.js` | `tdd-workflow` + `e2e-testing` + `browser-qa` |
+| `.github/workflows/*.yml` | `deployment-patterns` + `github-ops` *(github-ops not installed yet — TODO Phase 1)* |
+| `tests/**`, `*.test.js` | `tdd` (Matt Pocock — tracer bullet, behavior-driven) |
 | `package.json` (deps change) | **security-reviewer** (npm audit) |
-| `CLAUDE.md`, `TEST_CHECKLIST.md`, `plans/*.md` | `doc-updater` agent |
+| `CLAUDE.md`, `TEST_CHECKLIST.md`, `plans/*.md` | `/update-docs` command |
 
 **Slash commands ที่นาย+lalla ใช้บ่อย:**
 - `/plan` — วาง implementation plan ก่อนเริ่ม feature
@@ -244,3 +244,87 @@ Project/
 
 - **Hooks (memory-persistence, session-start)** — ต้องลง ECC plugin infrastructure (`scripts/hooks/` 1.6MB) เก็บไว้ทำตอน Phase 1 ใกล้จบ
 - **MCP servers** — ดู `.claude/mcp-configs/` ใน ECC source repo ถ้าจะเพิ่ม
+
+---
+
+## Behavioral Guidelines (Generic LLM Practices)
+
+Behavioral guidelines to reduce common LLM coding mistakes. Merge with project-specific instructions as needed.
+
+**Tradeoff:** These guidelines bias toward caution over speed. For trivial tasks, use judgment.
+
+## 1. Think Before Coding
+
+**Don't assume. Don't hide confusion. Surface tradeoffs.**
+
+Before implementing:
+- State your assumptions explicitly. If uncertain, ask.
+- If multiple interpretations exist, present them - don't pick silently.
+- If a simpler approach exists, say so. Push back when warranted.
+- If something is unclear, stop. Name what's confusing. Ask.
+
+## 2. Simplicity First
+
+**Minimum code that solves the problem. Nothing speculative.**
+
+- No features beyond what was asked.
+- No abstractions for single-use code.
+- No "flexibility" or "configurability" that wasn't requested.
+- No error handling for impossible scenarios.
+- If you write 200 lines and it could be 50, rewrite it.
+
+Ask yourself: "Would a senior engineer say this is overcomplicated?" If yes, simplify.
+
+## 3. Surgical Changes
+
+**Touch only what you must. Clean up only your own mess.**
+
+When editing existing code:
+- Don't "improve" adjacent code, comments, or formatting.
+- Don't refactor things that aren't broken.
+- Match existing style, even if you'd do it differently.
+- If you notice unrelated dead code, mention it - don't delete it.
+
+When your changes create orphans:
+- Remove imports/variables/functions that YOUR changes made unused.
+- Don't remove pre-existing dead code unless asked.
+
+The test: Every changed line should trace directly to the user's request.
+
+## 4. Goal-Driven Execution
+
+**Define success criteria. Loop until verified.**
+
+Transform tasks into verifiable goals:
+- "Add validation" → "Write tests for invalid inputs, then make them pass"
+- "Fix the bug" → "Write a test that reproduces it, then make it pass"
+- "Refactor X" → "Ensure tests pass before and after"
+
+For multi-step tasks, state a brief plan:
+```
+1. [Step] → verify: [check]
+2. [Step] → verify: [check]
+3. [Step] → verify: [check]
+```
+
+Strong success criteria let you loop independently. Weak criteria ("make it work") require constant clarification.
+
+---
+
+**These guidelines are working if:** fewer unnecessary changes in diffs, fewer rewrites due to overcomplication, and clarifying questions come before implementation rather than after mistakes.
+
+---
+
+## Agent skills
+
+### Issue tracker
+
+GitHub Issues at `Peerapan-uai/Project_pin`. Use the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+Default 5-role vocabulary (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context. Primary context is this `CLAUDE.md` (no separate `CONTEXT.md`); plan in `PHASE_1_PROJECT.md`; ADRs in `docs/adr/` (lazy). See `docs/agents/domain.md`.

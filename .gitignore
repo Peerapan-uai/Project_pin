@@ -26,6 +26,7 @@ Thumbs.db
 NEM_CAREER.md
 PHASE_2_*.md
 PHASE_3_*.md
+docs/lalla-teaching/
 
 # Claude Code — share team config; keep personal overrides local
 .claude/settings.local.json

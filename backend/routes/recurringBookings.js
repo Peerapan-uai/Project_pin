@@ -6,6 +6,58 @@ const auth = require('../middleware/auth');
 const VALID_DAYS = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 const VALID_DURATIONS = [15, 30, 45, 60, 90, 120];
 
+/**
+ * @swagger
+ * /api/recurring-bookings:
+ *   post:
+ *     summary: สร้าง recurring booking schedule (จองซ้ำตามวัน/เวลา)
+ *     tags: [RecurringBookings]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [charger_id, days_of_week, start_time]
+ *             properties:
+ *               charger_id:
+ *                 type: integer
+ *                 example: 5
+ *               days_of_week:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   enum: [mon, tue, wed, thu, fri, sat, sun]
+ *                 example: [mon, wed, fri]
+ *               start_time:
+ *                 type: string
+ *                 example: "08:30"
+ *                 description: เวลาเริ่ม (HH:MM)
+ *               duration_min:
+ *                 type: integer
+ *                 enum: [15, 30, 45, 60, 90, 120]
+ *                 default: 60
+ *               weeks_ahead:
+ *                 type: integer
+ *                 default: 4
+ *                 description: สร้าง booking ล่วงหน้ากี่สัปดาห์
+ *     responses:
+ *       201:
+ *         description: สร้าง schedule สำเร็จ
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message: { type: string }
+ *                 schedule_id: { type: integer }
+ *       400: { description: ข้อมูลไม่ครบ / format ผิด }
+ *       401: { description: ไม่ได้ login }
+ *       404: { description: Charger not found }
+ *       500: { description: Server error }
+ */
 // POST /api/recurring-bookings — สร้าง recurring schedule ใหม่
 router.post('/', auth, async (req, res) => {
   const { charger_id, days_of_week, start_time, duration_min = 60, weeks_ahead = 4 } = req.body;
@@ -37,6 +89,41 @@ router.post('/', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/recurring-bookings:
+ *   get:
+ *     summary: ดึงรายการ recurring schedules ของ user
+ *     tags: [RecurringBookings]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: List schedules
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 schedules:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       schedule_id: { type: integer }
+ *                       charger_id: { type: integer }
+ *                       days_of_week: { type: string, example: "mon,wed,fri" }
+ *                       start_time: { type: string, example: "08:30" }
+ *                       duration_min: { type: integer }
+ *                       weeks_ahead: { type: integer }
+ *                       active: { type: integer, example: 1 }
+ *                       charger_name: { type: string }
+ *                       connector_type: { type: string }
+ *                       station_name: { type: string }
+ *                       created_at: { type: string, format: date-time }
+ *       401: { description: ไม่ได้ login }
+ *       500: { description: Server error }
+ */
 // GET /api/recurring-bookings — list ของ user
 router.get('/', auth, async (req, res) => {
   try {
@@ -56,6 +143,39 @@ router.get('/', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/recurring-bookings/{id}:
+ *   patch:
+ *     summary: อัปเดต schedule (toggle active / แก้เวลา / duration / weeks_ahead)
+ *     tags: [RecurringBookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: schedule_id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             description: ส่งเฉพาะ field ที่จะอัปเดต (partial update)
+ *             properties:
+ *               active: { type: boolean }
+ *               start_time: { type: string, example: "09:00" }
+ *               duration_min: { type: integer, enum: [15, 30, 45, 60, 90, 120] }
+ *               weeks_ahead: { type: integer }
+ *     responses:
+ *       200: { description: Updated }
+ *       400: { description: ไม่มีฟิลด์ที่ต้องอัปเดต }
+ *       401: { description: ไม่ได้ login }
+ *       404: { description: Schedule not found }
+ *       500: { description: Server error }
+ */
 // PATCH /api/recurring-bookings/:id — toggle active / แก้ไข
 router.patch('/:id', auth, async (req, res) => {
   const { active, start_time, duration_min, weeks_ahead } = req.body;
@@ -86,6 +206,26 @@ router.patch('/:id', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/recurring-bookings/{id}:
+ *   delete:
+ *     summary: ลบ recurring schedule
+ *     tags: [RecurringBookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: schedule_id
+ *     responses:
+ *       200: { description: Deleted }
+ *       401: { description: ไม่ได้ login }
+ *       404: { description: Schedule not found }
+ *       500: { description: Server error }
+ */
 // DELETE /api/recurring-bookings/:id
 router.delete('/:id', auth, async (req, res) => {
   try {
@@ -103,6 +243,40 @@ router.delete('/:id', auth, async (req, res) => {
   }
 });
 
+/**
+ * @swagger
+ * /api/recurring-bookings/{id}/skip:
+ *   post:
+ *     summary: ข้าม recurring booking ในวันที่ระบุ
+ *     tags: [RecurringBookings]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: schedule_id
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [date]
+ *             properties:
+ *               date:
+ *                 type: string
+ *                 format: date
+ *                 example: "2026-05-20"
+ *                 description: วันที่จะ skip (YYYY-MM-DD)
+ *     responses:
+ *       200: { description: Skipped }
+ *       400: { description: date format ผิด }
+ *       401: { description: ไม่ได้ login }
+ *       404: { description: Schedule not found }
+ *       500: { description: Server error }
+ */
 // POST /api/recurring-bookings/:id/skip — skip วันใดวันหนึ่ง
 router.post('/:id/skip', auth, async (req, res) => {
   const { date } = req.body; // 'YYYY-MM-DD'
