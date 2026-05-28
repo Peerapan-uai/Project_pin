@@ -48,6 +48,69 @@ function haversineKm(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+/**
+ * @swagger
+ * /api/trip-plan:
+ *   post:
+ *     summary: วางแผนการเดินทาง — คำนวณระยะทาง, ระยะที่แบตวิ่งไหว, แนะนำสถานีชาร์จระหว่างทาง
+ *     tags: [TripPlan]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [destination]
+ *             properties:
+ *               destination:
+ *                 type: object
+ *                 description: ปลายทาง — ส่ง lat/lng หรือ address อย่างใดอย่างหนึ่ง
+ *                 properties:
+ *                   lat: { type: number, format: float, example: 13.7563 }
+ *                   lng: { type: number, format: float, example: 100.5018 }
+ *                   address: { type: string, example: "Siam Paragon" }
+ *               vehicle_id:
+ *                 type: integer
+ *                 description: ID รถยนต์ของ user (ใช้ดู battery_current_kwh — ถ้าไม่ส่งจะใช้ default 40 kWh)
+ *     responses:
+ *       200:
+ *         description: ผลการวางแผนการเดินทาง
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 distance_km: { type: number, example: 120.5 }
+ *                 range_km: { type: number, example: 177.8 }
+ *                 needs_charging: { type: boolean }
+ *                 estimated_arrival: { type: string, format: date-time }
+ *                 charging_point:
+ *                   type: object
+ *                   description: มีเฉพาะเมื่อ needs_charging=true
+ *                   properties:
+ *                     lat: { type: number }
+ *                     lng: { type: number }
+ *                     after_km: { type: number }
+ *                 suggested_stations:
+ *                   type: array
+ *                   description: สถานีชาร์จใกล้จุดที่ต้องชาร์จ (top 5, มีเฉพาะเมื่อ needs_charging=true)
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       station_id: { type: integer }
+ *                       name: { type: string }
+ *                       address: { type: string }
+ *                       latitude: { type: number }
+ *                       longitude: { type: number }
+ *                       available_chargers: { type: integer }
+ *                       distance_from_path_km: { type: number }
+ *       400: { description: destination ไม่ครบ / ไม่พบเส้นทางจาก Google Maps }
+ *       401: { description: ไม่ได้ login }
+ *       503: { description: Google Maps API key ยังไม่ได้ตั้งค่าใน server }
+ *       500: { description: Server error }
+ */
 // POST /api/trip-plan
 router.post('/', auth, async (req, res) => {
   const { destination, vehicle_id } = req.body;

@@ -336,6 +336,47 @@ router.patch('/:id/restore', auth, roleCheck('admin'), async (req, res) => {
 
 
 
+/**
+ * @swagger
+ * /api/chargers/{id}/available-slots:
+ *   get:
+ *     summary: ดู time slots ว่างของ charger ในวันที่กำหนด (slot ละ 15 นาที, รวม 96 slots/วัน)
+ *     description: ใช้สำหรับหน้าจองล่วงหน้า — slot ที่ผ่านมาแล้วหรือชนกับ booking ที่มีอยู่ จะ available=false
+ *     tags: [Chargers]
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *         description: charger_id
+ *       - in: query
+ *         name: date
+ *         required: true
+ *         schema: { type: string, format: date }
+ *         description: วันที่ตรวจสอบ (YYYY-MM-DD)
+ *         example: "2026-05-20"
+ *     responses:
+ *       200:
+ *         description: รายการ time slots
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 slots:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       start: { type: string, example: "08:00" }
+ *                       end: { type: string, example: "08:15" }
+ *                       available: { type: boolean }
+ *       400: { description: date query param ไม่มีหรือ format ผิด }
+ *       401: { description: ไม่ได้ login }
+ *       500: { description: Server error }
+ */
 /// nem — Feature 9.1: available time slots for scheduled booking
 router.get('/:id/available-slots', auth, async (req, res) => {
   const { date } = req.query; // e.g. '2026-04-26'
