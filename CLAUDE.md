@@ -147,6 +147,7 @@ Manual test checklist (ยังไม่มี unit/integration framework) — 
 - **Decisions (ADRs):**
   - [ADR 0001 — TypeScript scope](docs/adr/0001-typescript-scope.md)
   - [ADR 0002 — Mongo logger patch](docs/adr/0002-mongo-logger-patch.md)
+  - [ADR 0003 — Knex migrations + raw mysql2 (ไม่ใช้ Prisma)](docs/adr/0003-knex-migrations-raw-mysql2.md)
 - **Manual test:** [`TEST_CHECKLIST.md`](TEST_CHECKLIST.md)
 - **Feature plans:** [`plans/`](plans/)
 - **Schema source-of-truth:** [`backend/schema.sql`](backend/schema.sql)

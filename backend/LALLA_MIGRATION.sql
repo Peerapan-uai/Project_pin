@@ -1,4 +1,6 @@
 -- ============================================================
+-- DEPRECATED: ใช้ knex migration แทน (ADR 0003)
+-- ไฟล์นี้เก็บไว้เป็น reference เท่านั้น ห้ามรันใหม่
 -- LALLA_MIGRATION.sql
 -- รันใน phpMyAdmin ของ lalla เพื่อ sync schema กับ nem
 -- วันที่: 2026-04-26
