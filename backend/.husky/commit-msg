@@ -1,0 +1,2 @@
+#!/bin/sh
+backend/node_modules/.bin/commitlint --config backend/.commitlintrc.json --edit "$1"
