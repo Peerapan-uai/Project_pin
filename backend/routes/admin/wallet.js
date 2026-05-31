@@ -416,7 +416,7 @@ router.get('/transactions', auth, roleCheck('admin'), async (req, res) => {
     const limit = 20;
     const offset = (parseInt(page) - 1) * limit;
 
-    // 🔴 TODO A: สร้าง WHERE clause แบบ dynamic
+    
     let whereConditions = [];
     let queryParams = [];
 
@@ -427,7 +427,7 @@ router.get('/transactions', auth, roleCheck('admin'), async (req, res) => {
     const whereClause = whereConditions.length > 0 ? 'WHERE ' + whereConditions.join(' AND ') : '';
 
 
-    // 🔴 TODO B: Query SELECT transactions + JOIN users
+    
     const [transactions] = await pool.query(
       `SELECT wt.txn_id, wt.user_id, u.email, u.first_name, u.last_name,
               wt.amount, wt.type, wt.reason, wt.ref, wt.adjusted_by, wt.created_at
@@ -439,13 +439,13 @@ router.get('/transactions', auth, roleCheck('admin'), async (req, res) => {
       [...queryParams, limit, offset]
     );
 
-    // 🔴 TODO C: Count total rows
+    
     const [[{ total }]] = await pool.query(
       `SELECT COUNT(*) as total FROM wallet_transactions wt ${whereClause}`,
       queryParams
     );
 
-    // 🔴 TODO D: Calculate pagination
+    
     const totalPages = Math.ceil(total / limit);
 
     return res.status(200).json({

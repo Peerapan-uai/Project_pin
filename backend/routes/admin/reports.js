@@ -156,7 +156,6 @@ router.get('/revenue', auth, roleCheck('admin'), async (req, res) => {
  */
 
 
-// 🔴 TODO A: Query charger utilization stats
 // lalla GET /api/admin/reports/usage
 router.get('/usage', auth, roleCheck('admin'), async (req, res) => {
   try {
@@ -372,7 +371,7 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
       return res.status(400).json({ message: 'Invalid report_type' });
     }
 
-    // 🔴 TODO E: Query data based on report_type
+    
 
     let query;
     let params = [];
@@ -395,7 +394,7 @@ router.post('/export', auth, roleCheck('admin'), async (req, res) => {
 
     const [data] = await pool.query(query, params);
 
-    // 🔴 TODO F: Convert to CSV using @json2csv/node
+   
     const parser = new AsyncParser({ withBOM: true });
     
     res.setHeader('Content-Type', 'text/csv; charset=utf-8');
