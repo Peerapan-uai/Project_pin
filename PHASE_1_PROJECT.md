@@ -89,7 +89,7 @@ I. Deploy Phase 2 (AWS migration)
 | A.2 | Manual test 14 features | ของตัวเอง | ของตัวเอง | `✅` | `✅` | each owns own feature |
 | A.3 | Schema sync | coordinate | coordinate | `[ ]` | `[ ]` | รัน migration ทั้งคู่ // อาจจะเปลี่ยนเป็น docker |
 | A.4 | Cleanup unused deps | ทั้งคู่ | ทั้งคู่ | `✅` | `[ ]` | nem: ลบ morgan (PR #7) |
-| A.5 | Jest + Supertest setup | lead | adopt | `✅` | `✅` | nem setup → both write tests own routes // อาจจะเปลี่ยนไปใช้ vitest |
+| A.5 | Vitest + Supertest setup | lead | adopt | `[~]` | `✅` | ✅ vitest+supertest+coverage-v8 ลงแล้ว, เขียน vitest เป็น (getTariff.test.js). ❌ ยังไม่มี supertest API test + ไม่มี vitest.config + coverage 0% บน payment/booking/wallet. Done when: supertest ยิง endpoint จริง ≥1 flow เต็ม + coverage threshold ใน config |
 | A.6 | Logger password leak fix | — | ทำ | — | `[ ]` | nem เรียนวิธีทำแล้ว → ส่ง note สอนลัลลา → ลัลลา implement + push → nem pull ใช้ต่อ |
 | A.7 | `npm audit fix` | ทั้งคู่ | ทั้งคู่ | `✅` | `✅` | run own folder |
 | A.8 | Complete 21 TODOs | 7 user-side | 14 admin | `[~]` | `[ ]` | nem done: verifyOmiseSignature (PR #7). เหลือ: payments refund, promptpay signature, stations stats bug. lalla: admin/* 14 |
