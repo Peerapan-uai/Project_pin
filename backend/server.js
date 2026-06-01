@@ -1,70 +1,79 @@
-require('dotenv').config();
-const rateLimit = require('express-rate-limit');
-const express = require('express');
-const cors = require('cors');
-const swaggerJsdoc = require('swagger-jsdoc');
-const swaggerUi = require('swagger-ui-express');
-const pool = require('./config/db');
-const connectMongoDB = require('./config/mongodb');
-const logger = require('./middleware/logger');
-const auth = require('./middleware/auth');
-const roleCheck = require('./middleware/roleCheck');
+require('dotenv').config()
+const rateLimit = require('express-rate-limit')
+const express = require('express')
+const cors = require('cors')
+const swaggerJsdoc = require('swagger-jsdoc')
+const swaggerUi = require('swagger-ui-express')
+const pool = require('./config/db')
+const connectMongoDB = require('./config/mongodb')
+const logger = require('./middleware/logger')
+const auth = require('./middleware/auth')
+const roleCheck = require('./middleware/roleCheck')
 const cron = require('node-cron')
 
-const { startExpireJob } = require('./jobs/expireBookings');
-const { startExpirePaymentsJob } = require('./jobs/expirePayments');
-const { startTemperatureSimulator } = require('./jobs/temperatureSimulator');
-const { startNoShowChecker } = require('./jobs/noShowChecker');
-const { startPointsExpireJob } = require('./jobs/pointsExpire');
-const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen');
-const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop');
-
+const { startExpireJob } = require('./jobs/expireBookings')
+const { startExpirePaymentsJob } = require('./jobs/expirePayments')
+const { startTemperatureSimulator } = require('./jobs/temperatureSimulator')
+const { startNoShowChecker } = require('./jobs/noShowChecker')
+const { startPointsExpireJob } = require('./jobs/pointsExpire')
+const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen')
+const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop')
 
 // Route imports
-const authRoutes = require('./routes/auth');
-const userRoutes = require('./routes/users');
-const vehicleRoutes = require('./routes/vehicles');
-const stationRoutes = require('./routes/stations');
-const chargerRoutes = require('./routes/chargers');
-const bookingRoutes = require('./routes/bookings');
-const sessionRoutes = require('./routes/sessions');
-const paymentRoutes = require('./routes/payments');
-const reviewRoutes = require('./routes/reviews');
-const ticketRoutes = require('./routes/tickets');
-const notificationRoutes = require('./routes/notifications');
-const walletRoutes = require('./routes/wallet');
-const favoritesRoutes = require('./routes/favorites');
-const pointsRoutes = require('./routes/points');
-const adminWalletRoutes = require('./routes/admin/wallet');
-const adminReportsRoutes = require('./routes/admin/reports');
-const adminNotificationsRoutes = require('./routes/admin/notifications');
-const logsRoutes = require('./routes/admin/logs');
+const authRoutes = require('./routes/auth')
+const userRoutes = require('./routes/users')
+const vehicleRoutes = require('./routes/vehicles')
+const stationRoutes = require('./routes/stations')
+const chargerRoutes = require('./routes/chargers')
+const bookingRoutes = require('./routes/bookings')
+const sessionRoutes = require('./routes/sessions')
+const paymentRoutes = require('./routes/payments')
+const reviewRoutes = require('./routes/reviews')
+const ticketRoutes = require('./routes/tickets')
+const notificationRoutes = require('./routes/notifications')
+const walletRoutes = require('./routes/wallet')
+const favoritesRoutes = require('./routes/favorites')
+const pointsRoutes = require('./routes/points')
+const adminWalletRoutes = require('./routes/admin/wallet')
+const adminReportsRoutes = require('./routes/admin/reports')
+const adminNotificationsRoutes = require('./routes/admin/notifications')
+const logsRoutes = require('./routes/admin/logs')
 const adminRefundsRoutes = require('./routes/admin/refunds')
-const adminTrashRoutes   = require('./routes/admin/trash')
+const adminTrashRoutes = require('./routes/admin/trash')
 const recurringBookingsRoutes = require('./routes/recurringBookings')
 const tripPlanRoutes = require('./routes/tripPlan')
 const sparePartsRoutes = require('./routes/spareParts')
 
-
-const app = express();
+const app = express()
 
 // ─── Core Middleware ───────────────────────────────────────────────────────────
-app.use(cors({
-  origin: ['http://localhost:3000', 'http://localhost:5173'],
-  credentials: true
-}));
+app.use(
+  cors({
+    origin: process.env.FRONTEND_URL
+      ? process.env.FRONTEND_URL.split(',')
+      : ['http://localhost:3000', 'http://localhost:5173'],
+    credentials: true,
+  })
+)
 const loginLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
   max: 10,
-  message: { message: 'ลองใหม่ใน 15 นาที' }
-});
-app.use('/api/auth/login', loginLimiter);
-app.use('/api/admin/login', loginLimiter);
-app.use(express.json({ limit: '10mb', verify: (req, res, buf) => { req.rawBody = buf;} })); // รองรับ base64 image
-app.use(logger); // morgan + MongoDB logger
+  message: { message: 'ลองใหม่ใน 15 นาที' },
+})
+app.use('/api/auth/login', loginLimiter)
+app.use('/api/admin/login', loginLimiter)
+app.use(
+  express.json({
+    limit: '10mb',
+    verify: (req, res, buf) => {
+      req.rawBody = buf
+    },
+  })
+) // รองรับ base64 image
+app.use(logger) // morgan + MongoDB logger
 
 // ─── Static Files ─────────────────────────────────────────────────────────────
-app.use('/uploads', express.static(require('path').join(__dirname, 'uploads')));
+app.use('/uploads', express.static(require('path').join(__dirname, 'uploads')))
 
 // ─── Swagger / OpenAPI ────────────────────────────────────────────────────────
 const swaggerOptions = {
@@ -91,37 +100,37 @@ const swaggerOptions = {
     },
     security: [{ bearerAuth: [] }],
   },
-    apis: ['./routes/*.js', './routes/admin/*.js', './server.js'],
-};
+  apis: ['./routes/*.js', './routes/admin/*.js', './server.js'],
+}
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+const swaggerSpec = swaggerJsdoc(swaggerOptions)
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec))
 
 // ─── Routes ───────────────────────────────────────────────────────────────────
-app.use('/api/auth', authRoutes);
-app.use('/api/users', userRoutes);
-app.use('/api/vehicles', vehicleRoutes);
-app.use('/api/stations', stationRoutes);
-app.use('/api/chargers', chargerRoutes);
-app.use('/api/bookings', bookingRoutes);
-app.use('/api/sessions', sessionRoutes);
-app.use('/api/payments', paymentRoutes);
-app.use('/api/reviews', reviewRoutes);
-app.use('/api/tickets', ticketRoutes);
-app.use('/api/admin/logs', logsRoutes);
-app.use('/api/admin/wallet', adminWalletRoutes);
-app.use('/api/admin/reports', adminReportsRoutes);
+app.use('/api/auth', authRoutes)
+app.use('/api/users', userRoutes)
+app.use('/api/vehicles', vehicleRoutes)
+app.use('/api/stations', stationRoutes)
+app.use('/api/chargers', chargerRoutes)
+app.use('/api/bookings', bookingRoutes)
+app.use('/api/sessions', sessionRoutes)
+app.use('/api/payments', paymentRoutes)
+app.use('/api/reviews', reviewRoutes)
+app.use('/api/tickets', ticketRoutes)
+app.use('/api/admin/logs', logsRoutes)
+app.use('/api/admin/wallet', adminWalletRoutes)
+app.use('/api/admin/reports', adminReportsRoutes)
 app.use('/api/admin/refunds', adminRefundsRoutes)
-app.use('/api/admin/trash',   adminTrashRoutes)
+app.use('/api/admin/trash', adminTrashRoutes)
 
-app.use('/api/admin/notifications', adminNotificationsRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/wallet', walletRoutes);
-app.use('/api/favorites', favoritesRoutes);
+app.use('/api/admin/notifications', adminNotificationsRoutes)
+app.use('/api/notifications', notificationRoutes)
+app.use('/api/wallet', walletRoutes)
+app.use('/api/favorites', favoritesRoutes)
 app.use('/api/spare-parts', sparePartsRoutes)
-app.use('/api/points', pointsRoutes);
-app.use('/api/recurring-bookings', recurringBookingsRoutes);
-app.use('/api/trip-plan', tripPlanRoutes);
+app.use('/api/points', pointsRoutes)
+app.use('/api/recurring-bookings', recurringBookingsRoutes)
+app.use('/api/trip-plan', tripPlanRoutes)
 
 /**
  * @swagger
@@ -161,37 +170,37 @@ app.get('/api/admin/stats', auth, roleCheck('admin'), async (req, res) => {
     (SELECT COUNT(*) FROM bookings  WHERE DATE( booking_time) = curdate()) AS bookings_today,
     (SELECT sum(amount) from payments ) as payments_count ,
     (SELECT COUNT(charger_id) from chargers where status = 'out_of_service' ) as charger_issue
-  `);
-    return res.status(200).json(rows[0]);
+  `)
+    return res.status(200).json(rows[0])
   } catch (error) {
-    console.error('Admin stats error:', error);
-    return res.status(500).json({ message: 'Server error fetching stats.' });
+    console.error('Admin stats error:', error)
+    return res.status(500).json({ message: 'Server error fetching stats.' })
   }
-});
+})
 app.get('/', (req, res) => {
-  res.json({ message: 'EV Charger API is running.' });
-});
+  res.json({ message: 'EV Charger API is running.' })
+})
 // ─── Global Error Handler ─────────────────────────────────────────────────────
 app.use((err, req, res, next) => {
-  console.error('Unhandled error:', err);
-  res.status(500).json({ message: 'Internal server error.' });
-});
+  console.error('Unhandled error:', err)
+  res.status(500).json({ message: 'Internal server error.' })
+})
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 5000
 
 const startServer = async () => {
   // Test MySQL connection
   try {
-    const conn = await pool.getConnection();
-    console.log('MySQL connected successfully');
-    conn.release();
+    const conn = await pool.getConnection()
+    console.log('MySQL connected successfully')
+    conn.release()
   } catch (err) {
-    console.error('MySQL connection error:', err.message);
+    console.error('MySQL connection error:', err.message)
   }
 
   // Connect to MongoDB
-  await connectMongoDB();
+  await connectMongoDB()
 
   const startScheduleNotificationsJob = () => {
     cron.schedule('* * * * *', async () => {
@@ -201,35 +210,31 @@ const startServer = async () => {
           where scheduled_at <= NOW() AND is_sent = 0`
         )
         for (const notif of pending) {
-            let userIds = []
-            if (notif.target_type === 'all') {
-              const [users] = await pool.query(`select user_id from users`)
-              userIds = users.map(u => u.user_id)
-
-            } else if (notif.target_type === 'role') {
-              const [users] = await pool.query('select user_id from users where role = ?', [notif.target_value])
-              userIds = users.map(u => u.user_id)
-
-            } else if (notif.target_type === 'user_ids') {
-              userIds = notif.target_value.split(',').map(id => parseInt(id.trim()))
-            }
-            if (userIds.length > 0) {
-              const insertValues = userIds.map(id => [
-                id,
-                notif.title,
-                notif.message,
-                notif.type
-              ])
-              await pool.query(
-                'insert into notifications (user_id, title, message, type) values ?', [insertValues]
-              )
-              await pool.query(
-                'update scheduled_notifications set is_sent = 1 where id = ?',
-                [notif.id]
-              )
-            } 
-        } 
-      } catch (err) {console.error('Scheduled notification error:', err.message)}
+          let userIds = []
+          if (notif.target_type === 'all') {
+            const [users] = await pool.query(`select user_id from users`)
+            userIds = users.map((u) => u.user_id)
+          } else if (notif.target_type === 'role') {
+            const [users] = await pool.query('select user_id from users where role = ?', [
+              notif.target_value,
+            ])
+            userIds = users.map((u) => u.user_id)
+          } else if (notif.target_type === 'user_ids') {
+            userIds = notif.target_value.split(',').map((id) => parseInt(id.trim()))
+          }
+          if (userIds.length > 0) {
+            const insertValues = userIds.map((id) => [id, notif.title, notif.message, notif.type])
+            await pool.query('insert into notifications (user_id, title, message, type) values ?', [
+              insertValues,
+            ])
+            await pool.query('update scheduled_notifications set is_sent = 1 where id = ?', [
+              notif.id,
+            ])
+          }
+        }
+      } catch (err) {
+        console.error('Scheduled notification error:', err.message)
+      }
     })
   }
   // cron: เช็คและอัปเดตสถานะสถานีที่ตั้งเวลาไว้ (ทุก 1 นาที)
@@ -248,23 +253,28 @@ const startServer = async () => {
           )
         }
         if (due.length > 0) console.log(`[StationSchedule] อัปเดต ${due.length} สถานี`)
-      } catch (err) { console.error('Station schedule job error:', err.message) }
+      } catch (err) {
+        console.error('Station schedule job error:', err.message)
+      }
     })
   }
 
   app.listen(PORT, () => {
-    console.log(`Server running on http://localhost:${PORT}`);
-    console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`);
-    startExpireJob();
-    startExpirePaymentsJob();
-    startTemperatureSimulator();
-    startNoShowChecker();
-    startPointsExpireJob();
-    startRecurringBookingsGenJob();
-    startIdleFeeAutoStopJob();
+    console.log(`Server running on http://localhost:${PORT}`)
+    console.log(`Swagger docs available at http://localhost:${PORT}/api-docs`)
+    startExpireJob()
+    startExpirePaymentsJob()
+    startTemperatureSimulator()
+    startNoShowChecker()
+    startPointsExpireJob()
+    startRecurringBookingsGenJob()
+    startIdleFeeAutoStopJob()
     startScheduleNotificationsJob()
     startStationScheduleJob()
-  });
-};
-// module.exports = router;
-startServer();
+  })
+}
+
+if (process.env.NODE_ENV !== 'test') {
+  startServer()
+}
+module.exports = app
