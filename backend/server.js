@@ -45,6 +45,7 @@ const tripPlanRoutes = require('./routes/tripPlan')
 const sparePartsRoutes = require('./routes/spareParts')
 
 const app = express()
+app.set('trust proxy', 1)
 
 // ─── Core Middleware ───────────────────────────────────────────────────────────
 app.use(
