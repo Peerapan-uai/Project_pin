@@ -18,6 +18,7 @@ const { startNoShowChecker } = require('./jobs/noShowChecker')
 const { startPointsExpireJob } = require('./jobs/pointsExpire')
 const { startRecurringBookingsGenJob } = require('./jobs/recurringBookingsGen')
 const { startIdleFeeAutoStopJob } = require('./jobs/idleFeeAutoStop')
+const { startDemoResetJob } = require('./jobs/demoReset')
 
 // Route imports
 const authRoutes = require('./routes/auth')
@@ -271,6 +272,7 @@ const startServer = async () => {
     startRecurringBookingsGenJob()
     startIdleFeeAutoStopJob()
     startScheduleNotificationsJob()
+    if (process.env.NODE_ENV === 'demo') startDemoResetJob()
     startStationScheduleJob()
   })
 }
