@@ -4,102 +4,58 @@ const pool = require('../config/db')
 
 const DEMO_EMAIL = 'demo@ev-charger.com'
 const DEMO_PASSWORD = 'demo1234'
-const RESET_INTERVAL_MS = 3 * 60 * 60 * 1000 // 3 ชม.
+const INACTIVE_THRESHOLD_MS = 10 * 60 * 1000 // 10 นาที
 
-// accounts ที่ห้ามลบ
-const PROTECTED_EMAILS = [DEMO_EMAIL, 'nemuser@ev-charger.com', 'lalla@ev-charger.com']
+let lastActiveTime = null // ครั้งล่าสุดที่มี active session
 
-const SEED_USERS = [
-  {
-    first_name: 'ผู้ทดลอง',
-    last_name: 'ระบบ',
-    email: DEMO_EMAIL,
-    password: DEMO_PASSWORD,
-    phone: '0800000000',
-    wallet: 500.0,
-  },
-  {
-    first_name: 'Nem',
-    last_name: 'Test',
-    email: 'nemuser@ev-charger.com',
-    password: 'test1234',
-    phone: '0811111111',
-    wallet: 500.0,
-  },
-  {
-    first_name: 'Lalla',
-    last_name: 'Test',
-    email: 'lalla@ev-charger.com',
-    password: 'test1234',
-    phone: '0822222222',
-    wallet: 500.0,
-  },
-]
+async function hasActiveSession() {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS cnt FROM charging_sessions WHERE status = 'charging'`
+  )
+  return rows[0].cnt > 0
+}
 
 async function resetAndSeed() {
   const conn = await pool.getConnection()
   try {
     await conn.beginTransaction()
 
-    // 1. หา user ที่จะลบ (ไม่ใช่ protected + ไม่ใช่ admin/tech)
-    const placeholders = PROTECTED_EMAILS.map(() => '?').join(',')
-    const [tempUsers] = await conn.query(
-      `SELECT user_id FROM users WHERE email NOT IN (${placeholders}) AND role = 'user'`,
-      PROTECTED_EMAILS
+    // ลบ user-generated data (FK order: children ก่อน parents)
+    await conn.query(`DELETE FROM wallet_transactions`)
+    await conn.query(`DELETE FROM point_transactions`)
+    await conn.query(`DELETE FROM point_balances`)
+    await conn.query(`DELETE FROM payment_refunds`)
+    await conn.query(`DELETE FROM refund_requests`)
+    await conn.query(`DELETE FROM messages`)
+    await conn.query(`DELETE FROM notifications`)
+    await conn.query(`DELETE FROM booking_skip_dates`)
+    await conn.query(`DELETE FROM charging_sessions`)
+    await conn.query(`DELETE FROM payments`)
+    await conn.query(`DELETE FROM bookings`)
+    await conn.query(`DELETE FROM recurring_schedules`)
+    await conn.query(`DELETE FROM user_favorites`)
+    await conn.query(`DELETE FROM vehicles`)
+    await conn.query(`DELETE FROM reviews`)
+    await conn.query(`DELETE FROM users WHERE role = 'user'`)
+
+    // Seed demo user
+    const hash = await bcrypt.hash(DEMO_PASSWORD, 10)
+    const [result] = await conn.query(
+      `INSERT INTO users (first_name, last_name, email, password_hash, phone, role, wallet_balance)
+       VALUES (?, ?, ?, ?, ?, 'user', 500.00)`,
+      ['ผู้ทดลอง', 'ระบบ', DEMO_EMAIL, hash, '0800000000']
     )
-    const tempUserIds = tempUsers.map((u) => u.user_id)
+    const userId = result.insertId
 
-    if (tempUserIds.length > 0) {
-      const idPlaceholders = tempUserIds.map(() => '?').join(',')
-
-      // 2. reset charger status ที่ค้างจาก temp users
-      await conn.query(
-        `UPDATE chargers SET status = 'available'
-         WHERE charger_id IN (
-           SELECT charger_id FROM bookings
-           WHERE user_id IN (${idPlaceholders})
-           AND status IN ('confirmed', 'active')
-         )`,
-        tempUserIds
-      )
-
-      // 3. ลบ temp users — CASCADE ลบ bookings/sessions/payments/wallet ตาม
-      await conn.query(`DELETE FROM users WHERE user_id IN (${idPlaceholders})`, tempUserIds)
-    }
-
-    // 4. reset demo user — ล้าง activity + คืน wallet 500
-    const [demoRows] = await conn.query(`SELECT user_id FROM users WHERE email = ?`, [DEMO_EMAIL])
-    if (demoRows.length > 0) {
-      const demoId = demoRows[0].user_id
-
-      // reset charger status จาก demo user ก่อนลบ bookings
-      await conn.query(
-        `UPDATE chargers SET status = 'available'
-         WHERE charger_id IN (
-           SELECT charger_id FROM bookings
-           WHERE user_id = ? AND status IN ('confirmed', 'active')
-         )`,
-        [demoId]
-      )
-
-      await conn.query(`DELETE FROM charging_sessions WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM payments WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM bookings WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM wallet_transactions WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM point_transactions WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM point_balances WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM reviews WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM user_favorites WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM notifications WHERE user_id = ?`, [demoId])
-      await conn.query(`DELETE FROM recurring_schedules WHERE user_id = ?`, [demoId])
-      await conn.query(
-        `UPDATE users SET wallet_balance = 500.00, outstanding_debt = 0.00, wallet_frozen = 0 WHERE user_id = ?`,
-        [demoId]
-      )
-    }
+    // Seed demo vehicle
+    await conn.query(
+      `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [userId, 'Tesla', 'Model 3', 'กข-1234', 'CCS', 75.0, 60.0]
+    )
 
     await conn.commit()
-    console.log(`[DemoReset] Reset เรียบร้อย — ลบ ${tempUserIds.length} temp users`)
+    console.log('[DemoReset] Reset และ seed demo user เรียบร้อย')
   } catch (err) {
     await conn.rollback()
     console.error('[DemoReset] Error:', err.message)
@@ -108,40 +64,44 @@ async function resetAndSeed() {
   }
 }
 
-async function seedProtectedUsers() {
-  for (const u of SEED_USERS) {
-    const [rows] = await pool.query(`SELECT user_id FROM users WHERE email = ?`, [u.email])
-    if (rows.length === 0) {
-      const hash = await bcrypt.hash(u.password, 10)
-      const [result] = await pool.query(
-        `INSERT INTO users (first_name, last_name, email, password_hash, phone, role, wallet_balance)
-         VALUES (?, ?, ?, ?, ?, 'user', ?)`,
-        [u.first_name, u.last_name, u.email, hash, u.phone, u.wallet]
-      )
-      // seed vehicle ให้ demo user เท่านั้น
-      if (u.email === DEMO_EMAIL) {
-        await pool.query(
-          `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh)
-           VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [result.insertId, 'Tesla', 'Model 3', 'กข-1234', 'CCS', 75.0, 60.0]
-        )
-      }
-      console.log(`[DemoReset] Seeded user: ${u.email}`)
-    }
+async function seedIfEmpty() {
+  const [rows] = await pool.query(`SELECT user_id FROM users WHERE email = ?`, [DEMO_EMAIL])
+  if (rows.length === 0) {
+    console.log('[DemoReset] ไม่มี demo user — seed ครั้งแรก')
+    await resetAndSeed()
   }
 }
 
 function startDemoResetJob() {
-  seedProtectedUsers().catch((err) => console.error('[DemoReset] Initial seed error:', err.message))
+  seedIfEmpty().catch((err) => console.error('[DemoReset] Initial seed error:', err.message))
+  // เช็คทุก 1 นาที
+  cron.schedule('* * * * *', async () => {
+    try {
+      const active = await hasActiveSession()
 
-  // reset ทุก 3 ชม.
-  setInterval(async () => {
-    console.log('[DemoReset] เริ่ม reset รอบ 3 ชม.')
-    await resetAndSeed()
-    await seedProtectedUsers()
-  }, RESET_INTERVAL_MS)
+      if (active) {
+        lastActiveTime = Date.now()
+        return
+      }
 
-  console.log('[DemoReset] Demo reset job started (ทุก 3 ชม.)')
+      // ไม่มี active session — เช็คว่าผ่านไป 10 นาทีแล้วหรือยัง
+      if (lastActiveTime === null) {
+        lastActiveTime = Date.now()
+        return
+      }
+
+      const elapsed = Date.now() - lastActiveTime
+      if (elapsed >= INACTIVE_THRESHOLD_MS) {
+        console.log('[DemoReset] ไม่มี active session นาน 10 นาที — เริ่ม reset')
+        await resetAndSeed()
+        lastActiveTime = Date.now() // reset timer
+      }
+    } catch (err) {
+      console.error('[DemoReset] Cron error:', err.message)
+    }
+  })
+
+  console.log('[DemoReset] Demo reset job started')
 }
 
 module.exports = { startDemoResetJob }
