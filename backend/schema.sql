@@ -1,3 +1,6 @@
+-- ⚠️  WARNING: ไฟล์นี้มี DROP TABLE IF EXISTS ทุกตาราง
+-- ❌  ห้ามรันไฟล์นี้ทั้งหมด — ข้อมูลจะหายหมด
+-- ✅  ถ้า schema เปลี่ยน ใช้ knex migration เท่านั้น: npx knex migrate:make <ชื่อ>
 -- phpMyAdmin SQL Dump
 -- version 5.2.3
 -- https://www.phpmyadmin.net/

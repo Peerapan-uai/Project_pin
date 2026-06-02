@@ -132,6 +132,13 @@ async function seedProtectedUsers() {
 }
 
 function startDemoResetJob() {
+  const host = process.env.DB_HOST || ''
+  if (host === 'localhost' || host === '127.0.0.1') {
+    console.warn(
+      '[DemoReset] ❌ ปฏิเสธรัน — DB_HOST เป็น localhost ห้ามรัน demo reset บนเครื่อง local'
+    )
+    return
+  }
   seedProtectedUsers().catch((err) => console.error('[DemoReset] Initial seed error:', err.message))
 
   // reset ทุก 3 ชม.
