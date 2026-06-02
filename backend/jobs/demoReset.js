@@ -3,7 +3,7 @@ const cron = require('node-cron')
 const pool = require('../config/db')
 
 const DEMO_EMAIL = 'demo@ev-charger.com'
-const DEMO_PASSWORD = 'demo1234'
+const DEMO_PASSWORD = 'test1234'
 const RESET_INTERVAL_MS = 3 * 60 * 60 * 1000 // 3 ชม.
 
 // accounts ที่ห้ามลบ
