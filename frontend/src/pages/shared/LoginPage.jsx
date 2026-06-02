@@ -147,6 +147,13 @@ export default function LoginPage() {
             </button>
           </form>
 
+          {/* Demo account hint */}
+          <div className="mt-6 p-3 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700">
+            <p className="font-semibold mb-1">ทดลองใช้งาน</p>
+            <p>อีเมล: <span className="font-mono">demo@ev-charger.com</span></p>
+            <p>รหัสผ่าน: <span className="font-mono">demo1234</span></p>
+          </div>
+
           {/* Register link */}
           <p className="text-center text-sm text-gray-500 mt-6">
             ยังไม่มีบัญชี?{' '}
