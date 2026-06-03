@@ -5,8 +5,8 @@ import BottomNav from '../../components/BottomNav'
 import { FaWallet, FaQrcode, FaCreditCard, FaPlus, FaArrowUp, FaArrowDown, FaTimes, FaCheckCircle, FaTrash, FaBan, FaExclamationTriangle } from 'react-icons/fa'
 import api from '../../utils/api'
 
-const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด' }
-const TYPE_COLOR = { topup: 'text-green-600', deduct: 'text-red-500', refund: 'text-blue-500', adjust: 'text-yellow-600' }
+const TYPE_LABEL = { topup: 'เติมเงิน', deduct: 'ตัดเงิน', refund: 'คืนเงิน', adjust: 'ปรับยอด', credit_card: 'จ่ายผ่านบัตร', promptpay: 'จ่ายผ่าน PromptPay' }
+const TYPE_COLOR = { topup: 'text-green-600', deduct: 'text-red-500', refund: 'text-blue-500', adjust: 'text-yellow-600', credit_card: 'text-red-500', promptpay: 'text-red-500' }
 
 export default function WalletPage() {
   const navigate = useNavigate()
@@ -173,6 +173,7 @@ export default function WalletPage() {
       }
       try {
         await api.post('/api/wallet/topup', { amount: amt, method: 'credit_card', token: response.id })
+        setUseNewCard(false)
         setStep('done')
         fetchWallet()
         fetchCards()
@@ -282,7 +283,7 @@ export default function WalletPage() {
         ) : (
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             {transactions.map((txn, i) => (
-              <div key={txn.txn_id} className={`flex items-center gap-3 px-4 py-3.5 ${i < transactions.length - 1 ? 'border-b border-gray-100' : ''}`}>
+              <div key={`${txn.type}-${txn.id}`} className={`flex items-center gap-3 px-4 py-3.5 ${i < transactions.length - 1 ? 'border-b border-gray-100' : ''}`}>
                 <div className={`w-8 h-8 rounded-full flex items-center justify-center ${txn.type === 'topup' || txn.type === 'refund' ? 'bg-green-50' : 'bg-red-50'}`}>
                   {txn.type === 'topup' || txn.type === 'refund'
                     ? <FaArrowDown size={13} className="text-green-500" />
@@ -290,6 +291,7 @@ export default function WalletPage() {
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-gray-800">{TYPE_LABEL[txn.type] || txn.type}</p>
+                  {txn.station_name && <p className="text-xs text-gray-500 truncate">{txn.station_name}</p>}
                   <p className="text-xs text-gray-400 truncate">{txn.ref}</p>
                 </div>
                 <div className="text-right">
