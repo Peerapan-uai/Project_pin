@@ -106,10 +106,10 @@ export default function WalletPage() {
     setAmount('')
     setQrImage(null)
     setError(null)
-    setCardNumber('')
-    setExpiry('')
-    setCvv('')
-    setCardName('')
+    setCardNumber('4242424242424242')
+    setExpiry('12/40')
+    setCvv('123')
+    setCardName('TEST USER')
   }
 
   const closeModal = () => {
