@@ -1,9 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const pool = require('../config/db');
-const auth = require('../middleware/auth');
-const generatePayload = require('promptpay-qr');
-const QRCode = require('qrcode');
+const express = require('express')
+const router = express.Router()
+const pool = require('../config/db')
+const auth = require('../middleware/auth')
+const generatePayload = require('promptpay-qr')
+const QRCode = require('qrcode')
 
 /**
  * @swagger
@@ -31,20 +31,28 @@ router.get('/balance', auth, async (req, res) => {
     const [rows] = await pool.query(
       'SELECT wallet_balance, wallet_frozen, freeze_reason, outstanding_debt FROM users WHERE user_id = ?',
       [req.user.user_id]
-    );
+    )
 
     if (rows.length === 0) {
-      return res.status(404).json({ message: 'User not found.' });
+      return res.status(404).json({ message: 'User not found.' })
     }
 
     const [txns] = await pool.query(
-      `SELECT txn_id, amount, type, ref, created_at
-       FROM wallet_transactions
-       WHERE user_id = ?
-       ORDER BY created_at DESC
-       LIMIT 10`,
-      [req.user.user_id]
-    );
+      `(SELECT txn_id AS id, amount, type, ref, created_at, NULL AS station_name
+        FROM wallet_transactions WHERE user_id = ?)
+       UNION ALL
+       (SELECT p.payment_id AS id, p.amount, p.method AS type, p.transaction_ref AS ref,
+               COALESCE(p.paid_at, cs.end_time, cs.start_time) AS created_at,
+               st.name AS station_name
+        FROM payments p
+        JOIN charging_sessions cs ON p.session_id = cs.session_id
+        JOIN bookings b ON cs.booking_id = b.booking_id
+        JOIN chargers ch ON b.charger_id = ch.charger_id
+        JOIN stations st ON ch.station_id = st.station_id
+        WHERE p.user_id = ? AND p.method IN ('credit_card', 'promptpay') AND p.status = 'completed')
+       ORDER BY created_at DESC LIMIT 10`,
+      [req.user.user_id, req.user.user_id]
+    )
 
     return res.status(200).json({
       balance: rows[0].wallet_balance,
@@ -52,12 +60,12 @@ router.get('/balance', auth, async (req, res) => {
       freeze_reason: rows[0].freeze_reason || null,
       outstanding_debt: parseFloat(rows[0].outstanding_debt || 0),
       recent_transactions: txns,
-    });
+    })
   } catch (error) {
-    console.error('Get wallet balance error:', error);
-    return res.status(500).json({ message: 'Server error fetching balance.' });
+    console.error('Get wallet balance error:', error)
+    return res.status(500).json({ message: 'Server error fetching balance.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -93,45 +101,49 @@ router.get('/balance', auth, async (req, res) => {
  *         description: Server error
  */
 router.post('/topup', auth, async (req, res) => {
-  const { amount, method, token } = req.body;
+  const { amount, method, token } = req.body
 
   if (!amount || !method) {
-    return res.status(400).json({ message: 'amount and method are required.' });
+    return res.status(400).json({ message: 'amount and method are required.' })
   }
 
   if (amount < 20) {
-    return res.status(400).json({ message: 'Minimum top up is 20 baht.' });
+    return res.status(400).json({ message: 'Minimum top up is 20 baht.' })
   }
 
   if (method === 'credit_card' && !token && !req.body.use_saved_card) {
-    return res.status(400).json({ message: 'Omise token or saved card is required for credit card.' });
+    return res
+      .status(400)
+      .json({ message: 'Omise token or saved card is required for credit card.' })
   }
 
-  const conn = await pool.getConnection();
+  const conn = await pool.getConnection()
   try {
     // เช็ค wallet_frozen
     const [frozenCheck] = await conn.query(
       'SELECT wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
       [req.user.user_id]
-    );
+    )
     if (frozenCheck[0]?.wallet_frozen) {
-      conn.release();
-      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' });
+      conn.release()
+      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' })
     }
-    await conn.beginTransaction();
+    await conn.beginTransaction()
 
-    const ref = `TOPUP${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const ref = `TOPUP${Date.now()}${Math.floor(Math.random() * 1000)}`
 
     // ถ้าเป็นบัตรเครดิต → charge ผ่าน Omise ก่อน
     if (method === 'credit_card') {
-      const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
+      const Omise = require('omise')({
+        publicKey: process.env.OMISE_PUBLIC_KEY,
+        secretKey: process.env.OMISE_SECRET_KEY,
+      })
 
       // ดึง omise_customer_id จาก DB
-      const [userCust] = await conn.query(
-        'SELECT omise_customer_id FROM users WHERE user_id = ?',
-        [req.user.user_id]
-      );
-      let customerId = userCust[0]?.omise_customer_id;
+      const [userCust] = await conn.query('SELECT omise_customer_id FROM users WHERE user_id = ?', [
+        req.user.user_id,
+      ])
+      let customerId = userCust[0]?.omise_customer_id
 
       if (req.body.use_saved_card && customerId) {
         // ใช้บัตรที่ save ไว้ (เลือกได้ว่าใช้บัตรไหน)
@@ -140,21 +152,27 @@ router.post('/topup', auth, async (req, res) => {
           currency: 'thb',
           customer: customerId,
           metadata: { ref, type: 'wallet_topup' },
-        };
-        if (req.body.card_id) chargePayload.card = req.body.card_id;
-        const charge = await Omise.charges.create(chargePayload);
+        }
+        if (req.body.card_id) chargePayload.card = req.body.card_id
+        const charge = await Omise.charges.create(chargePayload)
         if (charge.status !== 'successful') {
-          await conn.rollback();
-          return res.status(400).json({ message: 'Card charge failed.' });
+          await conn.rollback()
+          return res.status(400).json({ message: 'Card charge failed.' })
         }
       } else if (token) {
         // บัตรใหม่ → สร้าง/อัพเดท customer แล้ว charge
         if (!customerId) {
-          const customer = await Omise.customers.create({ card: token, email: req.user.email || '' });
-          customerId = customer.id;
-          await conn.query('UPDATE users SET omise_customer_id = ? WHERE user_id = ?', [customerId, req.user.user_id]);
+          const customer = await Omise.customers.create({
+            card: token,
+            email: req.user.email || '',
+          })
+          customerId = customer.id
+          await conn.query('UPDATE users SET omise_customer_id = ? WHERE user_id = ?', [
+            customerId,
+            req.user.user_id,
+          ])
         } else {
-          await Omise.customers.update(customerId, { card: token });
+          await Omise.customers.update(customerId, { card: token })
         }
 
         const charge = await Omise.charges.create({
@@ -162,48 +180,47 @@ router.post('/topup', auth, async (req, res) => {
           currency: 'thb',
           customer: customerId,
           metadata: { ref, type: 'wallet_topup' },
-        });
+        })
         if (charge.status !== 'successful') {
-          await conn.rollback();
-          return res.status(400).json({ message: 'Card charge failed.' });
+          await conn.rollback()
+          return res.status(400).json({ message: 'Card charge failed.' })
         }
       }
     }
 
     // เพิ่มยอด wallet
-    await conn.query(
-      'UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?',
-      [amount, req.user.user_id]
-    );
+    await conn.query('UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?', [
+      amount,
+      req.user.user_id,
+    ])
 
     // บันทึก transaction
     await conn.query(
       'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
       [req.user.user_id, amount, 'topup', ref]
-    );
+    )
 
-    await conn.commit();
+    await conn.commit()
 
     // ดึงยอดใหม่
-    const [rows] = await pool.query(
-      'SELECT wallet_balance FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
+    const [rows] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [
+      req.user.user_id,
+    ])
 
     return res.status(200).json({
       message: 'Top up successful.',
       ref,
       amount,
       new_balance: rows[0].wallet_balance,
-    });
+    })
   } catch (error) {
-    await conn.rollback();
-    console.error('Topup error:', error);
-    return res.status(500).json({ message: 'Server error processing top up.' });
+    await conn.rollback()
+    console.error('Topup error:', error)
+    return res.status(500).json({ message: 'Server error processing top up.' })
   } finally {
-    conn.release();
+    conn.release()
   }
-});
+})
 
 /**
  * @swagger
@@ -234,77 +251,81 @@ router.post('/topup', auth, async (req, res) => {
  *         description: Server error
  */
 router.post('/deduct', auth, async (req, res) => {
-  const { amount, session_id } = req.body;
+  const { amount, session_id } = req.body
 
   if (!amount || !session_id) {
-    return res.status(400).json({ message: 'amount and session_id are required.' });
+    return res.status(400).json({ message: 'amount and session_id are required.' })
   }
 
-  const conn = await pool.getConnection();
+  const conn = await pool.getConnection()
   try {
-    await conn.beginTransaction();
+    await conn.beginTransaction()
 
     // เช็คยอดคงเหลือ + wallet_frozen
     const [userRows] = await conn.query(
       'SELECT wallet_balance, wallet_frozen FROM users WHERE user_id = ? FOR UPDATE',
       [req.user.user_id]
-    );
+    )
 
     if (userRows.length === 0) {
-      await conn.rollback();
-      return res.status(404).json({ message: 'User not found.' });
+      await conn.rollback()
+      return res.status(404).json({ message: 'User not found.' })
     }
 
     if (userRows[0].wallet_frozen) {
-      await conn.rollback();
-      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' });
+      await conn.rollback()
+      return res.status(402).json({ message: 'Wallet is frozen. Please contact support.' })
     }
 
     if (userRows[0].wallet_balance < amount) {
-      await conn.rollback();
+      await conn.rollback()
       return res.status(400).json({
         message: 'Insufficient wallet balance.',
         balance: userRows[0].wallet_balance,
         required: amount,
-      });
+      })
     }
 
-    const ref = `DEDUCT${Date.now()}${Math.floor(Math.random() * 1000)}`;
+    const ref = `DEDUCT${Date.now()}${Math.floor(Math.random() * 1000)}`
 
     // ตัดยอด
-    await conn.query(
-      'UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?',
-      [amount, req.user.user_id]
-    );
+    await conn.query('UPDATE users SET wallet_balance = wallet_balance - ? WHERE user_id = ?', [
+      amount,
+      req.user.user_id,
+    ])
 
     // บันทึก transaction
     await conn.query(
       'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
       [req.user.user_id, amount, 'deduct', `session_${session_id}`]
-    );
+    )
 
     // บันทึก payment record ด้วย
     const [payResult] = await conn.query(
       `INSERT INTO payments (user_id, session_id, amount, method, status, transaction_ref, paid_at)
        VALUES (?, ?, ?, 'wallet', 'completed', ?, NOW())`,
       [req.user.user_id, session_id, amount, ref]
-    );
+    )
 
-    await conn.commit();
+    await conn.commit()
 
-    const [rows] = await pool.query(
-      'SELECT wallet_balance FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
+    const [rows] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [
+      req.user.user_id,
+    ])
 
-    const newBal = parseFloat(rows[0]?.wallet_balance || 0);
+    const newBal = parseFloat(rows[0]?.wallet_balance || 0)
     if (newBal < 100 && newBal > 0) {
       try {
         await pool.query(
           `INSERT INTO notifications (user_id, title, message, type) VALUES (?, 'ยอดเงินใกล้หมด', ?, 'payment')`,
-          [req.user.user_id, `ยอดเงินในกระเป๋าเหลือ ฿${newBal.toFixed(2)} กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง`]
-        );
-      } catch (_) {}
+          [
+            req.user.user_id,
+            `ยอดเงินในกระเป๋าเหลือ ฿${newBal.toFixed(2)} กรุณาเติมเงินเพื่อใช้งานต่อเนื่อง`,
+          ]
+        )
+      } catch {
+        /* notification failure is non-critical */
+      }
     }
 
     return res.status(200).json({
@@ -313,15 +334,15 @@ router.post('/deduct', auth, async (req, res) => {
       amount,
       new_balance: rows[0].wallet_balance,
       payment_id: payResult.insertId,
-    });
+    })
   } catch (error) {
-    await conn.rollback();
-    console.error('Deduct error:', error);
-    return res.status(500).json({ message: 'Server error processing deduction.' });
+    await conn.rollback()
+    console.error('Deduct error:', error)
+    return res.status(500).json({ message: 'Server error processing deduction.' })
   } finally {
-    conn.release();
+    conn.release()
   }
-});
+})
 
 /**
  * @swagger
@@ -350,24 +371,24 @@ router.post('/deduct', auth, async (req, res) => {
  *         description: Server error
  */
 router.post('/qr', auth, async (req, res) => {
-  const { amount } = req.body;
+  const { amount } = req.body
 
   if (!amount || amount < 20) {
-    return res.status(400).json({ message: 'Minimum amount is 20 baht.' });
+    return res.status(400).json({ message: 'Minimum amount is 20 baht.' })
   }
 
   try {
-    const promptpayId = process.env.PROMPTPAY_ID || '0812345678';
-    const roundedAmount = Math.round(Number(amount) * 100) / 100;
-    const qr_payload = generatePayload(promptpayId, { amount: roundedAmount });
-    const qr_image = await QRCode.toDataURL(qr_payload, { width: 300, margin: 2 });
+    const promptpayId = process.env.PROMPTPAY_ID || '0812345678'
+    const roundedAmount = Math.round(Number(amount) * 100) / 100
+    const qr_payload = generatePayload(promptpayId, { amount: roundedAmount })
+    const qr_image = await QRCode.toDataURL(qr_payload, { width: 300, margin: 2 })
 
-    return res.status(200).json({ qr_image, qr_payload, amount: roundedAmount });
+    return res.status(200).json({ qr_image, qr_payload, amount: roundedAmount })
   } catch (error) {
-    console.error('Generate wallet QR error:', error);
-    return res.status(500).json({ message: 'Server error generating QR.' });
+    console.error('Generate wallet QR error:', error)
+    return res.status(500).json({ message: 'Server error generating QR.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -402,72 +423,72 @@ router.post('/qr', auth, async (req, res) => {
  *         description: Server error
  */
 router.get('/topup/status/:chargeId', auth, async (req, res) => {
-  const { chargeId } = req.params;
+  const { chargeId } = req.params
 
   try {
-    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
-    const charge = await Omise.charges.retrieve(chargeId);
+    const Omise = require('omise')({
+      publicKey: process.env.OMISE_PUBLIC_KEY,
+      secretKey: process.env.OMISE_SECRET_KEY,
+    })
+    const charge = await Omise.charges.retrieve(chargeId)
 
     if (charge.status === 'pending') {
-      return res.status(200).json({ status: 'pending' });
+      return res.status(200).json({ status: 'pending' })
     }
 
     if (charge.status === 'failed' || charge.status === 'expired') {
-      return res.status(200).json({ status: 'failed' });
+      return res.status(200).json({ status: 'failed' })
     }
 
     if (charge.status === 'successful') {
       // เช็คว่า credit แล้วหรือยัง (ป้องกัน double-credit)
-      const [existing] = await pool.query(
-        'SELECT txn_id FROM wallet_transactions WHERE ref = ?',
-        [chargeId]
-      );
+      const [existing] = await pool.query('SELECT txn_id FROM wallet_transactions WHERE ref = ?', [
+        chargeId,
+      ])
 
       if (existing.length > 0) {
         // credit แล้ว — คืน balance ปัจจุบัน
-        const [userRow] = await pool.query(
-          'SELECT wallet_balance FROM users WHERE user_id = ?',
-          [req.user.user_id]
-        );
-        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance });
+        const [userRow] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [
+          req.user.user_id,
+        ])
+        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance })
       }
 
-      const amount = charge.metadata?.amount || charge.amount / 100;
-      const conn = await pool.getConnection();
+      const amount = charge.metadata?.amount || charge.amount / 100
+      const conn = await pool.getConnection()
       try {
-        await conn.beginTransaction();
+        await conn.beginTransaction()
 
-        await conn.query(
-          'UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?',
-          [amount, req.user.user_id]
-        );
+        await conn.query('UPDATE users SET wallet_balance = wallet_balance + ? WHERE user_id = ?', [
+          amount,
+          req.user.user_id,
+        ])
         await conn.query(
           'INSERT INTO wallet_transactions (user_id, amount, type, ref) VALUES (?, ?, ?, ?)',
           [req.user.user_id, amount, 'topup', chargeId]
-        );
+        )
 
-        await conn.commit();
+        await conn.commit()
 
-        const [userRow] = await pool.query(
-          'SELECT wallet_balance FROM users WHERE user_id = ?',
-          [req.user.user_id]
-        );
+        const [userRow] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [
+          req.user.user_id,
+        ])
 
-        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance });
+        return res.status(200).json({ status: 'confirmed', new_balance: userRow[0].wallet_balance })
       } catch (err) {
-        await conn.rollback();
-        throw err;
+        await conn.rollback()
+        throw err
       } finally {
-        conn.release();
+        conn.release()
       }
     }
 
-    return res.status(200).json({ status: 'pending' });
+    return res.status(200).json({ status: 'pending' })
   } catch (error) {
-    console.error('Check topup status error:', error);
-    return res.status(500).json({ message: 'Server error checking status.' });
+    console.error('Check topup status error:', error)
+    return res.status(500).json({ message: 'Server error checking status.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -507,30 +528,32 @@ router.get('/topup/status/:chargeId', auth, async (req, res) => {
  */
 router.get('/cards', auth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT omise_customer_id FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
-    const customerId = rows[0]?.omise_customer_id;
-    if (!customerId) return res.json({ cards: [] });
+    const [rows] = await pool.query('SELECT omise_customer_id FROM users WHERE user_id = ?', [
+      req.user.user_id,
+    ])
+    const customerId = rows[0]?.omise_customer_id
+    if (!customerId) return res.json({ cards: [] })
 
-    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
-    const customer = await Omise.customers.retrieve(customerId);
-    const cards = (customer.cards?.data || []).map(c => ({
+    const Omise = require('omise')({
+      publicKey: process.env.OMISE_PUBLIC_KEY,
+      secretKey: process.env.OMISE_SECRET_KEY,
+    })
+    const customer = await Omise.customers.retrieve(customerId)
+    const cards = (customer.cards?.data || []).map((c) => ({
       id: c.id,
       brand: c.brand,
       last_digits: c.last_digits,
       exp_month: c.expiration_month,
       exp_year: c.expiration_year,
       name: c.name,
-    }));
+    }))
 
-    return res.json({ cards });
+    return res.json({ cards })
   } catch (error) {
-    console.error('Get saved cards error:', error);
-    return res.status(500).json({ message: 'Server error fetching cards.' });
+    console.error('Get saved cards error:', error)
+    return res.status(500).json({ message: 'Server error fetching cards.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -557,22 +580,24 @@ router.get('/cards', auth, async (req, res) => {
  */
 router.delete('/cards/:cardId', auth, async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT omise_customer_id FROM users WHERE user_id = ?',
-      [req.user.user_id]
-    );
-    const customerId = rows[0]?.omise_customer_id;
-    if (!customerId) return res.status(404).json({ message: 'No saved cards.' });
+    const [rows] = await pool.query('SELECT omise_customer_id FROM users WHERE user_id = ?', [
+      req.user.user_id,
+    ])
+    const customerId = rows[0]?.omise_customer_id
+    if (!customerId) return res.status(404).json({ message: 'No saved cards.' })
 
-    const Omise = require('omise')({ publicKey: process.env.OMISE_PUBLIC_KEY, secretKey: process.env.OMISE_SECRET_KEY });
-    await Omise.customers.destroyCard(customerId, req.params.cardId);
+    const Omise = require('omise')({
+      publicKey: process.env.OMISE_PUBLIC_KEY,
+      secretKey: process.env.OMISE_SECRET_KEY,
+    })
+    await Omise.customers.destroyCard(customerId, req.params.cardId)
 
-    return res.json({ message: 'Card removed.' });
+    return res.json({ message: 'Card removed.' })
   } catch (error) {
-    console.error('Delete card error:', error);
-    return res.status(500).json({ message: 'Server error removing card.' });
+    console.error('Delete card error:', error)
+    return res.status(500).json({ message: 'Server error removing card.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -585,51 +610,63 @@ router.delete('/cards/:cardId', auth, async (req, res) => {
  */
 /// nem — Feature 11
 router.post('/pay-debt', auth, async (req, res) => {
-  const conn = await pool.getConnection();
+  const conn = await pool.getConnection()
   try {
-    await conn.beginTransaction();
+    await conn.beginTransaction()
 
     const [rows] = await conn.query(
       'SELECT wallet_balance, outstanding_debt FROM users WHERE user_id = ? FOR UPDATE',
       [req.user.user_id]
-    );
-    const user = rows[0];
-    if (!user) { await conn.rollback(); return res.status(404).json({ message: 'User not found.' }); }
+    )
+    const user = rows[0]
+    if (!user) {
+      await conn.rollback()
+      return res.status(404).json({ message: 'User not found.' })
+    }
 
-    const debt = parseFloat(user.outstanding_debt);
-    if (debt <= 0) { await conn.rollback(); return res.json({ message: 'ไม่มียอดค้างชำระ', debt: 0 }); }
+    const debt = parseFloat(user.outstanding_debt)
+    if (debt <= 0) {
+      await conn.rollback()
+      return res.json({ message: 'ไม่มียอดค้างชำระ', debt: 0 })
+    }
 
-    const balance = parseFloat(user.wallet_balance);
+    const balance = parseFloat(user.wallet_balance)
     if (balance < debt) {
-      await conn.rollback();
+      await conn.rollback()
       return res.status(402).json({
         message: `ยอดเงินในกระเป๋าไม่พอ (มี ฿${balance.toFixed(2)} ต้องการ ฿${debt.toFixed(2)})`,
         code: 'INSUFFICIENT_BALANCE',
         debt,
         wallet_balance: balance,
-      });
+      })
     }
 
     await conn.query(
       'UPDATE users SET wallet_balance = wallet_balance - ?, outstanding_debt = 0 WHERE user_id = ?',
       [debt, req.user.user_id]
-    );
+    )
     await conn.query(
       "INSERT INTO wallet_transactions (user_id, amount, type, ref, reason) VALUES (?, ?, 'deduct', ?, 'ชำระยอดค้าง')",
       [req.user.user_id, debt, `debt_${Date.now()}`]
-    );
+    )
 
-    await conn.commit();
+    await conn.commit()
 
-    const [newRow] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [req.user.user_id]);
-    return res.json({ message: 'ชำระยอดค้างสำเร็จ', paid: debt, new_balance: parseFloat(newRow[0].wallet_balance) });
+    const [newRow] = await pool.query('SELECT wallet_balance FROM users WHERE user_id = ?', [
+      req.user.user_id,
+    ])
+    return res.json({
+      message: 'ชำระยอดค้างสำเร็จ',
+      paid: debt,
+      new_balance: parseFloat(newRow[0].wallet_balance),
+    })
   } catch (error) {
-    await conn.rollback();
-    console.error('Pay debt error:', error);
-    return res.status(500).json({ message: 'Server error.' });
+    await conn.rollback()
+    console.error('Pay debt error:', error)
+    return res.status(500).json({ message: 'Server error.' })
   } finally {
-    conn.release();
+    conn.release()
   }
-});
+})
 
-module.exports = router;
+module.exports = router
