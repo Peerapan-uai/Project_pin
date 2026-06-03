@@ -28,10 +28,10 @@ export default function WalletPage() {
   const [error, setError] = useState(null)
 
   // Omise card
-  const [cardNumber, setCardNumber] = useState('')
-  const [expiry, setExpiry] = useState('')
-  const [cvv, setCvv] = useState('')
-  const [cardName, setCardName] = useState('')
+  const [cardNumber, setCardNumber] = useState('4242424242424242')
+  const [expiry, setExpiry] = useState('12/40')
+  const [cvv, setCvv] = useState('123')
+  const [cardName, setCardName] = useState('TEST USER')
   const omiseLoadedRef = useRef(false)
 
   // saved cards
