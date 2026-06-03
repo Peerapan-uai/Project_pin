@@ -1,9 +1,9 @@
-const express = require('express');
-const router = express.Router();
-const bcrypt = require('bcryptjs');
-const jwt = require('jsonwebtoken');
-const pool = require('../config/db');
-require('dotenv').config();
+const express = require('express')
+const router = express.Router()
+const bcrypt = require('bcryptjs')
+const jwt = require('jsonwebtoken')
+const pool = require('../config/db')
+require('dotenv').config()
 
 /**
  * @swagger
@@ -46,48 +46,48 @@ require('dotenv').config();
  *         description: Server error
  */
 router.post('/register', async (req, res) => {
-  const { first_name, last_name, email, password, phone } = req.body;
+  const { first_name, last_name, email, password, phone } = req.body
 
   if (!first_name || !last_name || !email || !password) {
-    return res.status(400).json({ message: 'Name, email, and password are required.' });
+    return res.status(400).json({ message: 'Name, email, and password are required.' })
   }
 
   try {
     // Check if email already exists
-    const [existing] = await pool.query('SELECT user_id FROM users WHERE email = ?', [email]);
+    const [existing] = await pool.query('SELECT user_id FROM users WHERE email = ?', [email])
     if (existing.length > 0) {
-      return res.status(400).json({ message: 'Email already registered.' });
+      return res.status(400).json({ message: 'Email already registered.' })
     }
 
     // Hash password
-    const saltRounds = 10;
-    const password_hash = await bcrypt.hash(password, saltRounds);
+    const saltRounds = 10
+    const password_hash = await bcrypt.hash(password, saltRounds)
 
     // Insert new user with default role 'user'
+    // demo env: start with 500 wallet so testers can use features immediately
+    const startingWallet = process.env.NODE_ENV === 'demo' ? 500.0 : 0.0
     const [result] = await pool.query(
-      'INSERT INTO users (first_name, last_name, email, password_hash, phone, role) VALUES (?, ?, ?, ?, ?, ?)',
-      [first_name, last_name, email, password_hash, phone || null, 'user']
-    );
+      'INSERT INTO users (first_name, last_name, email, password_hash, phone, role, wallet_balance) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [first_name, last_name, email, password_hash, phone || null, 'user', startingWallet]
+    )
 
-    const userId = result.insertId;
+    const userId = result.insertId
 
     // Generate JWT
-    const token = jwt.sign(
-      { user_id: userId, email, role: 'user' },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    const token = jwt.sign({ user_id: userId, email, role: 'user' }, process.env.JWT_SECRET, {
+      expiresIn: process.env.JWT_EXPIRES_IN,
+    })
 
     return res.status(201).json({
       message: 'User registered successfully.',
       token,
       user: { user_id: userId, first_name, last_name, email, role: 'user' },
-    });
+    })
   } catch (error) {
-    console.error('Register error:', error);
-    return res.status(500).json({ message: 'Server error during registration.' });
+    console.error('Register error:', error)
+    return res.status(500).json({ message: 'Server error during registration.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -117,38 +117,38 @@ router.post('/register', async (req, res) => {
  *         description: Server error
  */
 router.post('/login', async (req, res) => {
-  const { email, password } = req.body;
+  const { email, password } = req.body
 
   if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required.' });
+    return res.status(400).json({ message: 'Email and password are required.' })
   }
 
   try {
     const [rows] = await pool.query(
       'SELECT user_id, first_name, last_name, email, password_hash, role, is_banned FROM users WHERE email = ? and deleted_at IS NULL',
       [email]
-    );
+    )
 
     if (rows.length === 0) {
-      return res.status(400).json({ message: 'Invalid email or password.' });
+      return res.status(400).json({ message: 'Invalid email or password.' })
     }
 
-    const user = rows[0];
+    const user = rows[0]
 
     if (user.is_banned) {
-      return res.status(403).json({ message: 'Your account has been banned.' });
+      return res.status(403).json({ message: 'Your account has been banned.' })
     }
 
-    const isMatch = await bcrypt.compare(password, user.password_hash);
+    const isMatch = await bcrypt.compare(password, user.password_hash)
     if (!isMatch) {
-      return res.status(400).json({ message: 'Invalid email or password.' });
+      return res.status(400).json({ message: 'Invalid email or password.' })
     }
 
     const token = jwt.sign(
       { user_id: user.user_id, email: user.email, role: user.role },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
-    );
+    )
 
     return res.status(200).json({
       message: 'Login successful.',
@@ -161,12 +161,12 @@ router.post('/login', async (req, res) => {
         email: user.email,
         role: user.role,
       },
-    });
+    })
   } catch (error) {
-    console.error('Login error:', error);
-    return res.status(500).json({ message: 'Server error during login.' });
+    console.error('Login error:', error)
+    return res.status(500).json({ message: 'Server error during login.' })
   }
-});
+})
 
 /**
  * @swagger
@@ -180,8 +180,8 @@ router.post('/login', async (req, res) => {
  */
 router.post('/logout', (req, res) => {
   // JWT is stateless;client is responsible for discarding the token.
-  return res.status(200).json({ message: 'Logged out successfully.' });
-});
+  return res.status(200).json({ message: 'Logged out successfully.' })
+})
 // src/context/AuthContext.jsx logout > delete localStorage 35-41
 
-module.exports = router;
+module.exports = router

@@ -63,7 +63,17 @@ async function resetAndSeed() {
         tempUserIds
       )
 
-      // 3. ลบ temp users — CASCADE ลบ bookings/sessions/payments/wallet ตาม
+      // 3. ลบตารางที่ไม่มี ON DELETE CASCADE ก่อน (ไม่งั้น FK block)
+      await conn.query(
+        `DELETE FROM notification_logs WHERE user_id IN (${idPlaceholders})`,
+        tempUserIds
+      )
+      await conn.query(
+        `DELETE FROM scheduled_notifications WHERE created_by IN (${idPlaceholders})`,
+        tempUserIds
+      )
+
+      // 4. ลบ temp users — CASCADE ลบ bookings/sessions/payments/wallet ตาม
       await conn.query(`DELETE FROM users WHERE user_id IN (${idPlaceholders})`, tempUserIds)
     }
 
@@ -91,9 +101,13 @@ async function resetAndSeed() {
       await conn.query(`DELETE FROM reviews WHERE user_id = ?`, [demoId])
       await conn.query(`DELETE FROM user_favorites WHERE user_id = ?`, [demoId])
       await conn.query(`DELETE FROM notifications WHERE user_id = ?`, [demoId])
+      await conn.query(`DELETE FROM notification_logs WHERE user_id = ?`, [demoId])
+      await conn.query(`DELETE FROM scheduled_notifications WHERE created_by = ?`, [demoId])
       await conn.query(`DELETE FROM recurring_schedules WHERE user_id = ?`, [demoId])
+      await conn.query(`DELETE FROM maintenance_tickets WHERE reported_by = ?`, [demoId])
+      await conn.query(`DELETE FROM vehicles WHERE user_id = ?`, [demoId])
       await conn.query(
-        `UPDATE users SET wallet_balance = 500.00, outstanding_debt = 0.00, wallet_frozen = 0 WHERE user_id = ?`,
+        `UPDATE users SET wallet_balance = 500.00, outstanding_debt = 0.00, wallet_frozen = 0, omise_customer_id = NULL WHERE user_id = ?`,
         [demoId]
       )
     }
@@ -111,6 +125,7 @@ async function resetAndSeed() {
 async function seedProtectedUsers() {
   for (const u of SEED_USERS) {
     const [rows] = await pool.query(`SELECT user_id FROM users WHERE email = ?`, [u.email])
+    let userId
     if (rows.length === 0) {
       const hash = await bcrypt.hash(u.password, 10)
       const [result] = await pool.query(
@@ -118,15 +133,25 @@ async function seedProtectedUsers() {
          VALUES (?, ?, ?, ?, ?, 'user', ?)`,
         [u.first_name, u.last_name, u.email, hash, u.phone, u.wallet]
       )
-      // seed vehicle ให้ demo user เท่านั้น
-      if (u.email === DEMO_EMAIL) {
+      userId = result.insertId
+      console.log(`[DemoReset] Seeded user: ${u.email}`)
+    } else {
+      userId = rows[0].user_id
+    }
+
+    // seed vehicle ให้ demo user เสมอ — ถ้าไม่มีรถ (ถูกลบตอน reset) ให้ใส่ Tesla กลับมา
+    if (u.email === DEMO_EMAIL) {
+      const [vehicles] = await pool.query(`SELECT vehicle_id FROM vehicles WHERE user_id = ?`, [
+        userId,
+      ])
+      if (vehicles.length === 0) {
         await pool.query(
           `INSERT INTO vehicles (user_id, brand, model, license_plate, connector_type, battery_capacity_kwh, battery_current_kwh)
            VALUES (?, ?, ?, ?, ?, ?, ?)`,
-          [result.insertId, 'Tesla', 'Model 3', 'กข-1234', 'CCS', 75.0, 60.0]
+          [userId, 'Tesla', 'Model 3', 'กข-1234', 'CCS', 75.0, 60.0]
         )
+        console.log(`[DemoReset] Re-seeded Tesla vehicle for demo user`)
       }
-      console.log(`[DemoReset] Seeded user: ${u.email}`)
     }
   }
 }
