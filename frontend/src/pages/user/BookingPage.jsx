@@ -91,7 +91,7 @@ export default function BookingPage() {
   }, [selectedDate, chargerId])
 
   const handleImmediateBooking = () => {
-    if (!vehicleId) return
+    if (!vehicleId) { setError('กรุณาเพิ่มข้อมูลรถของคุณก่อนจอง'); return }
     setSubmitting(true)
     api.post('/api/bookings', { charger_id: Number(chargerId), vehicle_id: Number(vehicleId) })
       .then(() => { setSuccess(true); setTimeout(() => navigate('/bookings'), 2000) })
@@ -212,7 +212,7 @@ export default function BookingPage() {
         {charger?.status === 'available' && (
           <div className="bg-green-50 border border-green-200 rounded-2xl p-4">
             <p className="text-sm font-semibold text-green-800 mb-2">⚡ จองเดี๋ยวนี้เลย</p>
-            {vehicles.length > 0 && (
+            {vehicles.length > 0 ? (
               <select
                 value={vehicleId}
                 onChange={e => setVehicleId(Number(e.target.value))}
@@ -222,6 +222,8 @@ export default function BookingPage() {
                   <option key={v.vehicle_id} value={v.vehicle_id}>{v.brand} {v.model} ({v.license_plate})</option>
                 ))}
               </select>
+            ) : (
+              <p className="text-xs text-amber-600 mb-3">ยังไม่มีข้อมูลรถ — <span className="underline cursor-pointer" onClick={() => navigate('/profile')}>เพิ่มรถที่โปรไฟล์</span></p>
             )}
             <button
               onClick={handleImmediateBooking}
