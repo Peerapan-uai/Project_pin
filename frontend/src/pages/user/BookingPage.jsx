@@ -223,7 +223,7 @@ export default function BookingPage() {
                 ))}
               </select>
             ) : (
-              <p className="text-xs text-amber-600 mb-3">ยังไม่มีข้อมูลรถ — <span className="underline cursor-pointer" onClick={() => navigate('/profile')}>เพิ่มรถที่โปรไฟล์</span></p>
+              <p className="text-xs text-amber-600 mb-3">ยังไม่มีข้อมูลรถ — <span className="underline cursor-pointer" onClick={() => navigate('/vehicles')}>เพิ่มรถที่โปรไฟล์</span></p>
             )}
             <button
               onClick={handleImmediateBooking}
