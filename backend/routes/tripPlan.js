@@ -131,7 +131,7 @@ router.post('/', auth, async (req, res) => {
         'SELECT battery_current_kwh FROM vehicles WHERE vehicle_id = ? AND user_id = ?',
         [vehicle_id, req.user.user_id]
       );
-      if (vRows.length > 0 && vRows[0].battery_current_kwh != null) {
+      if (vRows.length > 0 && vRows[0].battery_current_kwh !== null) {
         batteryKwh = parseFloat(vRows[0].battery_current_kwh);
       }
     }
@@ -200,16 +200,28 @@ router.post('/', auth, async (req, res) => {
       [chargeLat, chargeLng, chargeLat, MAX_DEVIATION_KM]
     );
 
-    // เพิ่มจำนวนตู้ว่างของแต่ละ station
-    for (const st of stations) {
-      const [chargers] = await pool.query(
-        `SELECT COUNT(*) AS available_chargers FROM chargers
-         WHERE station_id = ? AND status = 'available' AND deleted_at IS NULL`,
-        [st.station_id]
+    // เพิ่มจำนวนตู้ว่างของแต่ละ station (1 query รวม ไม่ loop ยิงทีละตัว)
+    const stationIds = stations.map((st) => st.station_id);
+
+    if (stationIds.length > 0) {
+      const [chargerCounts] = await pool.query(
+        `SELECT station_id, COUNT(*) AS available_chargers
+         FROM chargers
+         WHERE station_id IN (?) AND status = 'available' AND deleted_at IS NULL
+         GROUP BY station_id`,
+        [stationIds]
       );
-      st.available_chargers = chargers[0].available_chargers;
-      st.distance_from_path_km = Math.round(st.distance_km * 10) / 10;
-      delete st.distance_km;
+
+      const chargerCountMap = {};
+      for (const row of chargerCounts) {
+        chargerCountMap[row.station_id] = row.available_chargers;
+      }
+
+      for (const st of stations) {
+        st.available_chargers = chargerCountMap[st.station_id] ?? 0;
+        st.distance_from_path_km = Math.round(st.distance_km * 10) / 10;
+        delete st.distance_km;
+      }
     }
 
     return res.json({
