@@ -184,7 +184,6 @@ router.post('/targeted', auth, roleCheck('admin'), async (req, res) => {
       });
     }
 
-    // 🔴 TODO D: Build WHERE clause based on target_type
     let query;
     let queryParams = [];
 
@@ -200,7 +199,7 @@ router.post('/targeted', auth, roleCheck('admin'), async (req, res) => {
 
     const [targetedUsers] = await pool.query(query, queryParams);
 
-    // 🔴 TODO E: INSERT notifications for targeted users
+    
     const insertValues = targetedUsers.map(u => [u.user_id, title, message, type]);
     const [result] = await pool.query(
       'INSERT INTO notifications (user_id, title, message, type) VALUES ?',
@@ -278,14 +277,14 @@ router.post('/schedule', auth, roleCheck('admin'), async (req, res) => {
       });
     }
 
-    // 🔴 TODO F: Validate scheduled_at is in the future
+    
     const scheduledDate = new Date(scheduled_at);
     if (scheduledDate <= new Date()) {
       return res.status(400).json({ message: 'scheduled_at must be in the future' });
     }
     const scheduledDateStr = scheduledDate.toISOString().slice(0, 19).replace('T', ' ')
 
-        // 🔴 TODO G: Create scheduled notification record (store in DB for later processing)
+        
         const [result] = await pool.query('INSERT INTO scheduled_notifications (title, message, scheduled_at, target_type, target_value, type, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)',
       [title, message, scheduledDateStr, target_type, target_value || null, type, req.user.user_id]
     );
@@ -343,7 +342,7 @@ router.get('/analytics', auth, roleCheck('admin'), async (req, res) => {
     const fromDate = from_date ? new Date(from_date) : new Date(new Date().getTime() - 30 * 24 * 60 * 60 * 1000);
     const toDate = to_date ? new Date(to_date) : new Date();
 
-    // 🔴 TODO H: Query notification stats (total, read, unread)
+    
     const [[totalStats]] = await pool.query(
       `SELECT
         COUNT(*) as total_notifications,
@@ -354,7 +353,6 @@ router.get('/analytics', auth, roleCheck('admin'), async (req, res) => {
       [fromDate, toDate]
     );
 
-    // 🔴 TODO I: Query by type
     const [typeStats] = await pool.query(
       `SELECT
         type,
@@ -366,7 +364,7 @@ router.get('/analytics', auth, roleCheck('admin'), async (req, res) => {
       [fromDate, toDate]
     );
 
-    // 🔴 TODO J: Calculate read rate percentage
+    
    const readRate = totalStats?.total_notifications > 0
     ? (totalStats.read_count / totalStats.total_notifications * 100).toFixed(2): 0;
 
